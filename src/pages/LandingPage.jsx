@@ -11,7 +11,7 @@ export default function LandingPage() {
                     <Link to="/login" className="px-4 py-2 rounded-lg text-slate-300 hover:text-white transition-colors">
                         Entrar
                     </Link>
-                    <Link to="/login" className="px-4 py-2 bg-blue-600 hover:bg-blue-500 rounded-lg font-medium transition-colors">
+                    <Link to="/cadastro" className="px-4 py-2 bg-blue-600 hover:bg-blue-500 rounded-lg font-medium transition-colors">
                         Começar Grátis
                     </Link>
                 </nav>

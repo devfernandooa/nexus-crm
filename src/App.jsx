@@ -5,6 +5,7 @@ import RotaProtegida from './components/RotaProtegida';
 import LandingPage from './pages/LandingPage';
 import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
+import { Cadastro } from './pages/Cadastro';
 
 export default function App() {
   return (
@@ -14,6 +15,7 @@ export default function App() {
           {/* Rotas Públicas */}
           <Route path="/" element={<LandingPage />} />
           <Route path="/login" element={<Login />} />
+          <Route path="/cadastro" element={<Cadastro />} />
 
           {/* Rota Protegida (O Dashboard/CRM) */}
           <Route
