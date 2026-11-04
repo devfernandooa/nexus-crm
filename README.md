@@ -1,16 +1,46 @@
-# React + Vite
+# Nexus CRM 🚀
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+> Um sistema de CRM (Customer Relationship Management) moderno, construído como um SaaS Multi-tenant. Projetado para ser escalável, seguro e com uma interface focada na experiência do usuário (UX).
 
-Currently, two official plugins are available:
+![Status](https://img.shields.io/badge/status-em%20desenvolvimento-yellow)
+![React](https://img.shields.io/badge/React-18-blue)
+![Vite](https://img.shields.io/badge/Vite-5-purple)
+![Tailwind](https://img.shields.io/badge/Tailwind-3-cyan)
+![Firebase](https://img.shields.io/badge/Firebase-10-orange)
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+## 🎯 Sobre o Projeto
 
-## React Compiler
+O Nexus é um CRM genérico (não engessado em nichos) focado em gestão de contatos e oportunidades. A arquitetura foi pensada desde o início para suportar múltiplas empresas (Multi-tenant) de forma isolada e segura.
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+### Principais Funcionalidades (Em Construção)
 
-## Expanding the ESLint configuration
+- [x] Landing Page institucional.
+- [x] Autenticação de usuários (Login e Cadastro).
+- [x] Arquitetura Multi-tenant (cada cadastro cria uma empresa e vincula o usuário como Admin).
+- [ ] Dashboard de métricas.
+- [ ] CRUD de Contatos (Leads).
+- [ ] CRUD de Oportunidades / Negócios.
+- [ ] Gestão de usuários da equipe (RBAC).
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+## 🛠️ Tecnologias Utilizadas
+
+- **Frontend:** React + Vite
+- **Estilização:** TailwindCSS (Design System próprio)
+- **Roteamento:** React Router DOM
+- **Backend as a Service (BaaS):** Firebase
+  - **Auth:** Autenticação de usuários.
+  - **Firestore:** Banco de dados NoSQL (Estrutura Multi-tenant).
+- **Gerenciamento de Estado:** Context API (AuthContext).
+
+## 🏗️ Arquitetura do Projeto
+
+A estrutura de pastas foi desenhada usando o padrão **Feature-based**, separando as regras de negócio da interface:
+
+```text
+src/
+├── components/       # Componentes reutilizáveis (Botao, Input)
+├── contexts/         # Contextos globais (AuthContext)
+├── services/         # Regras de negócio e comunicação com o Firebase
+├── pages/            # Telas principais (LandingPage, Login, Cadastro, Dashboard)
+└── features/         # Módulos do CRM (contatos, negocios, dashboard)
+```
