@@ -9,7 +9,7 @@ import { signInWithEmailAndPassword } from 'firebase/auth';
 
 
 
-export function Cadastro() {
+function Cadastro() {
     const navigate = useNavigate();
     const [nomeEmpresa, setNomeEmpresa] = useState('');
     const [email, setEmail] = useState('');
@@ -98,3 +98,5 @@ export function Cadastro() {
         </div>
     );
 }
+
+export default Cadastro;

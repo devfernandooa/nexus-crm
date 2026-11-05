@@ -6,6 +6,7 @@ export const ThemeProvider = ({ children }) => {
     // 1. O estado inicial: Verifica se já tem algo no localStorage, caso contrário, define como "light"
     const [theme, setTheme] = useState(() => {
         const salvo = localStorage.getItem('nexus-theme');
+        // Se não tiver nada salvo, o padrão é LIGHT
         return salvo ? salvo : 'light';
     });
 
@@ -37,9 +38,9 @@ export const ThemeProvider = ({ children }) => {
             {children}
         </ThemeContext.Provider>
     );
-    
+
 }
-    // 5. Hook personalizado para consumir o contexto de tema
-    export function useTheme() {
-        return useContext(ThemeContext);;
-    };
+// 5. Hook personalizado para consumir o contexto de tema
+export function useTheme() {
+    return useContext(ThemeContext);;
+};

@@ -1,40 +1,41 @@
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import { AuthProvider } from './contexts/AuthContext';
-import RotaProtegida from './components/RotaProtegida';
-
 import { ThemeProvider } from './contexts/ThemeContext';
-import { useTheme } from './contexts/ThemeContext';
+import RotaProtegida from './components/RotaProtegida';
+import Layout from './components/layouts/Layout'; // <-- O nome mudou aqui!
 
 import LandingPage from './pages/LandingPage';
 import Login from './pages/Login';
+import Cadastro from './pages/Cadastro';
 import Dashboard from './pages/Dashboard';
-import { Cadastro } from './pages/Cadastro';
-import ThemeToggle from './contexts/ThemeToggle';
+import Contatos from './pages/Contatos';
+import Negocios from './pages/Negocios';
 
 export default function App() {
   return (
-    <AuthProvider>
-      <ThemeProvider >
+    <ThemeProvider>
+      <AuthProvider>
         <BrowserRouter>
           <Routes>
-            {/* Rotas Públicas */}
             <Route path="/" element={<LandingPage />} />
             <Route path="/login" element={<Login />} />
             <Route path="/cadastro" element={<Cadastro />} />
 
-            {/* Rota Protegida (O Dashboard/CRM) */}
-            <Route
-              path="/app"
+            <Route 
+              path="/app" 
               element={
                 <RotaProtegida>
-                  <Dashboard />
+                  <Layout /> {/* <-- E o nome mudou aqui também! */}
                 </RotaProtegida>
-              }
-            />
+              } 
+            >
+              <Route index element={<Dashboard />} /> {/* O Dashboard.jsx que você já tem */}
+              <Route path="contatos" element={<Contatos />} />
+              <Route path="negocios" element={<Negocios />} />
+            </Route>
           </Routes>
-          <ThemeToggle />
         </BrowserRouter>
-      </ThemeProvider>
-    </AuthProvider>
+      </AuthProvider>
+    </ThemeProvider>
   );
 }

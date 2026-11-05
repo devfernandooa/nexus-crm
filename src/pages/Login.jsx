@@ -12,6 +12,7 @@ function Login() {
     const [senha, setSenha] = useState('');
     const [erro, setErro] = useState('');
     const [loading, setLoading] = useState(false);
+
     async function handleSubmit(e) {
         e.preventDefault();
         setErro('');
@@ -24,7 +25,7 @@ function Login() {
              * caso contrário, será exibida uma mensagem de erro
              */
             await signInWithEmailAndPassword(auth, email, senha);
-            navigate('/tarefas');
+            navigate('/app');
         } catch (error) {
             if (error.code === 'auth/user-not-found' || error.code === 'auth/wrong-password' || error.code === 'auth/invalid-credential') {
                 setErro('Usuário ou senha incorretos.');
