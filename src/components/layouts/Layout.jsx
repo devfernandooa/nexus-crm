@@ -1,7 +1,7 @@
 import { Link, Outlet, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { useTheme } from '../../contexts/ThemeContext';
-import { signOut } from 'firebase/auth';
+import { checkActionCode, signOut } from 'firebase/auth';
 import { auth } from '../../firebase-config';
 
 export default function Layout() {
