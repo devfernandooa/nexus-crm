@@ -30,7 +30,7 @@ export async function criarContaComEmpresa(nomeEmpresa, email, senha) {
         const usuarioRef = doc(db, "usuarios", user.uid);
         await setDoc(usuarioRef, {
             email: user.email,
-            empresaId: empresaRef.id, // <-- O vínculo mágico entre o usuário e a empresa
+            empresaId: empresaId, // <-- O vínculo mágico entre o usuário e a empresa
             role: "admin", // <-- O primeiro usuário é o administrador
             dataCriacao: new Date(),
         });
