@@ -15,7 +15,7 @@ export function AuthProvider({ children }) {
     const unsubscribe = onAuthStateChanged(auth, async (usuario) => {
       console.log('1. Usuário logado no Auth:', usuario);
       setUser(usuario);
-      
+
       if (usuario) {
         console.log('2.Buscandoo dados do usuário no Firestore para o UID:', usuario.uid);
         // Se logou, busca os dados da empresa e role
@@ -26,7 +26,7 @@ export function AuthProvider({ children }) {
         // Se deslogou, limpa os dados
         setDadosUsuario(null);
       }
-      
+
       setLoading(false);
     });
     return () => unsubscribe();

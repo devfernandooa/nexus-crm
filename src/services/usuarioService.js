@@ -4,7 +4,7 @@ import { doc, getDoc } from 'firebase/firestore';
 export async function buscarDadosUsuario(uid) {
   try {
     // O nome da coleção TEM que ser 'usuarios' (com 's' no final)
-    const usuarioRef = doc(db, 'usuarios', uid); 
+    const usuarioRef = doc(db, 'usuarios', uid);
     const docSnap = await getDoc(usuarioRef);
 
     if (docSnap.exists()) {

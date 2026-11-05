@@ -21,13 +21,13 @@ export default function App() {
             <Route path="/login" element={<Login />} />
             <Route path="/cadastro" element={<Cadastro />} />
 
-            <Route 
-              path="/app" 
+            <Route
+              path="/app"
               element={
                 <RotaProtegida>
                   <Layout /> {/* <-- E o nome mudou aqui também! */}
                 </RotaProtegida>
-              } 
+              }
             >
               <Route index element={<Dashboard />} /> {/* O Dashboard.jsx que você já tem */}
               <Route path="contatos" element={<Contatos />} />
