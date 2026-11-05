@@ -1,20 +1,18 @@
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import { AuthProvider } from './contexts/AuthContext';
+import { ThemeProvider } from './contexts/ThemeContext'; // Se você tiver o ThemeProvider
 import RotaProtegida from './components/RotaProtegida';
 
-import { ThemeProvider } from './contexts/ThemeContext';
-import { useTheme } from './contexts/ThemeContext';
-
+// Importe todas as páginas
 import LandingPage from './pages/LandingPage';
 import Login from './pages/Login';
-import Dashboard from './pages/Dashboard';
-import { Cadastro } from './pages/Cadastro';
-import ThemeToggle from './contexts/ThemeToggle';
+import Cadastro from './pages/Cadastro';
+import Dashboard from './pages/Dashboard'; // <-- Importe o Dashboard
 
 export default function App() {
   return (
-    <AuthProvider>
-      <ThemeProvider >
+    <ThemeProvider>
+      <AuthProvider>
         <BrowserRouter>
           <Routes>
             {/* Rotas Públicas */}
@@ -22,19 +20,18 @@ export default function App() {
             <Route path="/login" element={<Login />} />
             <Route path="/cadastro" element={<Cadastro />} />
 
-            {/* Rota Protegida (O Dashboard/CRM) */}
-            <Route
-              path="/app"
+            {/* Rota Protegida (Dashboard) */}
+            <Route 
+              path="/app" 
               element={
                 <RotaProtegida>
                   <Dashboard />
                 </RotaProtegida>
-              }
+              } 
             />
           </Routes>
-          <ThemeToggle />
         </BrowserRouter>
-      </ThemeProvider>
-    </AuthProvider>
+      </AuthProvider>
+    </ThemeProvider>
   );
 }
