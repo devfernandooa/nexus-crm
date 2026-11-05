@@ -9,7 +9,7 @@ export default function LandingPage() {
       {/* Header simples */}
       <header className="flex items-center justify-between px-6 py-6 max-w-6xl mx-auto w-full">
         <Link to="/" className="text-2xl font-extrabold tracking-wider text-blue-600 dark:text-blue-500">
-          NEXUS
+          
         </Link>
 <ThemeToggle />
         <div className="flex items-center gap-4">
