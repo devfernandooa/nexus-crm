@@ -7,8 +7,6 @@ import { collection, doc, setDoc } from 'firebase/firestore';
 import { signInWithEmailAndPassword } from 'firebase/auth';
 
 
-
-
 function Cadastro() {
     const navigate = useNavigate();
     const [nomeEmpresa, setNomeEmpresa] = useState('');
@@ -17,6 +15,8 @@ function Cadastro() {
     const [confirmarSenha, setConfirmarSenha] = useState('');
     const [erro, setErro] = useState('');
     const [loading, setLoading] = useState(false);
+    const [nomeResponsavel, setNomeResponsavel] = useState('');
+    const [segmento, setSegmento] = useState('');
     async function handleSubmit(e) {
         e.preventDefault();
         console.log("1. Entrou no handleSubmit");
@@ -29,7 +29,7 @@ function Cadastro() {
         }
         try {
             console.log("2. Tentando chamar o serviço");
-            const resultado = await criarContaComEmpresa(nomeEmpresa, email, senha);
+            const resultado = await criarContaComEmpresa(nomeEmpresa, nomeResponsavel, segmento, email, senha);
             console.log("3. Resultado:", resultado);
             navigate('/app');
         } catch (error) {
@@ -66,6 +66,47 @@ function Cadastro() {
                         value={email}
                         onChange={(e) => setEmail(e.target.value)}
                     />
+                </div>
+                {/* Nome da Empresa */}
+                <div className="mb-4">
+                    <label className="block text-slate-700 dark:text-slate-300 text-sm font-bold mb-2">Nome da Empresa:</label>
+                    <input
+                        type="text"
+                        value={nomeEmpresa}
+                        onChange={(e) => setNomeEmpresa(e.target.value)}
+                        className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-slate-800 dark:border-slate-700 dark:text-white"
+                        placeholder="Ex: Megatech Soluções"
+                    />
+                </div>
+
+                {/* NOVO: Nome do Responsável */}
+                <div className="mb-4">
+                    <label className="block text-slate-700 dark:text-slate-300 text-sm font-bold mb-2">Seu Nome:</label>
+                    <input
+                        type="text"
+                        value={nomeResponsavel}
+                        onChange={(e) => setNomeResponsavel(e.target.value)}
+                        className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-slate-800 dark:border-slate-700 dark:text-white"
+                        placeholder="Ex: Fernando Almeida"
+                    />
+                </div>
+
+                {/* NOVO: Segmento */}
+                <div className="mb-4">
+                    <label className="block text-slate-700 dark:text-slate-300 text-sm font-bold mb-2">Segmento da Empresa:</label>
+                    <select
+                        value={segmento}
+                        onChange={(e) => setSegmento(e.target.value)}
+                        className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-slate-800 dark:border-slate-700 dark:text-white"
+                    >
+                        <option value="">Selecione...</option>
+                        <option value="Tecnologia">Tecnologia</option>
+                        <option value="Varejo">Varejo</option>
+                        <option value="Serviços">Serviços</option>
+                        <option value="Saúde">Saúde</option>
+                        <option value="Educação">Educação</option>
+                        <option value="Outros">Outros</option>
+                    </select>
                 </div>
                 <div className="mb-4">
                     <label className="block text-gray-700 text-sm font-bold mb-2" htmlFor='userPassword'>Senha:</label>
