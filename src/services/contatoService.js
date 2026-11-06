@@ -1,5 +1,6 @@
-import { db } from '../firebase-config';
-import { collection, query, where, onSnapshot } from 'firebase/firestore';
+import { db } from '@/firebase-config';
+
+import { collection, query, where, onSnapshot, addDoc } from 'firebase/firestore';
 
 export function escutarContatos(empresaId, setContatos) {
   try {
@@ -25,4 +26,23 @@ export function escutarContatos(empresaId, setContatos) {
   }
 }
 
-// Prócimas etapas: Funcções adicionar, editar e deletar
+
+export async function adicionarContato(dadosContato, empresaId) {
+  try {
+    const contatosRef = collection(db, 'contatos');
+    
+    // Adiciona o documento incluindo o empresaId para o isolamento Multi-tenant
+    const docRef = await addDoc(contatosRef, {
+      ...dadosContato,
+      empresaId: empresaId,
+      dataCriacao: new Date(),
+    });
+    
+    return { sucesso: true, id: docRef.id };
+  } catch (error) {
+    console.error("Erro ao adicionar contato:", error);
+    return { sucesso: false, erro: error.message };
+  }
+}
+
+// Próximas etapas: Funcções adicionar, editar e deletar

@@ -1,9 +1,13 @@
 import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
 import { defineConfig } from 'vite'
-import path from 'node:path' // <-- Adicione esta linha
+import path from 'node:path'
+import { fileURLToPath } from 'node:url' // <-- Adicione
 
-// https://vite.dev/config/
+// Cria o __dirname para módulos ES
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
 export default defineConfig({
   plugins: [react(), tailwindcss()],
   server: {
@@ -12,7 +16,6 @@ export default defineConfig({
   },
   resolve: {
     alias: {
-      // Agora '@' representa a pasta 'src'
       '@': path.resolve(__dirname, './src'),
     },
   },
