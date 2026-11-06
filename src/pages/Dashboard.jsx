@@ -1,18 +1,26 @@
+import { useAuth } from '../contexts/AuthContext'; // <-- Importação necessária!
 import { Users, GraduationCap, UserPlus, DollarSign, Plus, ArrowRight } from 'lucide-react';
 
 export default function Dashboard() {
+  const { dadosUsuario } = useAuth();
+
   return (
     <div className="max-w-7xl mx-auto space-y-8">
 
       {/* Header do Dashboard */}
       <div>
-        <h3 className="text-2xl font-bold text-slate-800 flex items-center gap-2 ">
-          <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center text-white ">
+        {/* Título sozinho no h1/h3 */}
+        <h1 className="text-2xl font-bold text-slate-800 flex items-center gap-2">
+          <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center text-white">
             <LayoutDashboardIcon />
           </div>
           Dashboard
-        </h3>
+        </h1>
 
+        {/* Parágrafo de boas-vindas separado */}
+        <p className="text-slate-500 mt-2">
+          Bem-vindo de volta, <span className="font-semibold text-slate-800 dark:text-white">{dadosUsuario?.nome || 'Usuário'}</span>!
+        </p>
       </div>
 
       {/* KPIs */}
