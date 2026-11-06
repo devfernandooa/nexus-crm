@@ -8,8 +8,8 @@ export default function Botao({ children, variant = 'primario', className, ...pr
   };
 
   return (
-    <button 
-      className={clsx('px-4 py-2 rounded-lg transition-colors flex items-center justify-center gap-2', classes[variant], className)} 
+    <button
+      className={clsx('px-4 py-2 rounded-lg transition-colors flex items-center justify-center gap-2', classes[variant], className)}
       {...props}
     >
       {children}
