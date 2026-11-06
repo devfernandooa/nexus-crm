@@ -17,3 +17,24 @@
   - O banco não estava criado no Console do Firebase.
   - O usuário de teste ficou "preso" no Auth impedindo um novo teste (resolvido deletando o usuário no Console).
 - **Próximo passo:** Criar a tela do Dashboard (`/app`) para exibir os dados da empresa logada e começar o CRUD de Contatos (o coração do CRM).
+
+---
+
+### 3. Atualização do `HISTORICO_NEXUS.md`
+
+Abra o seu `HISTORICO_NEXUS.md` (que você já tinha criado) e adicione esta nova sessão:
+
+```markdown
+### Sessão 3 — [Data de Hoje] (Layout Premium e KPIs)
+
+- **O que fiz:**
+  - Criei o componente `Sidebar.jsx` isolado, com ícones do Lucide React, menus expansíveis (acordeão) e card de perfil de usuário.
+  - Refatorei o `Layout.jsx` para exibir a Sidebar e um Header com status do Firestore.
+  - Construí a nova tela de `Dashboard.jsx` contendo 4 cards de KPI (Turmas, Alunos, Leads, Receita) e botões de Ações Rápidas.
+  - Apliquei a paleta de cores definitiva (Azul + Dark Slate) e ajustei o tamanho da fonte do logo.
+- **O que aprendi:**
+  - Como usar a biblioteca `lucide-react` para padronizar os ícones do sistema.
+  - Como criar submenus funcionais com `useState` para controlar o estado de abertura.
+  - A importância de usar `truncate` e `whitespace-nowrap` no Tailwind para evitar que textos longos (como nomes ou logos) quebrem o layout da Sidebar.
+- **Próximo passo:** Criar o Modal e o formulário para implementar o CRUD (Create, Read, Update, Delete) de Contatos no Firestore, lembrando de incluir o `empresaId` na query.
+```
