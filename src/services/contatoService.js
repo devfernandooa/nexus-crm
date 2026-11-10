@@ -1,4 +1,5 @@
 import { db } from '@/firebase-config';
+import { doc, updateDoc, deleteDoc } from 'firebase/firestore';
 
 import { collection, query, where, onSnapshot, addDoc } from 'firebase/firestore';
 
@@ -41,6 +42,29 @@ export async function adicionarContato(dadosContato, empresaId) {
     return { sucesso: true, id: docRef.id };
   } catch (error) {
     console.error("Erro ao adicionar contato:", error);
+    return { sucesso: false, erro: error.message };
+  }
+}
+
+// Editar contato
+export async function atualizarContato(id, dadosContato) {
+  try {
+    const contatoRef = doc(db, 'contatos', id);
+    await updateDoc(contatoRef, dadosContato);
+    return { sucesso: true };
+  } catch (error) {
+    console.error("Erro ao atualizar contato:", error);
+    return { sucesso: false, erro: error.message };
+  }
+}
+
+export async function deletarContato(id) {
+  try {
+    const contatoRef = doc(db, 'contatos', id);
+    await deleteDoc(contatoRef);
+    return { sucesso: true };
+  } catch (error) {
+    console.error("Erro ao deletar contato:", error);
     return { sucesso: false, erro: error.message };
   }
 }
