@@ -35,3 +35,11 @@ Estamos no meio da implementação da criação de contatos.
 - **Modelo de Cadastro:** Optamos por manter o cadastro inicial enxuto (Empresa, Responsável, Segmento). Dados complexos (CNPJ, Endereço) serão movidos para a tela de "Configurações" no futuro, para não assustar o usuário no primeiro contato.
 - **Modelo de 1 Usuário = 1 Empresa:** Para o MVP, um usuário gerencia uma empresa. A arquitetura de múltiplos vínculos (ex: um contador com 2 empresas) ficará para o futuro.
 ```
+
+### Sessão 5 — [Data de Hoje] (CRUD de Contatos Completo)
+- **O que fiz:** Implementei todas as operações do CRUD de Contatos. Criei o formulário no Modal, a escuta em tempo real com `onSnapshot` (filtrando por `empresaId`), a edição de contatos (reutilizando o Modal) e a exclusão com confirmação.
+- **O que aprendi:** 
+  - Como usar o `updateDoc` e `deleteDoc` do Firestore.
+  - Como gerenciar o estado de "edição" vs "criação" com a variável `contatoEditando`.
+  - A importância de filtrar as queries pelo `empresaId` para garantir a segurança Multi-tenant.
+- **Próximo passo:** Iniciar o módulo de **Negócios (Funil de Vendas)**, criando a estrutura de Kanban e os serviços para gerenciar as oportunidades.
