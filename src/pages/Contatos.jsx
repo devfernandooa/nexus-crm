@@ -92,8 +92,8 @@ export default function Contatos() {
   return (
     <div className="w-full">
       <div className="flex justify-between items-center mb-6">
-        <div>
-          <h1 className="text-2xl font-bold text-slate-800 dark:text-white">Contatos</h1>
+        <div className=''>
+          <p className="text-3xl font-bold text-blue-950 dark:text-white">Contatos</p>
           <p className="text-sm text-slate-500">Gerencie os leads e clientes da sua empresa.</p>
         </div>
         <button
@@ -104,13 +104,16 @@ export default function Contatos() {
         </button>
       </div>
 
+        {/* Container da Lista */}
       <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl overflow-hidden shadow-sm">
+        
+        {/* Barra de Busca (mantida igual) */}
         <div className="p-4 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between">
-          <div className="relative w-72">
+          <div className="relative w-full max-w-xs">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
-            <input
-              type="text"
-              placeholder="Buscar contatos..."
+            <input 
+              type="text" 
+              placeholder="Buscar contatos..." 
               className="w-full pl-9 pr-4 py-2 text-sm border border-slate-200 dark:border-slate-700 rounded-lg dark:bg-slate-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
           </div>
@@ -125,47 +128,74 @@ export default function Contatos() {
             </div>
             <h3 className="text-lg font-bold text-slate-800 dark:text-white mb-2">Nenhum contato ainda</h3>
             <p className="text-slate-500 dark:text-slate-400 mb-6 max-w-md">Comece adicionando seu primeiro contato para gerenciar seus relacionamentos e oportunidades.</p>
-            <button
-              onClick={abrirModalCriar}
-              className="bg-blue-600 hover:bg-blue-500 text-white px-4 py-2 rounded-lg font-medium flex items-center gap-2 transition-colors"
-            >
+            <button onClick={abrirModalCriar} className="bg-blue-600 hover:bg-blue-500 text-white px-4 py-2 rounded-lg font-medium flex items-center gap-2 transition-colors">
               <Plus size={18} /> Adicionar Contato
             </button>
           </div>
         ) : (
-          <table className="w-full text-left border-collapse">
-            <thead>
-              <tr className="bg-slate-50 dark:bg-slate-800/50 border-b border-slate-200 dark:border-slate-700">
-                <th className="px-6 py-3 text-xs font-semibold text-slate-500 uppercase">Nome</th>
-                <th className="px-6 py-3 text-xs font-semibold text-slate-500 uppercase">E-mail</th>
-                <th className="px-6 py-3 text-xs font-semibold text-slate-500 uppercase">Telefone</th>
-                <th className="px-6 py-3 text-xs font-semibold text-slate-500 uppercase">Status</th>
-                <th className="px-6 py-3 text-xs font-semibold text-slate-500 uppercase text-right">Ações</th>
-              </tr>
-            </thead>
-            <tbody>
+          <>
+            {/* VISÃO DESKTOP (Tabela) - Escondida no mobile */}
+            <div className="hidden md:block overflow-x-auto">
+              <table className="w-full text-left border-collapse min-w-[600px]">
+                <thead>
+                  <tr className="bg-slate-50 dark:bg-slate-800/50 border-b border-slate-200 dark:border-slate-700">
+                    <th className="px-6 py-3 text-xs font-semibold text-slate-500 uppercase">Nome</th>
+                    <th className="px-6 py-3 text-xs font-semibold text-slate-500 uppercase">E-mail</th>
+                    <th className="px-6 py-3 text-xs font-semibold text-slate-500 uppercase">Telefone</th>
+                    <th className="px-6 py-3 text-xs font-semibold text-slate-500 uppercase">Status</th>
+                    <th className="px-6 py-3 text-xs font-semibold text-slate-500 uppercase text-right">Ações</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {contatos.map((contato) => (
+                    <tr key={contato.id} className="border-b border-slate-100 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800/30 transition-colors">
+                      <td className="px-6 py-4 text-sm font-medium text-slate-800 dark:text-slate-200">{contato.nome}</td>
+                      <td className="px-6 py-4 text-sm text-slate-600 dark:text-slate-400">{contato.email}</td>
+                      <td className="px-6 py-4 text-sm text-slate-600 dark:text-slate-400">{contato.telefone}</td>
+                      <td className="px-6 py-4">
+                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800 dark:bg-blue-500/20 dark:text-blue-400">
+                          {contato.status}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 text-right space-x-2">
+                        <button onClick={() => handleEditar(contato)} className="p-1.5 text-slate-400 hover:text-blue-600 transition-colors rounded-lg hover:bg-blue-50 dark:hover:bg-blue-500/10">
+                          <Pencil size={18} />
+                        </button>
+                        <button onClick={() => handleDeletar(contato.id)} className="p-1.5 text-slate-400 hover:text-red-600 transition-colors rounded-lg hover:bg-red-50 dark:hover:bg-red-500/10">
+                          <Trash2 size={18} />
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            {/* VISÃO MOBILE (Cards) - Escondida no desktop */}
+            <div className="md:hidden flex flex-col divide-y divide-slate-100 dark:divide-slate-800">
               {contatos.map((contato) => (
-                <tr key={contato.id} className="border-b border-slate-100 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800/30 transition-colors">
-                  <td className="px-6 py-4 text-sm font-medium text-slate-800 dark:text-slate-200">{contato.nome}</td>
-                  <td className="px-6 py-4 text-sm text-slate-600 dark:text-slate-400">{contato.email}</td>
-                  <td className="px-6 py-4 text-sm text-slate-600 dark:text-slate-400">{contato.telefone}</td>
-                  <td className="px-6 py-4">
-                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800 dark:bg-blue-500/20 dark:text-blue-400">
+                <div key={contato.id} className="p-4 flex flex-col gap-2">
+                  <div className="flex justify-between items-start">
+                    <h3 className="font-bold text-slate-800 dark:text-white">{contato.nome}</h3>
+                    <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium bg-blue-100 text-blue-800 dark:bg-blue-500/20 dark:text-blue-400">
                       {contato.status}
                     </span>
-                  </td>
-                  <td className="px-6 py-4 text-right space-x-2">
-                    <button onClick={() => handleEditar(contato)} className="p-1.5 text-slate-400 hover:text-blue-600 transition-colors rounded-lg hover:bg-blue-50 dark:hover:bg-blue-500/10">
-                      <Pencil size={18} />
+                  </div>
+                  <p className="text-sm text-slate-600 dark:text-slate-400">{contato.email}</p>
+                  <p className="text-sm text-slate-600 dark:text-slate-400">{contato.telefone}</p>
+                  
+                  <div className="flex justify-end gap-2 mt-2 pt-2 border-t border-slate-100 dark:border-slate-800">
+                    <button onClick={() => handleEditar(contato)} className="flex items-center gap-1 text-sm text-blue-600 hover:text-blue-700 font-medium">
+                      <Pencil size={14} /> Editar
                     </button>
-                    <button onClick={() => handleDeletar(contato.id)} className="p-1.5 text-slate-400 hover:text-red-600 transition-colors rounded-lg hover:bg-red-50 dark:hover:bg-red-500/10">
-                      <Trash2 size={18} />
+                    <button onClick={() => handleDeletar(contato.id)} className="flex items-center gap-1 text-sm text-red-600 hover:text-red-700 font-medium">
+                      <Trash2 size={14} /> Excluir
                     </button>
-                  </td>
-                </tr>
+                  </div>
+                </div>
               ))}
-            </tbody>
-          </table>
+            </div>
+          </>
         )}
       </div>
 
