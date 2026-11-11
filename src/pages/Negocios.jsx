@@ -3,13 +3,15 @@ import { useAuth } from '@/contexts/AuthContext';
 import { escutarNegocios, adicionarNegocio, atualizarNegocio, deletarNegocio } from '@/services/negocioService';
 import Modal from '@/components/ui/Modal';
 import { Plus, Briefcase, DollarSign, TrendingUp, Search, Pencil, Trash2, ArrowUpRight } from 'lucide-react';
+import ConfirmModal from '@/components/ui/ConfirmModal';
+import toast from 'react-hot-toast';
 
 export default function Negocios() {
   const { dadosUsuario } = useAuth();
   const [negocios, setNegocios] = useState([]);
   const [loading, setLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
-  
+
   // Estados do Formulário
   const [negocioEditando, setNegocioEditando] = useState(null);
   const [titulo, setTitulo] = useState('');
@@ -18,6 +20,8 @@ export default function Negocios() {
   const [contato, setContato] = useState('');
   const [salvando, setSalvando] = useState(false);
 
+  const [isConfirmOpen, setIsConfirmOpen] = useState(false);
+  const [idParaDeletar, setIdParaDeletar] = useState(null);
   useEffect(() => {
     if (!dadosUsuario?.empresaId) return;
     const unsubscribe = escutarNegocios(dadosUsuario.empresaId, (lista) => {
@@ -47,12 +51,22 @@ export default function Negocios() {
     setIsModalOpen(true);
   }
 
-  async function handleDeletar(id) {
-    if (window.confirm("Deseja excluir este negócio?")) {
-      await deletarNegocio(id);
-    }
+  // Função que abre o modal de confirmação
+  function handleDeletar(id) {
+    setIdParaDeletar(id);
+    setIsConfirmOpen(true);
   }
 
+  // Função que realmente deleta (chamada pelo modal)
+  async function confirmarDelecao() {
+    const resultado = await deletarNegocio(idParaDeletar);
+    if (resultado.sucesso) {
+      toast.success('Negócio excluído com sucesso!');
+      setIsConfirmOpen(false);
+    } else {
+      toast.error('Erro ao excluir negócio.');
+    }
+  }
   async function handleSubmit(e) {
     e.preventDefault();
     setSalvando(true);
@@ -65,11 +79,12 @@ export default function Negocios() {
       resultado = await adicionarNegocio(dados, dadosUsuario.empresaId);
     }
 
-    if (resultado.sucesso) {
-      setIsModalOpen(false);
-    } else {
-      alert("Erro ao salvar negócio: " + resultado.erro);
-    }
+   if (resultado.sucesso) {
+  toast.success(negocioEditando ? 'Negócio atualizado!' : 'Negócio criado!');
+  setIsModalOpen(false);
+} else {
+  toast.error("Erro: " + resultado.erro);
+}
     setSalvando(false);
   }
 
@@ -83,7 +98,7 @@ export default function Negocios() {
           <h1 className="text-2xl font-bold text-slate-800 dark:text-white">Negócios</h1>
           <p className="text-sm text-slate-500">Acompanhe suas oportunidades e fechamentos.</p>
         </div>
-        <button 
+        <button
           onClick={abrirModalCriar}
           className="bg-blue-600 hover:bg-blue-500 text-white px-4 py-2 rounded-lg font-medium flex items-center gap-2 transition-colors"
         >
@@ -141,11 +156,10 @@ export default function Negocios() {
           {negocios.map(negocio => (
             <div key={negocio.id} className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-5 shadow-sm hover:shadow-md transition-shadow group relative">
               <div className="flex justify-between items-start mb-3">
-                <span className={`px-2.5 py-1 rounded-full text-xs font-semibold ${
-                  negocio.status === 'Ganho' ? 'bg-emerald-100 text-emerald-800' :
+                <span className={`px-2.5 py-1 rounded-full text-xs font-semibold ${negocio.status === 'Ganho' ? 'bg-emerald-100 text-emerald-800' :
                   negocio.status === 'Perdido' ? 'bg-red-100 text-red-800' :
-                  'bg-blue-100 text-blue-800'
-                }`}>
+                    'bg-blue-100 text-blue-800'
+                  }`}>
                   {negocio.status}
                 </span>
                 <div className="opacity-0 group-hover:opacity-100 transition-opacity flex gap-1">
@@ -155,7 +169,7 @@ export default function Negocios() {
               </div>
               <h3 className="font-bold text-slate-800 dark:text-white mb-1 truncate">{negocio.titulo}</h3>
               <p className="text-sm text-slate-500 mb-4 truncate">{negocio.contato || 'Sem contato vinculado'}</p>
-              
+
               <div className="flex items-center justify-between border-t border-slate-100 dark:border-slate-800 pt-3">
                 <span className="text-sm font-medium text-slate-500">Valor</span>
                 <span className="font-bold text-slate-800 dark:text-white">{formatarMoeda(negocio.valor)}</span>
@@ -166,9 +180,9 @@ export default function Negocios() {
       )}
 
       {/* Modal */}
-      <Modal 
-        isOpen={isModalOpen} 
-        onClose={() => setIsModalOpen(false)} 
+      <Modal
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
         title={negocioEditando ? "Editar Negócio" : "Novo Negócio"}
       >
         <form onSubmit={handleSubmit} className="space-y-4">
@@ -200,6 +214,12 @@ export default function Negocios() {
           </div>
         </form>
       </Modal>
+      <ConfirmModal 
+  isOpen={isConfirmOpen}
+  onClose={() => setIsConfirmOpen(false)}
+  onConfirm={confirmarDelecao}
+  message="Tem certeza que deseja excluir este negócio? Ele será removido permanentemente."
+/>
     </div>
   );
 }
