@@ -63,7 +63,9 @@ export default function Layout() {
                                 <span className="text-[10px] text-slate-500 dark:text-slate-400 leading-tight">
                                     {dadosUsuario?.empresa?.nome || 'Minha Empresa'}
                                 </span>
+                                
                             </div>
+                            
                         </div>
                     </div>
                 </header>

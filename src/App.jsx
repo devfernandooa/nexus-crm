@@ -2,7 +2,8 @@ import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import { AuthProvider } from './contexts/AuthContext';
 import { ThemeProvider } from './contexts/ThemeContext';
 import RotaProtegida from './components/RotaProtegida';
-import Layout from './components/layouts/Layout'; 
+import Layout from './components/layouts/Layout';
+import { Toaster } from 'react-hot-toast';
 
 import LandingPage from './pages/LandingPage';
 import Login from './pages/Login';
@@ -16,6 +17,7 @@ import Configuracoes from './pages/Configuracoes';
 export default function App() {
   return (
     <ThemeProvider>
+      <Toaster position="top-right" toastOptions={{ duration: 3000 }} />
       <AuthProvider>
         <BrowserRouter>
           <Routes>
@@ -34,8 +36,8 @@ export default function App() {
               <Route index element={<Dashboard />} /> {/* O Dashboard.jsx que você já tem */}
               <Route path="contatos" element={<Contatos />} />
               <Route path="negocios" element={<Negocios />} />
-              <Route path='configuracoes' element={<Configuracoes/>} />
-              <Route path='negocios' element={<Negocios/>} />
+              <Route path='configuracoes' element={<Configuracoes />} />
+              <Route path='negocios' element={<Negocios />} />
             </Route>
           </Routes>
         </BrowserRouter>
