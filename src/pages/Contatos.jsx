@@ -2,14 +2,16 @@ import { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { escutarContatos, adicionarContato, atualizarContato, deletarContato } from '@/services/contatoService';
 import Modal from '@/components/ui/Modal';
-import { Plus, Search, Users, Pencil, Trash2 } from 'lucide-react'; // Novos ícones
+import { Plus, Search, Users, Pencil, Trash2 } from 'lucide-react';
+import ConfirmModal from '@/components/ui/ConfirmModal';
+import toast from 'react-hot-toast';
 
 export default function Contatos() {
   const { dadosUsuario } = useAuth();
   const [contatos, setContatos] = useState([]);
   const [loading, setLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
-  
+
   // Estados do Formulário
   const [contatoEditando, setContatoEditando] = useState(null); // Se for null, estamos criando. Se tiver ID, estamos editando.
   const [nome, setNome] = useState('');
@@ -17,6 +19,10 @@ export default function Contatos() {
   const [telefone, setTelefone] = useState('');
   const [status, setStatus] = useState('Novo');
   const [salvando, setSalvando] = useState(false);
+
+  // Estados do modal confirmação
+  const [isConfirmOpen, setIsConfirmOpen] = useState(false);
+  const [idParaDeletar, setIdParaDeletar] = useState(null);
 
   useEffect(() => {
     if (!dadosUsuario?.empresaId) return;
@@ -45,17 +51,25 @@ export default function Contatos() {
   }
 
   // Excluir contato
-  async function handleDeletar(id) {
-    if (window.confirm("Tem certeza que deseja excluir este contato?")) {
-      const resultado = await deletarContato(id);
-      if (!resultado.sucesso) alert("Erro ao excluir: " + resultado.erro);
+  function handleDeletar(id) {
+    setIdParaDeletar(id);
+    setIsConfirmOpen(true);
+  }
+
+  async function confirmarDelecao() {
+    const resultado = await deletarContato(idParaDeletar);
+    if (resultado.sucesso) {
+      toast.success('Contato excluído com sucesso!');
+      setIsConfirmOpen(false);
+    } else {
+      toast.error('Erro ao excluir contato.');
     }
   }
 
   async function handleSubmit(e) {
     e.preventDefault();
     setSalvando(true);
-    
+
     const dados = { nome, email, telefone, status };
 
     let resultado;
@@ -82,7 +96,7 @@ export default function Contatos() {
           <h1 className="text-2xl font-bold text-slate-800 dark:text-white">Contatos</h1>
           <p className="text-sm text-slate-500">Gerencie os leads e clientes da sua empresa.</p>
         </div>
-        <button 
+        <button
           onClick={abrirModalCriar}
           className="bg-blue-600 hover:bg-blue-500 text-white px-4 py-2 rounded-lg font-medium flex items-center gap-2 transition-colors"
         >
@@ -94,9 +108,9 @@ export default function Contatos() {
         <div className="p-4 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between">
           <div className="relative w-72">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
-            <input 
-              type="text" 
-              placeholder="Buscar contatos..." 
+            <input
+              type="text"
+              placeholder="Buscar contatos..."
               className="w-full pl-9 pr-4 py-2 text-sm border border-slate-200 dark:border-slate-700 rounded-lg dark:bg-slate-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
           </div>
@@ -111,7 +125,7 @@ export default function Contatos() {
             </div>
             <h3 className="text-lg font-bold text-slate-800 dark:text-white mb-2">Nenhum contato ainda</h3>
             <p className="text-slate-500 dark:text-slate-400 mb-6 max-w-md">Comece adicionando seu primeiro contato para gerenciar seus relacionamentos e oportunidades.</p>
-            <button 
+            <button
               onClick={abrirModalCriar}
               className="bg-blue-600 hover:bg-blue-500 text-white px-4 py-2 rounded-lg font-medium flex items-center gap-2 transition-colors"
             >
@@ -155,41 +169,41 @@ export default function Contatos() {
         )}
       </div>
 
-      <Modal 
-        isOpen={isModalOpen} 
-        onClose={() => setIsModalOpen(false)} 
+      <Modal
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
         title={contatoEditando ? "Editar Contato" : "Adicionar Novo Contato"}
       >
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
             <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Nome</label>
-            <input 
-              type="text" 
+            <input
+              type="text"
               value={nome} onChange={(e) => setNome(e.target.value)}
               className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-slate-800 dark:border-slate-700 dark:text-white"
-              required 
+              required
             />
           </div>
           <div>
             <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">E-mail</label>
-            <input 
-              type="email" 
+            <input
+              type="email"
               value={email} onChange={(e) => setEmail(e.target.value)}
               className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-slate-800 dark:border-slate-700 dark:text-white"
-              required 
+              required
             />
           </div>
           <div>
             <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Telefone</label>
-            <input 
-              type="text" 
+            <input
+              type="text"
               value={telefone} onChange={(e) => setTelefone(e.target.value)}
               className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-slate-800 dark:border-slate-700 dark:text-white"
             />
           </div>
           <div>
             <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Status</label>
-            <select 
+            <select
               value={status} onChange={(e) => setStatus(e.target.value)}
               className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-slate-800 dark:border-slate-700 dark:text-white"
             >
@@ -199,15 +213,15 @@ export default function Contatos() {
             </select>
           </div>
           <div className="flex justify-end gap-3 mt-6">
-            <button 
-              type="button" 
+            <button
+              type="button"
               onClick={() => setIsModalOpen(false)}
               className="px-4 py-2 text-slate-600 hover:bg-slate-100 rounded-lg transition-colors dark:text-slate-300 dark:hover:bg-slate-800"
             >
               Cancelar
             </button>
-            <button 
-              type="submit" 
+            <button
+              type="submit"
               disabled={salvando}
               className="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-lg font-medium transition-colors"
             >
@@ -216,6 +230,12 @@ export default function Contatos() {
           </div>
         </form>
       </Modal>
+      <ConfirmModal
+        isOpen={isConfirmOpen}
+        onClose={() => setIsConfirmOpen(false)}
+        onConfirm={confirmarDelecao}
+        message="Tem certeza que deseja excluir este negócio? Ele será removido permanentemente."
+      />
     </div>
   );
 }
