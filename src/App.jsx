@@ -12,6 +12,7 @@ import Contatos from './pages/Contatos';
 import Negocios from './pages/Negocios';
 import Configuracoes from './pages/Configuracoes';
 
+
 export default function App() {
   return (
     <ThemeProvider>
@@ -34,6 +35,7 @@ export default function App() {
               <Route path="contatos" element={<Contatos />} />
               <Route path="negocios" element={<Negocios />} />
               <Route path='configuracoes' element={<Configuracoes/>} />
+              <Route path='negocios' element={<Negocios/>} />
             </Route>
           </Routes>
         </BrowserRouter>
