@@ -14,6 +14,7 @@ import Negocios from './pages/Negocios';
 import Configuracoes from './pages/Configuracoes';
 import Relatorios from './pages/Relatorios';
 import Tarefas from './pages/Tarefas';
+import Equipe from './pages/Equipe';
 
 
 
@@ -43,6 +44,7 @@ export default function App() {
               <Route path='negocios' element={<Negocios />} />
               <Route path="relatorios" element={<Relatorios />} />
               <Route path="tarefas" element={<Tarefas />} />
+              <Route path="equipe" element={<Equipe />} />
             </Route>
           </Routes>
         </BrowserRouter>

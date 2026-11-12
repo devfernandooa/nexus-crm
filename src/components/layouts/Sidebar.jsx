@@ -2,8 +2,8 @@ import { useState } from 'react';
 import { NavLink } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/contexts/ThemeContext';
-import { 
-  LayoutDashboard, Users, Briefcase, BarChart3, Settings, 
+import {
+  LayoutDashboard, Users, Briefcase, BarChart3, Settings,
   ChevronDown, ChevronRight, LogOut, UserCircle, CheckSquare, Package
 } from 'lucide-react';
 import { signOut } from 'firebase/auth';
@@ -24,21 +24,19 @@ export default function Sidebar({ onClose }) {
   }
 
   // Classes padrão para os links
-  const linkClass = ({ isActive }) => 
-    `flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
-      isActive 
-        ? 'bg-blue-600 text-white' 
-        : 'text-slate-400 hover:bg-slate-800 hover:text-white'
+  const linkClass = ({ isActive }) =>
+    `flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${isActive
+      ? 'bg-blue-600 text-white'
+      : 'text-slate-400 hover:bg-slate-800 hover:text-white'
     }`;
 
-  const subLinkClass = ({ isActive }) => 
-    `block px-3 py-2 rounded-lg text-sm transition-colors ${
-      isActive ? 'text-blue-400 bg-slate-800/50' : 'text-slate-500 hover:text-white'
+  const subLinkClass = ({ isActive }) =>
+    `block px-3 py-2 rounded-lg text-sm transition-colors ${isActive ? 'text-blue-400 bg-slate-800/50' : 'text-slate-500 hover:text-white'
     }`;
 
   return (
     <aside className="w-64 bg-[#0B1120] border-r border-slate-800 flex flex-col h-screen text-slate-300 transition-colors duration-300">
-      
+
       {/* Logo (Versão final) */}
       <div className="flex items-center gap-3 px-6 h-16 border-b border-slate-800">
         <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center text-white font-bold text-lg flex-shrink-0">
@@ -65,9 +63,9 @@ export default function Sidebar({ onClose }) {
               </span>
             </div>
           </div>
-          <button 
-            onClick={handleLogout} 
-            className="text-slate-500 hover:text-red-400 transition-colors p-1 shrink-0" 
+          <button
+            onClick={handleLogout}
+            className="text-slate-500 hover:text-red-400 transition-colors p-1 shrink-0"
             title="Sair"
           >
             <LogOut size={16} />
@@ -83,8 +81,8 @@ export default function Sidebar({ onClose }) {
 
         {/* Contatos */}
         <div>
-          <button 
-            onClick={() => toggleSubmenu('contatos')} 
+          <button
+            onClick={() => toggleSubmenu('contatos')}
             className="w-full flex items-center justify-between px-3 py-2.5 rounded-lg text-sm font-medium text-slate-400 hover:bg-slate-800 hover:text-white transition-colors"
           >
             <div className="flex items-center gap-3">
@@ -103,8 +101,8 @@ export default function Sidebar({ onClose }) {
 
         {/* Negócios */}
         <div>
-          <button 
-            onClick={() => toggleSubmenu('negocios')} 
+          <button
+            onClick={() => toggleSubmenu('negocios')}
             className="w-full flex items-center justify-between px-3 py-2.5 rounded-lg text-sm font-medium text-slate-400 hover:bg-slate-800 hover:text-white transition-colors"
           >
             <div className="flex items-center gap-3">
@@ -133,12 +131,14 @@ export default function Sidebar({ onClose }) {
         <div className="pt-4 pb-2">
           <p className="px-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">Sistema</p>
         </div>
-
+        <NavLink to="/app/equipe" className={linkClass} onClick={onClose}>
+          <Users size={18} /> Gestão de Equipe
+        </NavLink>
         {/* Configurações (Link Direto) */}
         <NavLink to="/app/configuracoes" className={linkClass} onClick={onClose}>
           <Settings size={18} /> Configurações
         </NavLink>
-        
+
         <NavLink to="/app/ajuda" className={linkClass} onClick={onClose}>
           <UserCircle size={18} /> Central de Ajuda
         </NavLink>
