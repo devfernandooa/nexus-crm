@@ -12,6 +12,8 @@ import Dashboard from './pages/Dashboard';
 import Contatos from './pages/Contatos';
 import Negocios from './pages/Negocios';
 import Configuracoes from './pages/Configuracoes';
+import Relatorios from './pages/Relatorios';
+
 
 
 export default function App() {
@@ -38,6 +40,7 @@ export default function App() {
               <Route path="negocios" element={<Negocios />} />
               <Route path='configuracoes' element={<Configuracoes />} />
               <Route path='negocios' element={<Negocios />} />
+              <Route path="relatorios" element={<Relatorios />} />
             </Route>
           </Routes>
         </BrowserRouter>

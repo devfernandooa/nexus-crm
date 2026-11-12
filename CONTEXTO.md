@@ -55,3 +55,39 @@ Estamos prontos para iniciar o módulo de **Negócios**.
 - **O que fiz:** Criei a tela de Configurações da Empresa. Implementei o `empresaService.js` para atualizar os dados no Firestore. Adicionei feedback visual de sucesso e o reload da página para atualizar o Header.
 - **O que aprendi:** Como atualizar documentos existentes no Firestore e como lidar com o estado global do `AuthContext` após uma edição.
 - **Próximo passo:** Módulo de Negócios (Kanban/Lista).
+
+
+### Sessão 7 — (Kanban de Negócios e Padronização de UI)
+- **O que fiz:** 
+  - Implementei o funil de vendas (Kanban) com a biblioteca `@hello-pangea/dnd`.
+  - Criei o componente `ConfirmModal` e integrei o `react-hot-toast` para substituir os alertas nativos do navegador.
+  - Apliquei os novos padrões de feedback visual nas telas de Contatos e Negócios.
+  - Corrigi a semântica da Sidebar (`<h3>` para o logo).
+- **O que aprendi:** 
+  - Como funciona o ecossistema de Drag and Drop no React (Droppable, Draggable, DragDropContext).
+  - Como gerenciar notificações globais usando uma biblioteca externa.
+  - A importância de padronizar os feedbacks (Modais e Toasts) para manter a experiência do usuário coesa.
+- **Próximo passo:** Iniciar o módulo de **Tarefas** ou a **Página de Relatórios** com gráficos.
+
+### Sessão 8 — (Responsividade e Mobile First)
+- **O que fiz:** 
+  - Implementei o menu "hambúrguer" no Header para mobile, com Sidebar deslizante.
+  - Adaptei a tabela de Contatos para virar cards empilhados no mobile.
+  - Ajustei o Kanban de Negócios para empilhar as colunas verticalmente em telas pequenas.
+- **O que aprendi:** 
+  - Como usar as classes `md:` do Tailwind para criar layouts responsivos sem duplicar código.
+  - A importância de otimizar os botões de ação para toque (touch targets maiores no mobile).
+- **Próximo passo:** Iniciar o módulo de **Tarefas** ou a **Página de Relatórios**.
+
+### Sessão 9 — (Módulo de Relatórios e Padronização de UI)
+- **O que fiz:** 
+  - Implementei o módulo de Relatórios com gráficos (Pizza e Barras) usando a biblioteca Recharts.
+  - Criei o `relatorioService.js` para calcular KPIs (taxa de conversão, receita, totais).
+  - Criei o componente reutilizável `PageHeader` para padronizar os títulos das páginas (ícone, título e subtítulo) em todo o sistema.
+  - Apliquei o `PageHeader` nas telas de Relatórios, Negócios e Contatos.
+  - Ajustei o contraste e o tamanho das fontes para melhorar a legibilidade no tema claro.
+- **O que aprendi:** 
+  - Como integrar gráficos no React usando Recharts.
+  - A importância de criar componentes de layout (como o PageHeader) para manter a consistência visual e facilitar a manutenção.
+  - Como usar o modificador `!` (important) do Tailwind para forçar cores específicas quando o tema global insiste em sobrescrever.
+- **Próximo passo:** Implementar a lógica real de exportação (PDF/CSV) ou iniciar o módulo de Gestão de Equipe (convidar usuários).

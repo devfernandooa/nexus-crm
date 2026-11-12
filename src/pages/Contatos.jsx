@@ -5,6 +5,8 @@ import Modal from '@/components/ui/Modal';
 import { Plus, Search, Users, Pencil, Trash2 } from 'lucide-react';
 import ConfirmModal from '@/components/ui/ConfirmModal';
 import toast from 'react-hot-toast';
+import PageHeader from '@/components/ui/PageHeader';
+import { BarChart3, Download, ChevronDown, Printer, FileText } from 'lucide-react';
 
 export default function Contatos() {
   const { dadosUsuario } = useAuth();
@@ -91,29 +93,27 @@ export default function Contatos() {
 
   return (
     <div className="w-full">
-      <div className="flex justify-between items-center mb-6">
-        <div className=''>
-          <p className="text-3xl font-bold text-blue-950 dark:text-white">Contatos</p>
-          <p className="text-sm text-slate-500">Gerencie os leads e clientes da sua empresa.</p>
-        </div>
-        <button
-          onClick={abrirModalCriar}
-          className="bg-blue-600 hover:bg-blue-500 text-white px-4 py-2 rounded-lg font-medium flex items-center gap-2 transition-colors"
-        >
-          <Plus size={18} /> Novo Contato
-        </button>
-      </div>
+      <PageHeader
+        icon={<Users size={18} />}
+        title="Contatos"
+        subtitle="Gerencie os leads e clientes da sua empresa."
+        action={
+          <button onClick={abrirModalCriar} className="bg-blue-600 hover:bg-blue-500 text-white px-4 py-2 rounded-lg font-medium flex items-center gap-2 transition-colors w-full md:w-auto justify-center">
+            <Plus size={18} /> Novo Contato
+          </button>
+        }
+      />
 
-        {/* Container da Lista */}
+      {/* Container da Lista */}
       <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl overflow-hidden shadow-sm">
-        
+
         {/* Barra de Busca (mantida igual) */}
         <div className="p-4 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between">
           <div className="relative w-full max-w-xs">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
-            <input 
-              type="text" 
-              placeholder="Buscar contatos..." 
+            <input
+              type="text"
+              placeholder="Buscar contatos..."
               className="w-full pl-9 pr-4 py-2 text-sm border border-slate-200 dark:border-slate-700 rounded-lg dark:bg-slate-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
           </div>
@@ -183,7 +183,7 @@ export default function Contatos() {
                   </div>
                   <p className="text-sm text-slate-600 dark:text-slate-400">{contato.email}</p>
                   <p className="text-sm text-slate-600 dark:text-slate-400">{contato.telefone}</p>
-                  
+
                   <div className="flex justify-end gap-2 mt-2 pt-2 border-t border-slate-100 dark:border-slate-800">
                     <button onClick={() => handleEditar(contato)} className="flex items-center gap-1 text-sm text-blue-600 hover:text-blue-700 font-medium">
                       <Pencil size={14} /> Editar
