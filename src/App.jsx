@@ -15,6 +15,7 @@ import Configuracoes from './pages/Configuracoes';
 import Relatorios from './pages/Relatorios';
 import Tarefas from './pages/Tarefas';
 import Equipe from './pages/Equipe';
+import Produtos from './pages/Produtos';
 
 
 
@@ -45,6 +46,7 @@ export default function App() {
               <Route path="relatorios" element={<Relatorios />} />
               <Route path="tarefas" element={<Tarefas />} />
               <Route path="equipe" element={<Equipe />} />
+              <Route path="produtos" element={<Produtos />} />
             </Route>
           </Routes>
         </BrowserRouter>
