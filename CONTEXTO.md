@@ -111,3 +111,26 @@ Estamos prontos para iniciar o módulo de **Negócios**.
   - Como manipular datas no React (input type="date") e formatá-las para exibição.
   - A importância de ordenar listas por data para melhorar a experiência do usuário.
 - **Próximo passo:** Implementar a lógica real de exportação (PDF/CSV) ou iniciar a Gestão de Equipe (convidar usuários).
+
+### Sessão 11 — (Gestão de Equipe e Convites)
+
+- **O que fiz:**
+  - Implementei o sistema de convites (coleção `convites`).
+  - Criei a tela de Gestão de Equipe (membros ativos e convites pendentes).
+  - Modifiquei o `authService.js` para verificar convites no momento do cadastro e vincular o usuário à empresa correta.
+  - Ajustei as Regras do Firestore para permitir a leitura de convites sem autenticação.
+- **O que aprendi:**
+  - Como criar fluxos de onboarding para SaaS (convites).
+  - Como alterar dinamicamente o comportamento do cadastro com base em dados do Firestore.
+  - A importância das regras de segurança para permitir operações específicas (como ler convites antes do login).
+- **Próximo passo:** Implementar a lógica real de exportação (PDF/CSV) ou finalizar a tela de Produtos/Serviços.
+
+### Sessão 12 — (Módulo de Produtos e Serviços)
+
+- **O que fiz:**
+  - Implementei o CRUD de Produtos/Serviços com os campos Nome, Preço, Tipo e Descrição.
+  - Adicionei busca em tempo real na lista.
+  - Criei a visualização responsiva (tabela no desktop e cards no mobile).
+- **O que aprendi:**
+  - Como estruturar um CRUD simples e funcional reutilizando os padrões de UI/UX (PageHeader, Modal, ConfirmModal, Toast).
+- **Próximo passo:** Implementar a lógica real de exportação de relatórios (PDF/CSV) ou vincular produtos aos negócios.
