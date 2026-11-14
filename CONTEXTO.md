@@ -157,3 +157,15 @@ Estamos prontos para iniciar o módulo de **Negócios**.
   - A importância de adaptar a interação do usuário ao dispositivo (arrastar no desktop, clicar no mobile).
   - Como garantir que tabelas largas tenham scroll horizontal consciente sem quebrar o layout.
 - **Próximo passo:** Revisar os módulos de Produtos e Relatórios para o padrão Mobile First.
+
+### Sessão 15 — (Mobile First Finalizado)
+
+- **O que fiz:**
+  - Apliquei o padrão Mobile First no Dashboard, Produtos e Relatórios.
+  - Adicionei botões de navegação (Voltar/Avançar) nos cards do Kanban para mobile.
+  - Padronizei tabelas (scroll horizontal consciente) e botões de ação otimizados para toque.
+  - Adicionei um rodapé fixo no Layout para mobile.
+- **O que aprendi:**
+  - A importância de projetar pensando no toque (touch targets maiores) e na densidade de informação.
+  - Como o Tailwind facilita a transição entre layouts mobile e desktop.
+- **Próximo passo:** Implementar a lógica real de exportação de relatórios (PDF/CSV) ou iniciar a auditoria de dados.

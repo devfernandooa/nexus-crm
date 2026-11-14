@@ -24,16 +24,16 @@ export async function buscarDadosRelatorio(empresaId) {
     const valorPerdido = perdidos.reduce((acc, curr) => acc + Number(curr.valor || 0), 0);
     const valorAberto = abertos.reduce((acc, curr) => acc + Number(curr.valor || 0), 0);
 
-    const taxaConversao = negocios.length > 0 
-      ? ((ganhos.length / negocios.length) * 100).toFixed(1) 
+    const taxaConversao = negocios.length > 0
+      ? ((ganhos.length / negocios.length) * 100).toFixed(1)
       : 0;
 
     // Dados para o Gráfico de Pizza (Status)
     const dadosPizza = [
-      { name: 'Ganhos', value: ganhos.length, color: '#10b981' }, // emerald-500
-      { name: 'Em Aberto', value: abertos.length, color: '#3b82f6' }, // blue-500
-      { name: 'Perdidos', value: perdidos.length, color: '#ef4444' }, // red-500
-    ].filter(item => item.value > 0); // Só mostra se tiver valor
+      { name: 'Ganhos', value: ganhos.length, color: '#10b981' },
+      { name: 'Em Aberto', value: abertos.length, color: '#3b82f6' },
+      { name: 'Perdidos', value: perdidos.length, color: '#ef4444' },
+    ].filter(item => item.value > 0);
 
     return {
       sucesso: true,
@@ -50,5 +50,30 @@ export async function buscarDadosRelatorio(empresaId) {
   } catch (error) {
     console.error("Erro ao buscar dados do relatório:", error);
     return { sucesso: false, erro: error.message };
+  }
+}
+
+// NOVA FUNÇÃO: Busca a lista bruta de negócios para exportação (CSV/PDF)
+export async function buscarNegociosParaExportacao(empresaId) {
+  try {
+    const negociosRef = collection(db, 'negocios');
+    const q = query(negociosRef, where('empresaId', '==', empresaId));
+    const snapshot = await getDocs(q);
+
+    // Retorna os dados formatados para a tabela de exportação
+    return snapshot.docs.map(doc => {
+      const data = doc.data();
+      return {
+        id: doc.id,
+        titulo: data.titulo,
+        valor: data.valor,
+        status: data.status,
+        contato: data.contato || 'Sem contato',
+        dataCriacao: data.dataCriacao ? data.dataCriacao.toDate().toLocaleDateString('pt-BR') : 'N/A'
+      };
+    });
+  } catch (error) {
+    console.error("Erro ao buscar negócios para exportação:", error);
+    return [];
   }
 }

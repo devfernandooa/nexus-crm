@@ -1,5 +1,5 @@
 import { db } from '../firebase-config';
-import { doc, getDoc } from 'firebase/firestore';
+import { doc, getDoc, updateDoc } from 'firebase/firestore';
 
 export async function buscarDadosUsuario(uid) {
   try {
@@ -16,5 +16,18 @@ export async function buscarDadosUsuario(uid) {
   } catch (error) {
     console.error("Erro ao buscar dados do usuário:", error);
     return null;
+  }
+}
+
+
+
+export async function atualizarPerfilUsuario(uid, dados) {
+  try {
+    const userRef = doc(db, 'usuarios', uid);
+    await updateDoc(userRef, dados);
+    return { sucesso: true };
+  } catch (error) {
+    console.error("Erro ao atualizar perfil:", error);
+    return { sucesso: false, erro: error.message };
   }
 }

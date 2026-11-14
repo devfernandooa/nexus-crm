@@ -1,10 +1,15 @@
+import { db } from '@/firebase-config';
+import { doc, getDoc } from 'firebase/firestore';
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
-import { buscarDadosRelatorio } from '@/services/relatorioService';
+import { buscarDadosRelatorio, buscarNegociosParaExportacao } from '@/services/relatorioService';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend, BarChart, Bar, XAxis, YAxis, CartesianGrid } from 'recharts';
 import PageHeader from '@/components/ui/PageHeader';
 import { Users, Briefcase, TrendingUp, Target, Download, FileText, Printer, ChevronDown, BarChart3 } from 'lucide-react';
 import toast from 'react-hot-toast';
+import Papa from 'papaparse';
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
 
 export default function Relatorios() {
   const { dadosUsuario } = useAuth();
@@ -26,12 +31,78 @@ export default function Relatorios() {
     carregarDados();
   }, [dadosUsuario?.empresaId]);
 
-  const formatarMoeda = (valor) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(valor);
-
-  function handleExportar(tipo) {
+  async function handleExportar(tipo) {
     setMenuExportarAberto(false);
-    toast.success(`Exportação em ${tipo.toUpperCase()} iniciada...`);
+    toast.loading('Gerando arquivo...', { id: 'export-toast' });
+
+    const negocios = await buscarNegociosParaExportacao(dadosUsuario.empresaId);
+
+    if (negocios.length === 0) {
+      toast.error('Nenhum dado para exportar.', { id: 'export-toast' });
+      return;
+    }
+
+    if (tipo === 'csv') {
+      const dadosCSV = negocios.map(n => ({
+        'Título': n.titulo,
+        'Valor (R$)': n.valor,
+        'Status': n.status,
+        'Contato': n.contato || 'Sem contato',
+        'Data de Criação': n.dataCriacao
+      }));
+
+      const csv = Papa.unparse(dadosCSV);
+      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+      const link = document.createElement('a');
+      link.href = URL.createObjectURL(blob);
+      link.download = `relatorio_negocios_${new Date().toISOString().split('T')[0]}.csv`;
+      link.click();
+
+      toast.success('CSV exportado com sucesso!', { id: 'export-toast' });
+
+    } else if (tipo === 'pdf') {
+      const docPdf = new jsPDF();
+
+      // Busca o nome da empresa
+      let nomeEmpresa = dadosUsuario?.nomeEmpresa;
+
+      if (!nomeEmpresa && dadosUsuario?.empresaId) {
+        const empresaRef = doc(db, 'empresas', dadosUsuario.empresaId);
+        const empresaSnap = await getDoc(empresaRef);
+        if (empresaSnap.exists()) {
+          nomeEmpresa = empresaSnap.data().nome;
+        }
+      }
+
+      docPdf.setFontSize(18);
+      docPdf.text('Nexus CRM - Relatório de Negócios', 14, 22);
+      docPdf.setFontSize(11);
+      docPdf.setTextColor(100);
+      docPdf.text(`Empresa: ${nomeEmpresa || 'Nexus CRM'}`, 14, 30);
+      docPdf.text(`Gerado em: ${new Date().toLocaleDateString('pt-BR')}`, 14, 36);
+
+      const tableData = negocios.map(n => [
+        n.titulo,
+        `R$ ${Number(n.valor).toFixed(2)}`,
+        n.status,
+        n.contato || '-'
+      ]);
+
+      autoTable(docPdf, {
+        startY: 45,
+        head: [['Título', 'Valor', 'Status', 'Contato']],
+        body: tableData,
+        theme: 'striped',
+        headStyles: { fillColor: [37, 99, 235] },
+        styles: { fontSize: 9 },
+      });
+
+      docPdf.save(`relatorio_negocios_${new Date().toISOString().split('T')[0]}.pdf`);
+      toast.success('PDF exportado com sucesso!', { id: 'export-toast' });
+    }
   }
+
+  const formatarMoeda = (valor) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(valor);
 
   if (loading) return <div className="p-8 !text-slate-500">Carregando relatórios...</div>;
   if (!dados) return <div className="p-8 !text-slate-500">Nenhum dado encontrado.</div>;
@@ -44,7 +115,6 @@ export default function Relatorios() {
 
   return (
     <div className="w-full h-full flex flex-col">
-
       <PageHeader
         icon={<BarChart3 size={18} />}
         title="Relatórios"
@@ -72,7 +142,7 @@ export default function Relatorios() {
         }
       />
 
-      {/* KPIs: Mobile First (1 coluna no mobile, 2 no tablet, 4 no desktop) */}
+      {/* KPIs */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
         <div className="bg-white dark:bg-slate-900 p-4 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm flex items-center gap-3">
           <div className="p-2 bg-blue-50 dark:bg-blue-500/10 text-blue-600 rounded-lg"><Users size={20} /></div>
@@ -104,10 +174,8 @@ export default function Relatorios() {
         </div>
       </div>
 
-      {/* Gráficos: 1 coluna no mobile, 2 no desktop */}
+      {/* Gráficos */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 flex-1">
-
-        {/* Gráfico de Pizza */}
         <div className="bg-white dark:bg-slate-900 p-4 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm flex flex-col">
           <h2 className="text-sm font-bold !text-slate-900 dark:!text-white mb-2">Status dos Negócios</h2>
           {dados.dadosPizza.length > 0 ? (
@@ -118,8 +186,8 @@ export default function Relatorios() {
                     data={dados.dadosPizza}
                     cx="50%"
                     cy="50%"
-                    innerRadius={50}  // Ajustado para mobile
-                    outerRadius={75}  // Ajustado para mobile
+                    innerRadius={50}
+                    outerRadius={75}
                     paddingAngle={5}
                     dataKey="value"
                     stroke="none"
@@ -128,10 +196,7 @@ export default function Relatorios() {
                       <Cell key={`cell-${index}`} fill={entry.color} />
                     ))}
                   </Pie>
-                  <Tooltip
-                    contentStyle={{ backgroundColor: '#1e293b', border: 'none', borderRadius: '8px', color: '#fff', fontSize: '12px' }}
-                    itemStyle={{ color: '#fff' }}
-                  />
+                  <Tooltip contentStyle={{ backgroundColor: '#1e293b', border: 'none', borderRadius: '8px', color: '#fff', fontSize: '12px' }} itemStyle={{ color: '#fff' }} />
                   <Legend verticalAlign="bottom" height={30} iconType="circle" wrapperStyle={{ fontSize: '12px' }} />
                 </PieChart>
               </ResponsiveContainer>
@@ -141,7 +206,6 @@ export default function Relatorios() {
           )}
         </div>
 
-        {/* Gráfico de Barras */}
         <div className="bg-white dark:bg-slate-900 p-4 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm flex flex-col">
           <h2 className="text-sm font-bold !text-slate-900 dark:!text-white mb-2">Comparativo Financeiro (R$)</h2>
           <div className="flex-1 min-h-[250px]">
@@ -150,11 +214,7 @@ export default function Relatorios() {
                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#334155" />
                 <XAxis dataKey="name" tick={{ fontSize: 10, fill: '#64748b' }} axisLine={false} tickLine={false} />
                 <YAxis tick={{ fontSize: 10, fill: '#64748b' }} axisLine={false} tickLine={false} />
-                <Tooltip
-                  cursor={{ fill: 'transparent' }}
-                  contentStyle={{ backgroundColor: '#1e293b', border: 'none', borderRadius: '8px', color: '#fff', fontSize: '12px' }}
-                  formatter={(value) => formatarMoeda(value)}
-                />
+                <Tooltip cursor={{ fill: 'transparent' }} contentStyle={{ backgroundColor: '#1e293b', border: 'none', borderRadius: '8px', color: '#fff', fontSize: '12px' }} formatter={(value) => formatarMoeda(value)} />
                 <Bar dataKey="valor" radius={[4, 4, 0, 0]} maxBarSize={50}>
                   {dadosBarras.map((entry, index) => (
                     <Cell key={`cell-${index}`} fill={entry.fill} />
@@ -164,7 +224,6 @@ export default function Relatorios() {
             </ResponsiveContainer>
           </div>
         </div>
-
       </div>
     </div>
   );

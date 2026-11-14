@@ -23,6 +23,7 @@ export async function criarContaComEmpresa(nomeEmpresa, nomeResponsavel, segment
             await setDoc(usuarioRef, {
                 email: user.email,
                 nome: nomeResponsavel, // O convidado digita o nome dele no cadastro
+                nomeEmpresa: nomeEmpresa,
                 empresaId: dadosConvite.empresaId,
                 role: dadosConvite.role,
                 dataCriacao: new Date(),

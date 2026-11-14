@@ -1,7 +1,7 @@
 import { AlertTriangle } from 'lucide-react';
 import Modal from './Modal';
 
-export default function ConfirmModal({ isOpen, onClose, onConfirm, title, message }) {
+export default function ConfirmModal({ isOpen, onClose, onConfirm, title, message, confirmText }) {
   if (!isOpen) return null;
 
   return (
@@ -14,17 +14,17 @@ export default function ConfirmModal({ isOpen, onClose, onConfirm, title, messag
           {message || "Tem certeza que deseja excluir este item? Esta ação não pode ser desfeita."}
         </p>
         <div className="flex gap-3 w-full">
-          <button 
+          <button
             onClick={onClose}
             className="flex-1 px-4 py-2 text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-lg font-medium transition-colors dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700"
           >
             Cancelar
           </button>
-          <button 
+          <button
             onClick={onConfirm}
             className="flex-1 px-4 py-2 bg-red-600 hover:bg-red-500 text-white rounded-lg font-medium transition-colors"
           >
-            Sim, excluir
+            {confirmText || 'Sim, excluir'}
           </button>
         </div>
       </div>
