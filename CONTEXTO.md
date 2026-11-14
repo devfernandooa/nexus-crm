@@ -146,3 +146,14 @@ Estamos prontos para iniciar o módulo de **Negócios**.
 - **Próximo passo:** Iniciar a revisão de responsividade dos outros módulos (Negócios, Produtos, Relatórios) seguindo o padrão Mobile First.
 
 1. Módulo de negócios
+
+### Sessão 14 — (Mobile First no Kanban e Refinamentos)
+
+- **O que fiz:**
+  - Implementei botões de "Voltar" e "Avançar" nos cards do Kanban para facilitar a movimentação no celular.
+  - Ajustei a tabela de Contatos para evitar corte dos botões em telas menores.
+  - Padronizei o tamanho dos inputs e selects em todo o sistema.
+- **O que aprendi:**
+  - A importância de adaptar a interação do usuário ao dispositivo (arrastar no desktop, clicar no mobile).
+  - Como garantir que tabelas largas tenham scroll horizontal consciente sem quebrar o layout.
+- **Próximo passo:** Revisar os módulos de Produtos e Relatórios para o padrão Mobile First.
