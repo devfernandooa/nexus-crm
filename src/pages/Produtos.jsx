@@ -91,6 +91,10 @@ export default function Produtos() {
 
     const formatarMoeda = (valor) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(valor);
 
+    // Classes reutilizáveis (Mobile First)
+    const inputClass = "w-full px-3 py-2 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-slate-800 dark:border-slate-700 dark:text-white";
+    const labelClass = "block text-xs font-semibold !text-slate-600 dark:!text-slate-400 mb-1";
+
     return (
         <div className="w-full h-full flex flex-col">
             <PageHeader
@@ -104,7 +108,6 @@ export default function Produtos() {
                 }
             />
 
-            {/* Barra de Busca */}
             <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl overflow-hidden shadow-sm flex flex-col flex-1">
                 <div className="p-4 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between">
                     <div className="relative w-full max-w-sm">
@@ -114,7 +117,7 @@ export default function Produtos() {
                             placeholder="Buscar produtos ou serviços..."
                             value={busca}
                             onChange={(e) => setBusca(e.target.value)}
-                            className="w-full pl-9 pr-4 py-2 text-sm border border-slate-200 dark:border-slate-700 rounded-lg dark:bg-slate-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            className={inputClass}
                         />
                     </div>
                 </div>
@@ -134,15 +137,15 @@ export default function Produtos() {
                     </div>
                 ) : (
                     <>
-                        {/* Visão Desktop (Tabela) */}
+                        {/* VISÃO DESKTOP (Tabela) */}
                         <div className="hidden md:block overflow-x-auto">
-                            <table className="w-full text-left border-collapse">
+                            <table className="w-full text-left border-collapse min-w-[700px]">
                                 <thead>
                                     <tr className="bg-slate-50 dark:bg-slate-800/50 border-b border-slate-200 dark:border-slate-700">
                                         <th className="px-6 py-3 text-xs font-semibold !text-slate-500 uppercase">Nome</th>
                                         <th className="px-6 py-3 text-xs font-semibold !text-slate-500 uppercase">Tipo</th>
                                         <th className="px-6 py-3 text-xs font-semibold !text-slate-500 uppercase">Preço</th>
-                                        <th className="px-6 py-3 text-xs font-semibold !text-slate-500 uppercase text-right">Ações</th>
+                                        <th className="px-6 py-3 text-xs font-semibold !text-slate-500 uppercase text-right pr-6">Ações</th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -158,9 +161,9 @@ export default function Produtos() {
                                                 </span>
                                             </td>
                                             <td className="px-6 py-4 text-sm font-semibold !text-slate-900 dark:!text-white">{formatarMoeda(produto.preco)}</td>
-                                            <td className="px-6 py-4 text-right space-x-2">
-                                                <button onClick={() => handleEditar(produto)} className="p-1.5 text-slate-400 hover:text-blue-600 transition-colors rounded-lg hover:bg-blue-50 dark:hover:bg-blue-500/10"><Pencil size={18} /></button>
-                                                <button onClick={() => handleDeletar(produto.id)} className="p-1.5 text-slate-400 hover:text-red-600 transition-colors rounded-lg hover:bg-red-50 dark:hover:bg-red-500/10"><Trash2 size={18} /></button>
+                                            <td className="px-6 py-4 text-right space-x-1 pr-6">
+                                                <button onClick={() => handleEditar(produto)} className="p-1.5 text-slate-400 hover:text-blue-600 transition-colors rounded-lg hover:bg-blue-50 dark:hover:bg-blue-500/10"><Pencil size={16} /></button>
+                                                <button onClick={() => handleDeletar(produto.id)} className="p-1.5 text-slate-400 hover:text-red-600 transition-colors rounded-lg hover:bg-red-50 dark:hover:bg-red-500/10"><Trash2 size={16} /></button>
                                             </td>
                                         </tr>
                                     ))}
@@ -168,7 +171,7 @@ export default function Produtos() {
                             </table>
                         </div>
 
-                        {/* Visão Mobile (Cards) */}
+                        {/* VISÃO MOBILE (Cards com botões grandes) */}
                         <div className="md:hidden flex flex-col divide-y divide-slate-100 dark:divide-slate-800">
                             {produtosFiltrados.map(produto => (
                                 <div key={produto.id} className="p-4 flex flex-col gap-2">
@@ -178,9 +181,15 @@ export default function Produtos() {
                                     </div>
                                     <p className="text-xs !text-slate-500 line-clamp-2">{produto.descricao}</p>
                                     <p className="text-sm font-bold !text-slate-900 dark:!text-white mt-1">{formatarMoeda(produto.preco)}</p>
-                                    <div className="flex justify-end gap-3 mt-2 pt-2 border-t border-slate-100 dark:border-slate-800">
-                                        <button onClick={() => handleEditar(produto)} className="flex items-center gap-1 text-xs text-blue-600 font-medium"><Pencil size={14} /> Editar</button>
-                                        <button onClick={() => handleDeletar(produto.id)} className="flex items-center gap-1 text-xs text-red-600 font-medium"><Trash2 size={14} /> Excluir</button>
+
+                                    {/* Botões de ação com toque otimizado */}
+                                    <div className="flex gap-3 mt-2 pt-2 border-t border-slate-100 dark:border-slate-800">
+                                        <button onClick={() => handleEditar(produto)} className="flex items-center justify-center gap-1 px-3 py-1.5 text-xs text-blue-700 font-medium bg-blue-50 dark:bg-blue-500/10 rounded-lg w-1/2">
+                                            <Pencil size={14} /> Editar
+                                        </button>
+                                        <button onClick={() => handleDeletar(produto.id)} className="flex items-center justify-center gap-1 px-3 py-1.5 text-xs text-red-700 font-medium bg-red-50 dark:bg-red-500/10 rounded-lg w-1/2">
+                                            <Trash2 size={14} /> Excluir
+                                        </button>
                                     </div>
                                 </div>
                             ))}
@@ -189,33 +198,41 @@ export default function Produtos() {
                 )}
             </div>
 
-            {/* Modal de Criação/Edição */}
-            <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} title={produtoEditando ? "Editar Item" : "Novo Item"}>
+            {/* Modal Otimizado */}
+            <Modal
+                isOpen={isModalOpen}
+                onClose={() => setIsModalOpen(false)}
+                title={produtoEditando ? "Editar Item" : "Novo Item"}
+                icon={produtoEditando ? <Pencil size={18} /> : <Plus size={18} />}
+            >
                 <form onSubmit={handleSubmit} className="space-y-4">
                     <div>
-                        <label className="block text-sm font-medium !text-slate-700 dark:!text-slate-300 mb-1">Nome</label>
-                        <input type="text" value={nome} onChange={(e) => setNome(e.target.value)} className="w-full px-3 py-2 border rounded-lg dark:bg-slate-800 dark:border-slate-700 dark:text-white focus:ring-2 focus:ring-blue-500" required placeholder="Ex: Consultoria Mensal" />
+                        <label className={labelClass}>Nome</label>
+                        <input type="text" value={nome} onChange={(e) => setNome(e.target.value)} className={inputClass} required placeholder="Ex: Consultoria Mensal" />
                     </div>
-                    <div className="grid grid-cols-2 gap-4">
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div>
-                            <label className="block text-sm font-medium !text-slate-700 dark:!text-slate-300 mb-1">Preço (R$)</label>
-                            <input type="number" step="0.01" value={preco} onChange={(e) => setPreco(e.target.value)} className="w-full px-3 py-2 border rounded-lg dark:bg-slate-800 dark:border-slate-700 dark:text-white focus:ring-2 focus:ring-blue-500" required placeholder="0.00" />
+                            <label className={labelClass}>Preço (R$)</label>
+                            <input type="number" step="0.01" value={preco} onChange={(e) => setPreco(e.target.value)} className={inputClass} required placeholder="0.00" />
                         </div>
                         <div>
-                            <label className="block text-sm font-medium !text-slate-700 dark:!text-slate-300 mb-1">Tipo</label>
-                            <select value={tipo} onChange={(e) => setTipo(e.target.value)} className="w-full px-3 py-2 border rounded-lg dark:bg-slate-800 dark:border-slate-700 dark:text-white focus:ring-2 focus:ring-blue-500">
+                            <label className={labelClass}>Tipo</label>
+                            <select value={tipo} onChange={(e) => setTipo(e.target.value)} className={inputClass}>
                                 <option value="Produto">Produto</option>
                                 <option value="Serviço">Serviço</option>
                             </select>
                         </div>
                     </div>
+
                     <div>
-                        <label className="block text-sm font-medium !text-slate-700 dark:!text-slate-300 mb-1">Descrição (Opcional)</label>
-                        <textarea value={descricao} onChange={(e) => setDescricao(e.target.value)} rows="3" className="w-full px-3 py-2 border rounded-lg dark:bg-slate-800 dark:border-slate-700 dark:text-white focus:ring-2 focus:ring-blue-500" placeholder="Detalhes do item..."></textarea>
+                        <label className={labelClass}>Descrição (Opcional)</label>
+                        <textarea value={descricao} onChange={(e) => setDescricao(e.target.value)} rows="3" className={inputClass} placeholder="Detalhes do item..."></textarea>
                     </div>
-                    <div className="flex justify-end gap-3 mt-6">
-                        <button type="button" onClick={() => setIsModalOpen(false)} className="px-4 py-2 !text-slate-600 hover:bg-slate-100 rounded-lg dark:!text-slate-300 dark:hover:bg-slate-800">Cancelar</button>
-                        <button type="submit" disabled={salvando} className="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-lg font-medium">
+
+                    <div className="flex justify-end gap-3 pt-4 border-t border-slate-100 dark:border-slate-800 mt-4">
+                        <button type="button" onClick={() => setIsModalOpen(false)} className="px-4 py-2 text-sm font-medium !text-slate-600 hover:bg-slate-100 rounded-lg transition-colors dark:!text-slate-300 dark:hover:bg-slate-800">Cancelar</button>
+                        <button type="submit" disabled={salvando} className="px-4 py-2 text-sm bg-blue-600 hover:bg-blue-500 text-white rounded-lg font-medium transition-colors">
                             {salvando ? 'Salvando...' : (produtoEditando ? 'Atualizar' : 'Salvar')}
                         </button>
                     </div>

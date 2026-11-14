@@ -1,158 +1,146 @@
-import { useAuth } from '../contexts/AuthContext';
+import { useState, useEffect } from 'react';
+import { useAuth } from '@/contexts/AuthContext';
+import { useNavigate } from 'react-router-dom';
+import PageHeader from '@/components/ui/PageHeader';
 import {
-  Users, Briefcase, CheckCircle2, DollarSign, Plus, ArrowRight,
-  TrendingUp, MoreHorizontal, Target, Calendar, Building2, Filter, Search
+  Users, Briefcase, DollarSign, TrendingUp, Plus, ArrowRight,
+  Calendar, LayoutDashboard
 } from 'lucide-react';
 
 export default function Dashboard() {
   const { dadosUsuario } = useAuth();
+  const navigate = useNavigate();
+
+  // (Aqui você pode adicionar os estados e useEffect para buscar os dados reais no futuro)
 
   return (
-    <div className="space-y-6">
-      {/* Header de Ações Rápidas (Mantido no topo, mas sem o texto de boas-vindas) */}
-      <div className="flex justify-end gap-2">
-        <button className="inline-flex items-center gap-2 px-4 py-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 rounded-lg text-sm font-medium hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors">
-          <Calendar size={16} /> Agendar
-        </button>
-        <button className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-medium transition-all shadow-sm hover:shadow-md">
-          <Plus size={16} /> Novo Contato
-        </button>
+    <div className="w-full h-full flex flex-col">
+
+      <PageHeader
+        icon={<LayoutDashboard size={18} />}
+        title="Dashboard"
+        subtitle={`Bem-vindo de volta, ${dadosUsuario?.nome?.split(' ')[0] || 'Usuário'}!`}
+        action={
+          <div className="flex gap-2 w-full md:w-auto">
+            <button className="flex-1 md:flex-none bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 px-4 py-2 rounded-lg font-medium flex items-center justify-center gap-2 transition-colors hover:bg-slate-50 dark:hover:bg-slate-800 shadow-sm text-sm">
+              <Calendar size={16} /> Agendar
+            </button>
+            <button onClick={() => navigate('/app/contatos')} className="flex-1 md:flex-none bg-blue-600 hover:bg-blue-500 text-white px-4 py-2 rounded-lg font-medium flex items-center justify-center gap-2 transition-colors shadow-sm text-sm">
+              <Plus size={16} /> Novo Contato
+            </button>
+          </div>
+        }
+      />
+
+      {/* KPIs: 1 coluna no mobile, 2 em tablets, 4 no desktop */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+        <div className="bg-white dark:bg-slate-900 p-5 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm flex flex-col justify-between">
+          <div className="flex justify-between items-start mb-2">
+            <p className="text-xs font-semibold !text-slate-500 uppercase tracking-wider">Total de Contatos</p>
+            <div className="p-1.5 bg-blue-50 dark:bg-blue-500/10 text-blue-600 rounded-md"><Users size={16} /></div>
+          </div>
+          <div>
+            <p className="text-2xl font-bold !text-slate-900 dark:!text-white">0</p>
+            <p className="text-[10px] text-emerald-500 flex items-center gap-1 mt-1"><TrendingUp size={10} /> +0% vs. mês anterior</p>
+          </div>
+        </div>
+
+        <div className="bg-white dark:bg-slate-900 p-5 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm flex flex-col justify-between">
+          <div className="flex justify-between items-start mb-2">
+            <p className="text-xs font-semibold !text-slate-500 uppercase tracking-wider">Negócios Abertos</p>
+            <div className="p-1.5 bg-purple-50 dark:bg-purple-500/10 text-purple-600 rounded-md"><Briefcase size={16} /></div>
+          </div>
+          <div>
+            <p className="text-2xl font-bold !text-slate-900 dark:!text-white">0</p>
+            <p className="text-[10px] text-emerald-500 flex items-center gap-1 mt-1"><TrendingUp size={10} /> +0% vs. mês anterior</p>
+          </div>
+        </div>
+
+        <div className="bg-white dark:bg-slate-900 p-5 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm flex flex-col justify-between">
+          <div className="flex justify-between items-start mb-2">
+            <p className="text-xs font-semibold !text-slate-500 uppercase tracking-wider">Tarefas Pendentes</p>
+            <div className="p-1.5 bg-orange-50 dark:bg-orange-500/10 text-orange-600 rounded-md"><Calendar size={16} /></div>
+          </div>
+          <div>
+            <p className="text-2xl font-bold !text-slate-900 dark:!text-white">0</p>
+            <p className="text-[10px] text-slate-400 flex items-center gap-1 mt-1">0 vs. mês anterior</p>
+          </div>
+        </div>
+
+        <div className="bg-white dark:bg-slate-900 p-5 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm flex flex-col justify-between">
+          <div className="flex justify-between items-start mb-2">
+            <p className="text-xs font-semibold !text-slate-500 uppercase tracking-wider">Receita Prevista</p>
+            <div className="p-1.5 bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 rounded-md"><DollarSign size={16} /></div>
+          </div>
+          <div>
+            <p className="text-2xl font-bold !text-slate-900 dark:!text-white">R$ 0,00</p>
+            <p className="text-[10px] text-emerald-500 flex items-center gap-1 mt-1"><TrendingUp size={10} /> +0% vs. mês anterior</p>
+          </div>
+        </div>
       </div>
 
-      {/* KPIs */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <KpiCard title="Total de Contatos" value="0" trend="+0%" icon={<Users size={18} />} color="blue" />
-        <KpiCard title="Negócios Abertos" value="0" trend="+0%" icon={<Briefcase size={18} />} color="indigo" />
-        <KpiCard title="Tarefas Pendentes" value="0" trend="0" icon={<CheckCircle2 size={18} />} color="amber" />
-        <KpiCard title="Receita Prevista" value="R$ 0,00" trend="+0%" icon={<DollarSign size={18} />} color="emerald" />
-      </div>
-
-      {/* Conteúdo Principal */}
+      {/* Layout Principal: Contatos Recentes e Resumo */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
 
-        {/* Lista de Contatos Recentes */}
-        <div className="lg:col-span-2 bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm overflow-hidden">
-          <div className="p-4 border-b border-slate-200 dark:border-slate-700">
-            <div className="flex items-center justify-between mb-3">
-              <div className="flex items-center gap-2">
-                <div className="w-8 h-8 bg-blue-50 dark:bg-blue-900/20 rounded-lg flex items-center justify-center">
-                  <Users size={16} className="text-blue-600 dark:text-blue-400" />
-                </div>
-                <h2 className="font-semibold text-slate-900 dark:text-white">Contatos Recentes</h2>
-              </div>
-              <button className="text-sm text-blue-600 dark:text-blue-400 font-medium hover:underline flex items-center gap-1">
-                Ver todos <ArrowRight size={14} />
-              </button>
-            </div>
-
-            <div className="flex gap-2">
-              <div className="flex-1 relative">
-                <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-                <input type="text" placeholder="Buscar contatos..." className="w-full pl-9 pr-3 py-2 text-sm border border-slate-200 dark:border-slate-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-slate-900 dark:text-white" />
-              </div>
-              <button className="px-3 py-2 border border-slate-200 dark:border-slate-700 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors">
-                <Filter size={16} className="text-slate-600 dark:text-slate-400" />
-              </button>
-            </div>
+        {/* Contatos Recentes (Ocupa 2 colunas no desktop) */}
+        <div className="lg:col-span-2 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden flex flex-col">
+          <div className="p-5 border-b border-slate-200 dark:border-slate-800 flex justify-between items-center">
+            <h2 className="font-bold !text-slate-900 dark:!text-white">Contatos Recentes</h2>
+            <button onClick={() => navigate('/app/contatos')} className="text-sm text-blue-600 font-medium hover:underline flex items-center gap-1">
+              Ver todos <ArrowRight size={14} />
+            </button>
           </div>
 
-          {/* Empty State */}
-          <div className="p-12">
-            <div className="text-center">
-              <div className="w-16 h-16 bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 rounded-2xl flex items-center justify-center mx-auto mb-4">
-                <Users size={32} className="text-blue-600 dark:text-blue-400" />
-              </div>
-              <h3 className="text-slate-900 dark:text-white font-semibold mb-1">Nenhum contato ainda</h3>
-              <p className="text-slate-500 dark:text-slate-400 text-sm max-w-sm mx-auto mb-4">
-                Comece adicionando seu primeiro contato para gerenciar seus relacionamentos e oportunidades.
-              </p>
-              <div className="flex items-center justify-center gap-2">
-                <button className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-medium transition-colors">
-                  <Plus size={16} /> Adicionar Contato
-                </button>
-                <button className="inline-flex items-center gap-2 px-4 py-2 border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 rounded-lg text-sm font-medium transition-colors">
-                  <Building2 size={16} /> Importar CSV
-                </button>
-              </div>
+          <div className="p-8 text-center flex flex-col items-center justify-center flex-1">
+            <div className="w-16 h-16 bg-blue-50 dark:bg-slate-800 rounded-full flex items-center justify-center text-blue-500 mb-4">
+              <Users size={32} />
             </div>
+            <h3 className="text-lg font-bold !text-slate-900 dark:!text-white mb-2">Nenhum contato ainda</h3>
+            <p className="!text-slate-500 mb-6 max-w-xs text-sm">Comece adicionando seu primeiro contato para gerenciar seus relacionamentos.</p>
+            <button onClick={() => navigate('/app/contatos')} className="bg-blue-600 hover:bg-blue-500 text-white px-4 py-2 rounded-lg font-medium flex items-center gap-2 transition-colors">
+              <Plus size={18} /> Adicionar Contato
+            </button>
           </div>
         </div>
 
-        {/* Painel Lateral */}
-        <div className="space-y-4">
-          <div className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm p-4">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="font-semibold text-slate-900 dark:text-white text-sm">Resumo da Empresa</h3>
-              <button className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-300"><MoreHorizontal size={16} /></button>
-            </div>
+        {/* Coluna da Direita (Resumo e Ações Rápidas) */}
+        <div className="flex flex-col gap-6">
+
+          {/* Resumo da Empresa */}
+          <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm p-5">
+            <h2 className="font-bold !text-slate-900 dark:!text-white mb-4">Resumo da Empresa</h2>
             <div className="space-y-3">
-              <StatRow icon={<Building2 size={14} />} label="Empresa" value={dadosUsuario?.empresa?.nome || '-'} color="blue" />
-              <StatRow icon={<Users size={14} />} label="Total de Usuários" value="1" color="indigo" />
-              <StatRow icon={<Target size={14} />} label="Meta do Mês" value="R$ 0,00" color="emerald" />
-              <StatRow icon={<TrendingUp size={14} />} label="Conversão" value="0%" color="amber" />
+              <div className="flex justify-between items-center text-sm">
+                <span className="!text-slate-500 flex items-center gap-2"><Briefcase size={14} /> Empresa</span>
+                <span className="font-semibold !text-slate-900 dark:!text-white">{dadosUsuario?.nomeEmpresa || '-'}</span>
+              </div>
+              <div className="flex justify-between items-center text-sm">
+                <span className="!text-slate-500 flex items-center gap-2"><Users size={14} /> Total de Usuários</span>
+                <span className="font-semibold !text-slate-900 dark:!text-white">1</span>
+              </div>
+              <div className="flex justify-between items-center text-sm">
+                <span className="!text-slate-500 flex items-center gap-2"><TrendingUp size={14} /> Meta do Mês</span>
+                <span className="font-semibold !text-slate-900 dark:!text-white">R$ 0,00</span>
+              </div>
             </div>
           </div>
 
-          <div className="bg-gradient-to-br from-blue-600 to-indigo-600 rounded-xl shadow-lg p-4 text-white">
-            <h3 className="font-semibold mb-3 text-sm">Ações Rápidas</h3>
+          {/* Ações Rápidas */}
+          <div className="bg-blue-600 rounded-xl shadow-sm p-5 text-white">
+            <h2 className="font-bold mb-4">Ações Rápidas</h2>
             <div className="space-y-2">
-              <QuickActionBtn icon={<Briefcase size={14} />} label="Novo Negócio" variant="white" />
-              <QuickActionBtn icon={<Calendar size={14} />} label="Agendar Reunião" variant="transparent" />
+              <button onClick={() => navigate('/app/negocios')} className="w-full bg-white/10 hover:bg-white/20 transition-colors px-4 py-2.5 rounded-lg text-sm font-medium flex items-center gap-2 text-left">
+                <Briefcase size={16} /> Novo Negócio
+              </button>
+              <button className="w-full bg-white/10 hover:bg-white/20 transition-colors px-4 py-2.5 rounded-lg text-sm font-medium flex items-center gap-2 text-left">
+                <Calendar size={16} /> Agendar Reunião
+              </button>
             </div>
           </div>
+
         </div>
       </div>
+
     </div>
   );
-}
-
-// Subcomponentes
-function KpiCard({ title, value, trend, icon, color }) {
-  const colors = {
-    blue: 'bg-blue-50 text-blue-600 dark:bg-blue-900/20 dark:text-blue-400',
-    indigo: 'bg-indigo-50 text-indigo-600 dark:bg-indigo-900/20 dark:text-indigo-400',
-    amber: 'bg-amber-50 text-amber-600 dark:bg-amber-900/20 dark:text-amber-400',
-    emerald: 'bg-emerald-50 text-emerald-600 dark:bg-emerald-900/20 dark:text-emerald-400',
-  };
-  return (
-    <div className="bg-white dark:bg-slate-800 p-4 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm hover:shadow-md transition-all duration-200 group">
-      <div className="flex items-start justify-between mb-2">
-        <div className="flex-1">
-          <p className="text-xs font-medium text-slate-500 dark:text-slate-400 mb-1">{title}</p>
-          <p className="text-2xl font-bold text-slate-900 dark:text-white group-hover:scale-105 transition-transform origin-left">{value}</p>
-        </div>
-        <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${colors[color]}`}>{icon}</div>
-      </div>
-      <div className="flex items-center gap-1 text-xs font-medium text-emerald-600 dark:text-emerald-400">
-        <TrendingUp size={12} /> <span>{trend}</span> <span className="text-slate-400 dark:text-slate-500 ml-0.5">vs. mês anterior</span>
-      </div>
-    </div>
-  );
-}
-
-function StatRow({ icon, label, value, color }) {
-  const colors = {
-    blue: 'bg-blue-50 text-blue-600 dark:bg-blue-900/20 dark:text-blue-400',
-    indigo: 'bg-indigo-50 text-indigo-600 dark:bg-indigo-900/20 dark:text-indigo-400',
-    emerald: 'bg-emerald-50 text-emerald-600 dark:bg-emerald-900/20 dark:text-emerald-400',
-    amber: 'bg-amber-50 text-amber-600 dark:bg-amber-900/20 dark:text-amber-400',
-  };
-  return (
-    <div className="flex items-center justify-between p-2 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors">
-      <div className="flex items-center gap-2">
-        <div className={`w-6 h-6 rounded-md flex items-center justify-center ${colors[color]}`}>{icon}</div>
-        <span className="text-sm text-slate-600 dark:text-slate-400">{label}</span>
-      </div>
-      <span className="text-sm font-semibold text-slate-900 dark:text-white">{value}</span>
-    </div>
-  );
-}
-
-function QuickActionBtn({ icon, label, variant }) {
-  const baseStyles = "w-full flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-medium transition-all";
-  const variants = {
-    white: "bg-white text-blue-600 hover:bg-blue-50 shadow-sm",
-    transparent: "bg-white/10 text-white hover:bg-white/20 border border-white/20",
-  };
-  return <button className={`${baseStyles} ${variants[variant]}`}>{icon}{label}</button>;
 }
