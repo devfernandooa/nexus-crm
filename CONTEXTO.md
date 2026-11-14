@@ -134,3 +134,15 @@ Estamos prontos para iniciar o módulo de **Negócios**.
 - **O que aprendi:**
   - Como estruturar um CRUD simples e funcional reutilizando os padrões de UI/UX (PageHeader, Modal, ConfirmModal, Toast).
 - **Próximo passo:** Implementar a lógica real de exportação de relatórios (PDF/CSV) ou vincular produtos aos negócios.
+
+### Sessão 13 — (Refinamento de UI/UX e Mobile First)
+
+- **O que fiz:**
+  - Ajustei a tabela de Contatos para evitar o corte dos botões de ação em telas menores (scroll horizontal consciente).
+  - Padronizei o tamanho dos inputs e selects no modal de Contatos.
+  - Refatorei o modal para ter seções lógicas (Dados Pessoais, Profissionais e Anotações).
+- **Decisão de Arquitetura (REGRA IMUTÁVEL):**
+  - **Mobile First:** A partir de hoje, todo e qualquer componente novo deve ser desenhado primeiramente para telas pequenas (celular). As classes `md:` e `lg:` devem ser usadas para adaptar o layout ao desktop, e não o contrário.
+- **Próximo passo:** Iniciar a revisão de responsividade dos outros módulos (Negócios, Produtos, Relatórios) seguindo o padrão Mobile First.
+
+1. Módulo de negócios
