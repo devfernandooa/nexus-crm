@@ -125,8 +125,9 @@ export default function Sidebar({ onClose }) {
             {menuAberto === 'contatos' && (
               <div className="pl-10 mt-1 space-y-1">
                 <NavLink to="/app/contatos" className={subLinkClass} onClick={onClose}>Meus Contatos</NavLink>
-                <NavLink to="/app/contatos/leads" className={subLinkClass} onClick={onClose}>Leads</NavLink>
-                <NavLink to="/app/contatos/clientes" className={subLinkClass} onClick={onClose}>Clientes</NavLink>
+                {/* Adiciona o parâmetro na URL */}
+                <NavLink to="/app/contatos?tipo=leads" className={subLinkClass} onClick={onClose}>Leads</NavLink>
+                <NavLink to="/app/contatos?tipo=clientes" className={subLinkClass} onClick={onClose}>Clientes</NavLink>
               </div>
             )}
           </div>
