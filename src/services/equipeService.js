@@ -1,5 +1,5 @@
 import { db } from '@/firebase-config';
-import { collection, addDoc, query, where, getDocs, deleteDoc, doc, onSnapshot } from 'firebase/firestore';
+import { collection, addDoc, query, where, getDocs, deleteDoc, doc, onSnapshot, updateDoc } from 'firebase/firestore';
 
 // 1. Criar um novo convite
 export async function criarConvite(email, empresaId, role) {
@@ -52,6 +52,26 @@ export function escutarConvites(empresaId, callback) {
 export async function cancelarConvite(id) {
     try {
         await deleteDoc(doc(db, 'convites', id));
+        return { sucesso: true };
+    } catch (error) {
+        return { sucesso: false, erro: error.message };
+    }
+}
+
+export async function atualizarCargoMembro(uid, novoRole) {
+    try {
+        const userRef = doc(db, 'usuarios', uid);
+        await updateDoc(userRef, { role: novoRole });
+        return { sucesso: true };
+    } catch (error) {
+        return { sucesso: false, erro: error.message };
+    }
+}
+
+export async function removerMembroEquipe(uid) {
+    try {
+        const userRef = doc(db, 'usuarios', uid);
+        await deleteDoc(userRef);
         return { sucesso: true };
     } catch (error) {
         return { sucesso: false, erro: error.message };
