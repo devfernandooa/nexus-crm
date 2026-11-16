@@ -1,19 +1,22 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { escutarNegocios, adicionarNegocio, atualizarNegocio, deletarNegocio } from '@/services/negocioService';
+import { escutarProdutos } from '@/services/produtoService';
 import Modal from '@/components/ui/Modal';
 import ConfirmModal from '@/components/ui/ConfirmModal';
 import PageHeader from '@/components/ui/PageHeader';
+import SelectProdutos from '@/components/ui/SelectProdutos'; // Importa o novo componente
 import toast from 'react-hot-toast';
 import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd';
 import {
   Plus, Briefcase, DollarSign, TrendingUp, Pencil, Trash2, GripVertical,
-  ChevronLeft, ChevronRight // <-- Novos ícones para mobile
+  ChevronLeft, ChevronRight, Package
 } from 'lucide-react';
 
 export default function Negocios() {
   const { dadosUsuario } = useAuth();
   const [negocios, setNegocios] = useState([]);
+  const [produtosDisponiveis, setProdutosDisponiveis] = useState([]);
   const [loading, setLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isConfirmOpen, setIsConfirmOpen] = useState(false);
@@ -25,53 +28,69 @@ export default function Negocios() {
   const [valor, setValor] = useState('');
   const [status, setStatus] = useState('Aberto');
   const [contato, setContato] = useState('');
+  const [produtosSelecionados, setProdutosSelecionados] = useState([]);
   const [salvando, setSalvando] = useState(false);
 
   useEffect(() => {
     if (!dadosUsuario?.empresaId) return;
-    const unsubscribe = escutarNegocios(dadosUsuario.empresaId, (lista) => {
+
+    const unsubscribeNegocios = escutarNegocios(dadosUsuario.empresaId, (lista) => {
       setNegocios(lista);
       setLoading(false);
     });
-    return () => unsubscribe();
+
+    const unsubscribeProdutos = escutarProdutos(dadosUsuario.empresaId, (lista) => {
+      setProdutosDisponiveis(lista);
+    });
+
+    return () => {
+      unsubscribeNegocios();
+      unsubscribeProdutos();
+    };
   }, [dadosUsuario?.empresaId]);
 
-  // Cálculos para os KPIs
+  // Cálculos dos KPIs
   const totalAberto = negocios.filter(n => n.status === 'Aberto').reduce((acc, curr) => acc + Number(curr.valor || 0), 0);
   const totalGanho = negocios.filter(n => n.status === 'Ganho').reduce((acc, curr) => acc + Number(curr.valor || 0), 0);
   const totalPerdido = negocios.filter(n => n.status === 'Perdido').reduce((acc, curr) => acc + Number(curr.valor || 0), 0);
 
-  // Lógica de Drag and Drop (Desktop)
+  // Drag and Drop
   async function handleDragEnd(result) {
     const { source, destination, draggableId } = result;
     if (!destination || source.droppableId === destination.droppableId) return;
     await moverStatus(draggableId, destination.droppableId);
   }
 
-  // Lógica de mover status (usada no drag and drop e nos botões mobile)
   async function moverStatus(id, novoStatus) {
     const resultado = await atualizarNegocio(id, { status: novoStatus });
-    if (resultado.sucesso) {
-      toast.success(`Negócio movido para ${novoStatus}!`);
-    } else {
-      toast.error('Erro ao mover negócio.');
-    }
+    if (resultado.sucesso) toast.success(`Negócio movido para ${novoStatus}!`);
+    else toast.error('Erro ao mover negócio.');
   }
 
-  // Função para os botões mobile (Anterior / Próximo)
   function handleMoverBotao(negocio, direcao) {
     const fluxo = ['Aberto', 'Ganho', 'Perdido'];
     const indexAtual = fluxo.indexOf(negocio.status);
     const novoIndex = direcao === 'proximo' ? indexAtual + 1 : indexAtual - 1;
-
-    if (novoIndex >= 0 && novoIndex < fluxo.length) {
-      moverStatus(negocio.id, fluxo[novoIndex]);
-    }
+    if (novoIndex >= 0 && novoIndex < fluxo.length) moverStatus(negocio.id, fluxo[novoIndex]);
   }
 
+  // Lógica de Produtos
+  function adicionarProdutoAoNegocio(produto) {
+    if (produtosSelecionados.find(p => p.id === produto.id)) return;
+    setProdutosSelecionados([...produtosSelecionados, produto]);
+    setValor(prev => Number(prev) + Number(produto.preco));
+  }
+
+  function removerProdutoDoNegocio(produtoId, preco) {
+    setProdutosSelecionados(produtosSelecionados.filter(p => p.id !== produtoId));
+    setValor(prev => Math.max(0, Number(prev) - Number(preco)));
+  }
+
+  // Formulário
   function abrirModalCriar() {
     setNegocioEditando(null);
     setTitulo(''); setValor(''); setStatus('Aberto'); setContato('');
+    setProdutosSelecionados([]);
     setIsModalOpen(true);
   }
 
@@ -81,6 +100,7 @@ export default function Negocios() {
     setValor(negocio.valor);
     setStatus(negocio.status);
     setContato(negocio.contato || '');
+    setProdutosSelecionados(negocio.produtos || []);
     setIsModalOpen(true);
   }
 
@@ -102,7 +122,14 @@ export default function Negocios() {
   async function handleSubmit(e) {
     e.preventDefault();
     setSalvando(true);
-    const dados = { titulo, valor: Number(valor), status, contato };
+
+    const dados = {
+      titulo,
+      valor: Number(valor),
+      status,
+      contato,
+      produtos: produtosSelecionados
+    };
 
     let resultado;
     if (negocioEditando) {
@@ -133,7 +160,7 @@ export default function Negocios() {
       <PageHeader
         icon={<Briefcase size={18} />}
         title="Negócios"
-        subtitle="Arraste os cards (desktop) ou use as setas (mobile) para atualizar o funil."
+        subtitle="Arraste os cards ou use as setas para atualizar o funil."
         action={
           <button onClick={abrirModalCriar} className="bg-blue-600 hover:bg-blue-500 text-white px-4 py-2 rounded-lg font-medium flex items-center gap-2 transition-colors w-full md:w-auto justify-center shadow-sm">
             <Plus size={18} /> Novo Negócio
@@ -205,8 +232,15 @@ export default function Negocios() {
                                   <h3 className="font-bold !text-slate-900 dark:!text-white text-sm truncate">{negocio.titulo}</h3>
                                   <GripVertical size={16} className="text-slate-300 cursor-grab hidden md:block" />
                                 </div>
-                                <p className="text-xs !text-slate-500 mb-3 truncate">{negocio.contato || 'Sem contato'}</p>
-                                <div className="flex items-center justify-between">
+                                <p className="text-xs !text-slate-500 mb-1 truncate">{negocio.contato || 'Sem contato'}</p>
+
+                                {negocio.produtos && negocio.produtos.length > 0 && (
+                                  <p className="text-[10px] text-blue-600 dark:text-blue-400 font-medium flex items-center gap-1 mb-2">
+                                    <Package size={10} /> {negocio.produtos.length} item(ns)
+                                  </p>
+                                )}
+
+                                <div className="flex items-center justify-between mt-2">
                                   <span className="font-semibold !text-slate-800 dark:!text-white text-sm">{formatarMoeda(negocio.valor)}</span>
                                   <div className="opacity-0 group-hover:opacity-100 transition-opacity flex gap-1">
                                     <button onClick={() => handleEditar(negocio)} className="p-1 text-slate-400 hover:text-blue-600"><Pencil size={14} /></button>
@@ -214,24 +248,14 @@ export default function Negocios() {
                                   </div>
                                 </div>
 
-                                {/* CONTROLES MOBILE: Setas para mover o card entre as colunas */}
                                 <div className="flex md:hidden justify-between mt-3 pt-3 border-t border-slate-100 dark:border-slate-700">
-                                  <button
-                                    onClick={() => handleMoverBotao(negocio, 'anterior')}
-                                    disabled={negocio.status === 'Aberto'}
-                                    className="flex items-center gap-1 text-xs font-medium text-slate-500 disabled:opacity-30"
-                                  >
+                                  <button onClick={() => handleMoverBotao(negocio, 'anterior')} disabled={negocio.status === 'Aberto'} className="flex items-center gap-1 text-xs font-medium text-slate-500 disabled:opacity-30">
                                     <ChevronLeft size={16} /> Voltar
                                   </button>
-                                  <button
-                                    onClick={() => handleMoverBotao(negocio, 'proximo')}
-                                    disabled={negocio.status === 'Perdido'}
-                                    className="flex items-center gap-1 text-xs font-medium text-blue-600 disabled:opacity-30"
-                                  >
+                                  <button onClick={() => handleMoverBotao(negocio, 'proximo')} disabled={negocio.status === 'Perdido'} className="flex items-center gap-1 text-xs font-medium text-blue-600 disabled:opacity-30">
                                     Avançar <ChevronRight size={16} />
                                   </button>
                                 </div>
-
                               </div>
                             )}
                           </Draggable>
@@ -247,22 +271,40 @@ export default function Negocios() {
         </DragDropContext>
       )}
 
-      {/* Modal de Criação/Edição */}
+      {/* Modal de Criação/Edição COM O FORMULÁRIO DENTRO */}
       <Modal
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
         title={negocioEditando ? "Editar Negócio" : "Novo Negócio"}
         icon={negocioEditando ? <Pencil size={18} /> : <Plus size={18} />}
-      >
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div>
-            <label className="block text-xs font-semibold !text-slate-600 dark:!text-slate-400 mb-1">Título do Negócio</label>
-            <input type="text" value={titulo} onChange={(e) => setTitulo(e.target.value)} className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-slate-800 dark:border-slate-700 dark:text-white" required placeholder="Ex: Proposta Empresa X" />
+        footer={
+          <div className="flex justify-end gap-3">
+            <button type="button" onClick={() => setIsModalOpen(false)} className="px-4 py-2 text-sm font-medium !text-slate-600 hover:bg-slate-100 rounded-lg transition-colors dark:!text-slate-300 dark:hover:bg-slate-800">
+              Cancelar
+            </button>
+            <button type="submit" form="form-negocio" disabled={salvando} className="px-4 py-2 text-sm bg-blue-600 hover:bg-blue-500 text-white rounded-lg font-medium transition-colors">
+              {salvando ? 'Salvando...' : (negocioEditando ? 'Atualizar' : 'Salvar')}
+            </button>
           </div>
+        }
+      >
+        <form id="form-negocio" onSubmit={handleSubmit} className="space-y-4">
+
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <label className="block text-xs font-semibold !text-slate-600 dark:!text-slate-400 mb-1">Valor (R$)</label>
-              <input type="number" value={valor} onChange={(e) => setValor(e.target.value)} className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-slate-800 dark:border-slate-700 dark:text-white" required placeholder="5000" />
+              <label className="block text-xs font-semibold !text-slate-600 dark:!text-slate-400 mb-1">Título do Negócio</label>
+              <input type="text" value={titulo} onChange={(e) => setTitulo(e.target.value)} className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-slate-800 dark:border-slate-700 dark:text-white" required />
+            </div>
+            <div>
+              <label className="block text-xs font-semibold !text-slate-600 dark:!text-slate-400 mb-1">Contato (Empresa/Pessoa)</label>
+              <input type="text" value={contato} onChange={(e) => setContato(e.target.value)} className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-slate-800 dark:border-slate-700 dark:text-white" />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-xs font-semibold !text-slate-600 dark:!text-slate-400 mb-1">Valor Total (R$)</label>
+              <input type="number" value={valor} onChange={(e) => setValor(e.target.value)} className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-slate-800 dark:border-slate-700 dark:text-white" required />
             </div>
             <div>
               <label className="block text-xs font-semibold !text-slate-600 dark:!text-slate-400 mb-1">Status</label>
@@ -273,16 +315,19 @@ export default function Negocios() {
               </select>
             </div>
           </div>
-          <div>
-            <label className="block text-xs font-semibold !text-slate-600 dark:!text-slate-400 mb-1">Contato (Empresa/Pessoa)</label>
-            <input type="text" value={contato} onChange={(e) => setContato(e.target.value)} className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-slate-800 dark:border-slate-700 dark:text-white" placeholder="Ex: João da Silva" />
+
+          {/* SEÇÃO DE PRODUTOS */}
+          <div className="border-t border-slate-100 dark:border-slate-800 pt-4">
+            <label className="block text-xs font-semibold !text-slate-600 dark:!text-slate-400 mb-2">Adicionar Produtos / Serviços</label>
+
+            <SelectProdutos
+              produtos={produtosDisponiveis}
+              produtosSelecionados={produtosSelecionados}
+              onAdicionar={adicionarProdutoAoNegocio}
+              onRemover={removerProdutoDoNegocio}
+            />
           </div>
-          <div className="flex justify-end gap-3 mt-6">
-            <button type="button" onClick={() => setIsModalOpen(false)} className="px-4 py-2 text-sm font-medium !text-slate-600 hover:bg-slate-100 rounded-lg transition-colors dark:!text-slate-300 dark:hover:bg-slate-800">Cancelar</button>
-            <button type="submit" disabled={salvando} className="px-4 py-2 text-sm bg-blue-600 hover:bg-blue-500 text-white rounded-lg font-medium transition-colors">
-              {salvando ? 'Salvando...' : (negocioEditando ? 'Atualizar' : 'Salvar')}
-            </button>
-          </div>
+
         </form>
       </Modal>
 
@@ -290,7 +335,7 @@ export default function Negocios() {
         isOpen={isConfirmOpen}
         onClose={() => setIsConfirmOpen(false)}
         onConfirm={confirmarDelecao}
-        message="Tem certeza que deseja excluir este negócio? Ele será removido permanentemente."
+        message="Tem certeza que deseja excluir este negócio?"
       />
     </div>
   );
