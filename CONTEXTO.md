@@ -1,195 +1,88 @@
+---
+
+### 2. `CONTEXTO.md`
+*Foco: Diário de bordo atualizado com o status atual e os próximos passos.*
+
+```markdown
 # CONTEXTO.md — Nexus CRM
 
 > **Propósito:** Diário de bordo do desenvolvimento. O que já foi feito e qual é o próximo passo imediato.
 
----
-
 ## 1. Status Atual do Desenvolvimento
 
 ### O que já está implementado (Concluído):
-
 - [x] **Setup Inicial:** React, Vite, Tailwind, Firebase (Auth + Firestore).
-- [x] **Landing Page:** Página inicial com tema claro/escuro e layout premium.
-- [x] **Autenticação Completa:** Login, Cadastro (com Nome da Empresa, Responsável e Segmento) e `AuthContext` buscando dados do usuário (`empresaId` e `role`).
-- [x] **Multi-tenant Base:** Isolamento de dados garantido em todas as queries e documentos (via `empresaId`).
-- [x] **Layout Premium:** Sidebar escura com ícones, card de usuário, e Header com status do Firestore.
-- [x] **Dashboard:** Tela inicial com KPIs mockados e Ações Rápidas.
-- [x] **CRUD de Contatos (Completo):**
-  - **Create & Read:** Formulário no Modal e listagem em tempo real (`onSnapshot`).
-  - **Update:** Edição de contatos reutilizando o Modal.
-  - **Delete:** Exclusão com confirmação (`window.confirm`).
-- [x] **Tela de Configurações:** Edição do perfil da empresa (Nome, Responsável, Segmento) com integração ao Firestore e feedback visual.
+- [x] **Landing Page:** Página inicial com tema claro/escuro.
+- [x] **Autenticação Completa:** Login, Cadastro e `AuthContext` (buscando `empresaId` e `role`).
+- [x] **Multi-tenant Base:** Isolamento de dados garantido em todas as queries.
+- [x] **Layout Premium:** Sidebar escura com ícones, card de usuário editável, e Header com status do Firestore.
+- [x] **Dashboard:** Tela inicial com KPIs dinâmicos (contatos, negócios, tarefas, receita) e Ações Rápidas.
+- [x] **CRUD de Contatos:** Criação, leitura, edição e exclusão. Campos: Nome, E-mail, Telefone, Cargo, Empresa, Endereço, Observações e Status.
+- [x] **CRUD de Negócios (Kanban):** Funil de vendas visual com Drag and Drop (desktop) e botões de avanço (mobile).
+- [x] **Integração Produtos ↔ Negócios:** Seleção de produtos no modal de negócios com cálculo automático do valor total.
+- [x] **CRUD de Produtos / Serviços:** Catálogo completo com nome, preço, tipo e descrição.
+- [x] **Módulo de Tarefas:** Lista de tarefas com filtros, data de vencimento e status (concluída/pendente).
+- [x] **Relatórios:** Gráficos (Pizza e Barras) com dados reais e **exportação em PDF e CSV**.
+- [x] **Gestão de Equipe (Convites):** Sistema de convites para novos membros e visualização da equipe.
+- [x] **Tela de Configurações (Empresa):** Edição do perfil da empresa (Nome, Responsável, Segmento).
+- [x] **Mobile First:** Layouts responsivos em todos os módulos.
 
-### O que estamos fazendo agora (Próximo Passo):
-
-- [ ] **Módulo de Negócios (Funil de Vendas):** Criação da estrutura inicial para gerenciar as oportunidades de venda (leads convertidos). O objetivo é implementar uma lista de negócios com filtros de status e, futuramente, um Kanban.
-
----
-
-## 2. O Próximo Passo Imediato
-
-Estamos prontos para iniciar o módulo de **Negócios**.
-
-1.  Precisamos criar a página `Negocios.jsx` e a rota correspondente no `App.jsx`.
-2.  Vamos criar o serviço `negocioService.js` (similar ao `contatoService.js`) para salvar as oportunidades no Firestore.
-3.  **A fazer:** Construir a interface de listagem dos negócios (com KPIs de valor total e status).
+### O que está pendente (Próximos Passos):
+- [ ] **Contatos: Leads vs. Clientes:** Filtrar a página de Contatos para separar Leads de Clientes (via rota e abas).
+- [ ] **Gestão de Equipe: Editar/Excluir:** Permitir que o Admin edite o cargo ou remova membros da equipe.
+- [ ] **Configurações: Abas de Conta e Preferências:** Refinar a tela de configurações (Perfil do Usuário, Senha, Preferências).
+- [ ] **Auditoria (Logs):** Registrar ações de criação, edição e exclusão na coleção `auditoria`.
 
 ---
 
-## 3. Notas de Decisão (Histórico)
+## 2. Histórico de Sessões
 
-- **Modelo de Cadastro:** Optamos por manter o cadastro inicial enxuto (Empresa, Responsável, Segmento). Dados complexos (CNPJ, Endereço) são gerenciados na tela de "Configurações".
-- **Modelo de 1 Usuário = 1 Empresa:** Para o MVP, um usuário gerencia uma empresa. A arquitetura de múltiplos vínculos ficará para o futuro.
-- **Atualização de Perfil:** A tela de Configurações usa `updateDoc` no Firestore. Para refletir as mudanças no Dashboard imediatamente, implementamos um `window.location.reload()` após salvar.
+### Sessões 1 a 4 — (Setup e Autenticação)
 
----
+- **O que fiz:** Configuração do Vite, Tailwind e Firebase. Criação da Landing Page. Autenticação (Login/Cadastro). Criação do `AuthContext` (Multi-tenant).
 
-## 4. Diário de Bordo (Histórico de Sessões)
+### Sessão 5 — (CRUD de Contatos)
 
-### Sessão 1 a 4 — (Setup, Autenticação, Layout e Dashboard)
+- **O que fiz:** Implementação do CRUD de Contatos com escuta em tempo real (`onSnapshot`).
+- **O que aprendi:** Como gerenciar estado de edição/criação com `contatoEditando` e filtrar queries por `empresaId`.
 
-- **O que foi feito:** Configuração do Vite, Tailwind e Firebase. Criação da Landing Page. Integração do Firebase Auth (Login/Cadastro). Criação do `AuthContext` (Multi-tenant). Refatoração do Layout (Sidebar escura, Header, ícones do Lucide). Criação dos KPIs do Dashboard.
+### Sessão 6 — (Tela de Configurações da Empresa)
 
-### Sessão 5 — (CRUD de Contatos Completo)
-
-- **O que fiz:** Implementei todas as operações do CRUD de Contatos. Criei o formulário no Modal, a escuta em tempo real com `onSnapshot` (filtrando por `empresaId`), a edição de contatos e a exclusão com confirmação.
-- **O que aprendi:** Como usar o `updateDoc` e `deleteDoc`. Como gerenciar o estado de "edição" vs "criação" com a variável `contatoEditando`. A importância de filtrar as queries pelo `empresaId`.
-- **Próximo passo:** Iniciar o módulo de Negócios (Funil de Vendas).
-
-### Sessão 6 — (Tela de Configurações)
-
-- **O que fiz:** Criei a tela de Configurações da Empresa. Implementei o `empresaService.js` para atualizar os dados no Firestore. Adicionei feedback visual de sucesso e o reload da página para atualizar o Header.
-- **O que aprendi:** Como atualizar documentos existentes no Firestore e como lidar com o estado global do `AuthContext` após uma edição.
-- **Próximo passo:** Módulo de Negócios (Kanban/Lista).
+- **O que fiz:** Criação da tela de Configurações (dados da empresa) e do `empresaService.js`.
 
 ### Sessão 7 — (Kanban de Negócios e Padronização de UI)
 
-- **O que fiz:**
-  - Implementei o funil de vendas (Kanban) com a biblioteca `@hello-pangea/dnd`.
-  - Criei o componente `ConfirmModal` e integrei o `react-hot-toast` para substituir os alertas nativos do navegador.
-  - Apliquei os novos padrões de feedback visual nas telas de Contatos e Negócios.
-  - Corrigi a semântica da Sidebar (`<h3>` para o logo).
-- **O que aprendi:**
-  - Como funciona o ecossistema de Drag and Drop no React (Droppable, Draggable, DragDropContext).
-  - Como gerenciar notificações globais usando uma biblioteca externa.
-  - A importância de padronizar os feedbacks (Modais e Toasts) para manter a experiência do usuário coesa.
-- **Próximo passo:** Iniciar o módulo de **Tarefas** ou a **Página de Relatórios** com gráficos.
+- **O que fiz:** Implementação do funil (Drag and Drop). Criação do `ConfirmModal` e integração do `react-hot-toast`. Correção semântica do `<h1>`.
 
-### Sessão 8 — (Responsividade e Mobile First)
+### Sessão 8 — (Responsividade Mobile First)
 
-- **O que fiz:**
-  - Implementei o menu "hambúrguer" no Header para mobile, com Sidebar deslizante.
-  - Adaptei a tabela de Contatos para virar cards empilhados no mobile.
-  - Ajustei o Kanban de Negócios para empilhar as colunas verticalmente em telas pequenas.
-- **O que aprendi:**
-  - Como usar as classes `md:` do Tailwind para criar layouts responsivos sem duplicar código.
-  - A importância de otimizar os botões de ação para toque (touch targets maiores no mobile).
-- **Próximo passo:** Iniciar o módulo de **Tarefas** ou a **Página de Relatórios**.
+- **O que fiz:** Menu hambúrguer, tabelas transformadas em cards no mobile, colunas do Kanban empilhadas.
 
-### Sessão 9 — (Módulo de Relatórios e Padronização de UI)
+### Sessão 9 — (Relatórios e Padronização de Cabeçalhos)
 
-- **O que fiz:**
-  - Implementei o módulo de Relatórios com gráficos (Pizza e Barras) usando a biblioteca Recharts.
-  - Criei o `relatorioService.js` para calcular KPIs (taxa de conversão, receita, totais).
-  - Criei o componente reutilizável `PageHeader` para padronizar os títulos das páginas (ícone, título e subtítulo) em todo o sistema.
-  - Apliquei o `PageHeader` nas telas de Relatórios, Negócios e Contatos.
-  - Ajustei o contraste e o tamanho das fontes para melhorar a legibilidade no tema claro.
-- **O que aprendi:**
-  - Como integrar gráficos no React usando Recharts.
-  - A importância de criar componentes de layout (como o PageHeader) para manter a consistência visual e facilitar a manutenção.
-  - Como usar o modificador `!` (important) do Tailwind para forçar cores específicas quando o tema global insiste em sobrescrever.
-- **Próximo passo:** Implementar a lógica real de exportação (PDF/CSV) ou iniciar o módulo de Gestão de Equipe (convidar usuários).
+- **O que fiz:** Criação da página de Relatórios com gráficos (Recharts). Criação do componente `PageHeader` para unificar títulos.
 
 ### Sessão 10 — (Módulo de Tarefas)
 
-- **O que fiz:**
-  - Implementei o CRUD de Tarefas, com campos de título, data de vencimento e status (concluída/pendente).
-  - Criei filtros para visualizar tarefas (Todas, Pendentes, Concluídas).
-  - Adicionei a marcação de conclusão com feedback visual (texto riscado).
-  - Corrigi a cor do título no componente `Modal.jsx` para melhorar a legibilidade no Light Mode.
-- **O que aprendi:**
-  - Como manipular datas no React (input type="date") e formatá-las para exibição.
-  - A importância de ordenar listas por data para melhorar a experiência do usuário.
-- **Próximo passo:** Implementar a lógica real de exportação (PDF/CSV) ou iniciar a Gestão de Equipe (convidar usuários).
+- **O que fiz:** CRUD de Tarefas com data de vencimento e filtros (Todas, Pendentes, Concluídas).
 
 ### Sessão 11 — (Gestão de Equipe e Convites)
 
-- **O que fiz:**
-  - Implementei o sistema de convites (coleção `convites`).
-  - Criei a tela de Gestão de Equipe (membros ativos e convites pendentes).
-  - Modifiquei o `authService.js` para verificar convites no momento do cadastro e vincular o usuário à empresa correta.
-  - Ajustei as Regras do Firestore para permitir a leitura de convites sem autenticação.
-- **O que aprendi:**
-  - Como criar fluxos de onboarding para SaaS (convites).
-  - Como alterar dinamicamente o comportamento do cadastro com base em dados do Firestore.
-  - A importância das regras de segurança para permitir operações específicas (como ler convites antes do login).
-- **Próximo passo:** Implementar a lógica real de exportação (PDF/CSV) ou finalizar a tela de Produtos/Serviços.
+- **O que fiz:** Sistema de convites (coleção `convites`), vinculação automática do convidado à empresa ao se cadastrar.
 
 ### Sessão 12 — (Módulo de Produtos e Serviços)
 
-- **O que fiz:**
-  - Implementei o CRUD de Produtos/Serviços com os campos Nome, Preço, Tipo e Descrição.
-  - Adicionei busca em tempo real na lista.
-  - Criei a visualização responsiva (tabela no desktop e cards no mobile).
-- **O que aprendi:**
-  - Como estruturar um CRUD simples e funcional reutilizando os padrões de UI/UX (PageHeader, Modal, ConfirmModal, Toast).
-- **Próximo passo:** Implementar a lógica real de exportação de relatórios (PDF/CSV) ou vincular produtos aos negócios.
+- **O que fiz:** CRUD de Produtos/Serviços com busca e layout responsivo.
 
-### Sessão 13 — (Refinamento de UI/UX e Mobile First)
+### Sessão 13 a 15 — (Exportação, Perfil e Refinamentos)
 
-- **O que fiz:**
-  - Ajustei a tabela de Contatos para evitar o corte dos botões de ação em telas menores (scroll horizontal consciente).
-  - Padronizei o tamanho dos inputs e selects no modal de Contatos.
-  - Refatorei o modal para ter seções lógicas (Dados Pessoais, Profissionais e Anotações).
-- **Decisão de Arquitetura (REGRA IMUTÁVEL):**
-  - **Mobile First:** A partir de hoje, todo e qualquer componente novo deve ser desenhado primeiramente para telas pequenas (celular). As classes `md:` e `lg:` devem ser usadas para adaptar o layout ao desktop, e não o contrário.
-- **Próximo passo:** Iniciar a revisão de responsividade dos outros módulos (Negócios, Produtos, Relatórios) seguindo o padrão Mobile First.
+- **O que fiz:** Exportação de Relatórios (PDF/CSV), edição de perfil do usuário, logout com modal e redirecionamento, integração de Produtos aos Negócios.
 
-1. Módulo de negócios
+---
 
-### Sessão 14 — (Mobile First no Kanban e Refinamentos)
+## 3. Decisões de Arquitetura (Histórico)
 
-- **O que fiz:**
-  - Implementei botões de "Voltar" e "Avançar" nos cards do Kanban para facilitar a movimentação no celular.
-  - Ajustei a tabela de Contatos para evitar corte dos botões em telas menores.
-  - Padronizei o tamanho dos inputs e selects em todo o sistema.
-- **O que aprendi:**
-  - A importância de adaptar a interação do usuário ao dispositivo (arrastar no desktop, clicar no mobile).
-  - Como garantir que tabelas largas tenham scroll horizontal consciente sem quebrar o layout.
-- **Próximo passo:** Revisar os módulos de Produtos e Relatórios para o padrão Mobile First.
-
-### Sessão 15 — (Mobile First Finalizado)
-
-- **O que fiz:**
-  - Apliquei o padrão Mobile First no Dashboard, Produtos e Relatórios.
-  - Adicionei botões de navegação (Voltar/Avançar) nos cards do Kanban para mobile.
-  - Padronizei tabelas (scroll horizontal consciente) e botões de ação otimizados para toque.
-  - Adicionei um rodapé fixo no Layout para mobile.
-- **O que aprendi:**
-  - A importância de projetar pensando no toque (touch targets maiores) e na densidade de informação.
-  - Como o Tailwind facilita a transição entre layouts mobile e desktop.
-- **Próximo passo:** Implementar a lógica real de exportação de relatórios (PDF/CSV) ou iniciar a auditoria de dados.
-
-### Sessão 16 — (Exportação de Relatórios)
-
-- **O que fiz:**
-  - Implementei a exportação de dados da tela de Relatórios para CSV e PDF.
-  - Criei a função `buscarNegociosParaExportacao` no `relatorioService.js`.
-  - Integrei as bibliotecas `papaparse`, `jspdf` e `jspdf-autotable`.
-- **O que aprendi:**
-  - Como gerar arquivos no lado do cliente (browser) sem precisar de backend.
-  - Como formatar tabelas em PDF usando o `jspdf-autotable`.
-- **Próximo passo:** Implementar Auditoria (logs de ações) ou vincular produtos aos negócios.
-
-### Sessão 17 — (Edição de Perfil e Refinamento de Logout)
-
-- **O que fiz:**
-  - Criei o modal de edição de perfil do usuário na Sidebar.
-  - Implementei a função `atualizarPerfilUsuario` no `usuarioService.js`.
-  - Substituí o `window.confirm` do logout por um `ConfirmModal` elegante.
-  - Refatorei o `Modal.jsx` para usar `createPortal`, garantindo que ele sempre fique centralizado.
-  - Ajustei o redirecionamento pós-logout para ser gerenciado pelo `RotaProtegida` (Landing Page).
-- **O que aprendi:**
-  - Como usar o `createPortal` do React para renderizar componentes fora da árvore DOM do pai.
-  - A importância de deixar o roteamento condicional (RotaProtegida) lidar com o logout, em vez de forçar navegações manuais.
-- **Próximo passo:** Iniciar a implementação da Auditoria (logs de ações) ou integrar os Produtos aos Negócios.
+- **Modelo de Cadastro:** Cadastro inicial enxuto (Empresa, Responsável, Segmento). Dados complexos são geridos na tela de Configurações.
+- **Modelo de 1 Usuário = 1 Empresa:** Para o MVP. A arquitetura de múltiplos vínculos (ex: contador com 2 empresas) ficará para o futuro.
+- **Geração de PDF/CSV no Front-end:** Para evitar custos de Cloud Functions.
+- **Mobile First:** Regra imutável a partir da Sessão 8.
