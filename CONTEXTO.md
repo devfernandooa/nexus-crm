@@ -169,3 +169,27 @@ Estamos prontos para iniciar o módulo de **Negócios**.
   - A importância de projetar pensando no toque (touch targets maiores) e na densidade de informação.
   - Como o Tailwind facilita a transição entre layouts mobile e desktop.
 - **Próximo passo:** Implementar a lógica real de exportação de relatórios (PDF/CSV) ou iniciar a auditoria de dados.
+
+### Sessão 16 — (Exportação de Relatórios)
+
+- **O que fiz:**
+  - Implementei a exportação de dados da tela de Relatórios para CSV e PDF.
+  - Criei a função `buscarNegociosParaExportacao` no `relatorioService.js`.
+  - Integrei as bibliotecas `papaparse`, `jspdf` e `jspdf-autotable`.
+- **O que aprendi:**
+  - Como gerar arquivos no lado do cliente (browser) sem precisar de backend.
+  - Como formatar tabelas em PDF usando o `jspdf-autotable`.
+- **Próximo passo:** Implementar Auditoria (logs de ações) ou vincular produtos aos negócios.
+
+### Sessão 17 — (Edição de Perfil e Refinamento de Logout)
+
+- **O que fiz:**
+  - Criei o modal de edição de perfil do usuário na Sidebar.
+  - Implementei a função `atualizarPerfilUsuario` no `usuarioService.js`.
+  - Substituí o `window.confirm` do logout por um `ConfirmModal` elegante.
+  - Refatorei o `Modal.jsx` para usar `createPortal`, garantindo que ele sempre fique centralizado.
+  - Ajustei o redirecionamento pós-logout para ser gerenciado pelo `RotaProtegida` (Landing Page).
+- **O que aprendi:**
+  - Como usar o `createPortal` do React para renderizar componentes fora da árvore DOM do pai.
+  - A importância de deixar o roteamento condicional (RotaProtegida) lidar com o logout, em vez de forçar navegações manuais.
+- **Próximo passo:** Iniciar a implementação da Auditoria (logs de ações) ou integrar os Produtos aos Negócios.
