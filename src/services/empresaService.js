@@ -10,4 +10,6 @@ export async function atualizarEmpresa(empresaId, dadosAtualizados) {
     console.error("Erro ao atualizar empresa:", error);
     return { sucesso: false, erro: error.message };
   }
+
+
 }
