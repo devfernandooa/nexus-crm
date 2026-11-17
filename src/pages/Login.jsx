@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { signInWithEmailAndPassword } from 'firebase/auth';
 import { auth } from '../firebase-config';
 import AuthLayout from '../components/layouts/AuthLayout';
@@ -20,7 +20,7 @@ export default function Login() {
         try {
             await signInWithEmailAndPassword(auth, email, senha);
             navigate('/app');
-        } catch (error) {
+        } catch {
             setErro('E-mail ou senha incorretos.');
         } finally {
             setLoading(false);

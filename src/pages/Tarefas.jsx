@@ -77,7 +77,7 @@ export default function Tarefas() {
     async function handleSubmit(e) {
         e.preventDefault();
         setSalvando(true);
-        const dados = { titulo, dataVencimento, concluida: tarefaEditando ? undefined : false };
+        const dados = { titulo, dataVencimento};
 
         let resultado;
         if (tarefaEditando) {

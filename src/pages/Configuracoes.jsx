@@ -1,21 +1,17 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
-import { useTheme } from '@/contexts/ThemeContext'; // <-- Importar useTheme
+import { useTheme } from '@/contexts/ThemeContext';
 import { atualizarEmpresa } from '@/services/empresaService';
 import { atualizarPerfilUsuario } from '@/services/usuarioService';
 import PageHeader from '@/components/ui/PageHeader';
 import toast from 'react-hot-toast';
-import { Building, User, Save, Settings, Trash2, Shield, Sun, Moon } from 'lucide-react'; // <-- Ícones adicionados
+import { Building, User, Save, Settings, Trash2, Shield, Sun, Moon } from 'lucide-react';
 import { updatePassword } from 'firebase/auth';
 import { auth } from '@/firebase-config';
-import { deletarPerfilUsuario } from '@/services/usuarioService';
-import { deletarEmpresa } from '@/services/empresaService';
-import ConfirmModal from '@/components/ui/ConfirmModal'; // Já deve estar importado
-import { signOut } from 'firebase/auth';
 
 export default function Configuracoes() {
   const { user, dadosUsuario, dadosEmpresa } = useAuth();
-  const { theme, toggleTheme } = useTheme(); // <-- Obter o tema
+  const { theme, toggleTheme } = useTheme();
 
   const [abaAtiva, setAbaAtiva] = useState('conta');
 
@@ -35,33 +31,10 @@ export default function Configuracoes() {
   const [confirmarSenha, setConfirmarSenha] = useState('');
   const [salvandoSenha, setSalvandoSenha] = useState(false);
 
-  const [isDeleteContaOpen, setIsDeleteContaOpen] = useState(false);
-  const [isDeleting, setIsDeleting] = useState(false);
-
-  async function handleExcluirConta() {
-    setIsDeleting(true);
-    try {
-      // 1. Deletar o documento do usuário no Firestore
-      await deletarPerfilUsuario(user.uid);
-
-      // 2. Deletar o usuário do Firebase Auth
-      if (auth.currentUser) {
-        await auth.currentUser.delete();
-      }
-
-      toast.success('Sua conta foi excluída permanentemente.');
-      // O RotaProtegida vai expulsar o usuário para a Landing Page
-    } catch (error) {
-      toast.error('Erro ao excluir conta. Talvez você precise fazer login novamente.');
-      console.error(error);
-    } finally {
-      setIsDeleting(false);
-    }
-  }
-
   // EFEITO: Preenche os campos quando os dados chegarem do Firestore
   useEffect(() => {
     if (dadosUsuario) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setNomePerfil(dadosUsuario.nome || '');
     }
     if (dadosEmpresa) {
@@ -69,14 +42,18 @@ export default function Configuracoes() {
       setResponsavel(dadosEmpresa.responsavel || '');
       setSegmento(dadosEmpresa.segmento || '');
     }
+    // eslint-disable-next-line react-hooks/set-state-in-effect
   }, [dadosUsuario, dadosEmpresa]);
 
+  // Função para Salvar Perfil (com sincronização)
   async function handleSalvarPerfil(e) {
     e.preventDefault();
     setSalvandoPerfil(true);
 
+    // 1. Atualiza o nome do usuário
     const resultadoUser = await atualizarPerfilUsuario(user.uid, { nome: nomePerfil });
 
+    // 2. Se for Admin, atualiza também o campo 'responsavel' da empresa
     let resultadoEmpresa = { sucesso: true };
     if (dadosUsuario?.role === 'admin' && dadosUsuario?.empresaId) {
       resultadoEmpresa = await atualizarEmpresa(dadosUsuario.empresaId, { responsavel: nomePerfil });
@@ -84,13 +61,13 @@ export default function Configuracoes() {
 
     if (resultadoUser.sucesso && resultadoEmpresa.sucesso) {
       toast.success('Perfil atualizado!');
-      setTimeout(() => window.location.reload(), 1000);
     } else {
       toast.error('Erro ao atualizar perfil.');
     }
     setSalvandoPerfil(false);
   }
 
+  // Função para Salvar Empresa
   async function handleSalvarEmpresa(e) {
     e.preventDefault();
     setSalvandoEmpresa(true);
@@ -102,13 +79,13 @@ export default function Configuracoes() {
 
     if (resultado.sucesso) {
       toast.success('Dados da empresa atualizados!');
-      setTimeout(() => window.location.reload(), 1000);
     } else {
       toast.error('Erro ao atualizar empresa.');
     }
     setSalvandoEmpresa(false);
   }
 
+  // Função para Salvar Senha
   async function handleSalvarSenha(e) {
     e.preventDefault();
     if (novaSenha !== confirmarSenha) {
@@ -126,7 +103,7 @@ export default function Configuracoes() {
         setNovaSenha('');
         setConfirmarSenha('');
       }
-    } catch (error) {
+    } catch {
       toast.error('Erro ao atualizar senha. Talvez seja necessário fazer login novamente.');
     } finally {
       setSalvandoSenha(false);
@@ -162,7 +139,7 @@ export default function Configuracoes() {
 
       <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-6 shadow-sm">
 
-        {/* ABA: Minha Conta */}
+        {/* ABA: Conta */}
         {abaAtiva === 'conta' && (
           <form onSubmit={handleSalvarPerfil} className="space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -176,11 +153,7 @@ export default function Configuracoes() {
               </div>
             </div>
             <div className="flex justify-between items-center pt-4 border-t border-slate-100 dark:border-slate-800 mt-4">
-              <button
-                type="button"
-                onClick={() => setIsDeleteContaOpen(true)} // <-- Abre o modal
-                className="text-red-500 hover:text-red-700 text-sm font-medium flex items-center gap-2"
-              >
+              <button type="button" className="text-red-500 hover:text-red-700 text-sm font-medium flex items-center gap-2">
                 <Trash2 size={16} /> Excluir Conta
               </button>
               <button type="submit" disabled={salvandoPerfil} className="bg-blue-600 hover:bg-blue-500 text-white px-4 py-2 rounded-lg text-sm font-medium flex items-center gap-2 transition-colors">
@@ -216,7 +189,9 @@ export default function Configuracoes() {
               </div>
             </div>
             <div className="flex justify-between items-center pt-4 border-t border-slate-100 dark:border-slate-800 mt-4">
-              <button type="button" className="text-red-500 hover:text-red-700 text-sm font-medium flex items-center gap-2"><Trash2 size={16} /> Excluir Empresa</button>
+              <button type="button" className="text-red-500 hover:text-red-700 text-sm font-medium flex items-center gap-2">
+                <Trash2 size={16} /> Excluir Empresa
+              </button>
               <button type="submit" disabled={salvandoEmpresa} className="bg-blue-600 hover:bg-blue-500 text-white px-4 py-2 rounded-lg text-sm font-medium flex items-center gap-2 transition-colors">
                 <Save size={16} /> {salvandoEmpresa ? 'Salvando...' : 'Salvar Alterações'}
               </button>
@@ -224,7 +199,7 @@ export default function Configuracoes() {
           </form>
         )}
 
-        {/* ABA: Segurança (Alterar Senha) */}
+        {/* ABA: Segurança */}
         {abaAtiva === 'seguranca' && (
           <form onSubmit={handleSalvarSenha} className="space-y-4 max-w-md">
             <div>
@@ -263,15 +238,6 @@ export default function Configuracoes() {
           </div>
         )}
       </div>
-            <ConfirmModal
-        isOpen={isDeleteContaOpen}
-        onClose={() => setIsDeleteContaOpen(false)}
-        onConfirm={handleExcluirConta}
-        title="Excluir Conta Permanentemente"
-        message="Tem certeza que deseja excluir sua conta? Todos os seus dados de perfil serão apagados e você não poderá mais fazer login com este e-mail. Esta ação não pode ser desfeita."
-        confirmText={isDeleting ? 'Excluindo...' : 'Sim, excluir minha conta'}
-      />
     </div>
-    
   );
 }

@@ -1,3 +1,5 @@
+/* eslint-disable react-refresh/only-export-components */
+
 import { createContext, useState, useEffect, useContext } from 'react';
 import { onAuthStateChanged } from 'firebase/auth';
 import { auth, db } from '@/firebase-config';
@@ -44,10 +46,8 @@ export function AuthProvider({ children }) {
   // 3. Escuta o documento da empresa em tempo real
   useEffect(() => {
     if (!dadosUsuario?.empresaId) {
-      setDadosEmpresa(null);
       return;
     }
-
     const empresaRef = doc(db, 'empresas', dadosUsuario.empresaId);
     const unsubscribeEmpresa = onSnapshot(empresaRef, (snapshot) => {
       if (snapshot.exists()) {
