@@ -86,3 +86,13 @@
 - **Modelo de 1 Usuário = 1 Empresa:** Para o MVP. A arquitetura de múltiplos vínculos (ex: contador com 2 empresas) ficará para o futuro.
 - **Geração de PDF/CSV no Front-end:** Para evitar custos de Cloud Functions.
 - **Mobile First:** Regra imutável a partir da Sessão 8.
+
+### Sessão 20 — (Auditoria e Início da Estabilização)
+- **O que fiz:** 
+  - Recebi um relatório de auditoria técnica apontando 5 problemas críticos.
+  - Criei o plano de ação no arquivo `AUDITORIA_E_CORRECOES.md`.
+  - Criei o arquivo `firestore.rules` com as regras de segurança Multi-tenant e RBAC.
+- **O que aprendi:** 
+  - A importância de regras de segurança no Firestore para impedir que usuários mal-intencionados acessem dados de outras empresas via console.
+  - O conceito de condição de corrida (race condition) no cadastro.
+- **Próximo passo:** Aplicar as regras no Console, corrigir o bug do `deleteDoc` e refatorar o `AuthContext` para usar `onSnapshot`.
