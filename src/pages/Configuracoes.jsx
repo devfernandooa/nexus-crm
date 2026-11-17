@@ -8,6 +8,10 @@ import toast from 'react-hot-toast';
 import { Building, User, Save, Settings, Trash2, Shield, Sun, Moon } from 'lucide-react'; // <-- Ícones adicionados
 import { updatePassword } from 'firebase/auth';
 import { auth } from '@/firebase-config';
+import { deletarPerfilUsuario } from '@/services/usuarioService';
+import { deletarEmpresa } from '@/services/empresaService';
+import ConfirmModal from '@/components/ui/ConfirmModal'; // Já deve estar importado
+import { signOut } from 'firebase/auth';
 
 export default function Configuracoes() {
   const { user, dadosUsuario, dadosEmpresa } = useAuth();
@@ -30,6 +34,30 @@ export default function Configuracoes() {
   const [novaSenha, setNovaSenha] = useState('');
   const [confirmarSenha, setConfirmarSenha] = useState('');
   const [salvandoSenha, setSalvandoSenha] = useState(false);
+
+  const [isDeleteContaOpen, setIsDeleteContaOpen] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+
+  async function handleExcluirConta() {
+    setIsDeleting(true);
+    try {
+      // 1. Deletar o documento do usuário no Firestore
+      await deletarPerfilUsuario(user.uid);
+
+      // 2. Deletar o usuário do Firebase Auth
+      if (auth.currentUser) {
+        await auth.currentUser.delete();
+      }
+
+      toast.success('Sua conta foi excluída permanentemente.');
+      // O RotaProtegida vai expulsar o usuário para a Landing Page
+    } catch (error) {
+      toast.error('Erro ao excluir conta. Talvez você precise fazer login novamente.');
+      console.error(error);
+    } finally {
+      setIsDeleting(false);
+    }
+  }
 
   // EFEITO: Preenche os campos quando os dados chegarem do Firestore
   useEffect(() => {
@@ -148,7 +176,13 @@ export default function Configuracoes() {
               </div>
             </div>
             <div className="flex justify-between items-center pt-4 border-t border-slate-100 dark:border-slate-800 mt-4">
-              <button type="button" className="text-red-500 hover:text-red-700 text-sm font-medium flex items-center gap-2"><Trash2 size={16} /> Excluir Conta</button>
+              <button
+                type="button"
+                onClick={() => setIsDeleteContaOpen(true)} // <-- Abre o modal
+                className="text-red-500 hover:text-red-700 text-sm font-medium flex items-center gap-2"
+              >
+                <Trash2 size={16} /> Excluir Conta
+              </button>
               <button type="submit" disabled={salvandoPerfil} className="bg-blue-600 hover:bg-blue-500 text-white px-4 py-2 rounded-lg text-sm font-medium flex items-center gap-2 transition-colors">
                 <Save size={16} /> {salvandoPerfil ? 'Salvando...' : 'Salvar Alterações'}
               </button>
@@ -229,6 +263,15 @@ export default function Configuracoes() {
           </div>
         )}
       </div>
+            <ConfirmModal
+        isOpen={isDeleteContaOpen}
+        onClose={() => setIsDeleteContaOpen(false)}
+        onConfirm={handleExcluirConta}
+        title="Excluir Conta Permanentemente"
+        message="Tem certeza que deseja excluir sua conta? Todos os seus dados de perfil serão apagados e você não poderá mais fazer login com este e-mail. Esta ação não pode ser desfeita."
+        confirmText={isDeleting ? 'Excluindo...' : 'Sim, excluir minha conta'}
+      />
     </div>
+    
   );
 }
