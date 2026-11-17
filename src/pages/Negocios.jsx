@@ -277,6 +277,7 @@ export default function Negocios() {
         onClose={() => setIsModalOpen(false)}
         title={negocioEditando ? "Editar Negócio" : "Novo Negócio"}
         icon={negocioEditando ? <Pencil size={18} /> : <Plus size={18} />}
+        size="lg" // <-- Adicione o tamanho
         footer={
           <div className="flex justify-end gap-3">
             <button type="button" onClick={() => setIsModalOpen(false)} className="px-4 py-2 text-sm font-medium !text-slate-600 hover:bg-slate-100 rounded-lg transition-colors dark:!text-slate-300 dark:hover:bg-slate-800">
