@@ -38,6 +38,7 @@ export default function Contatos() {
   useEffect(() => {
     const tipo = searchParams.get('tipo') || 'todos';
     setFiltro(tipo);
+     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchParams]);
 
   useEffect(() => {

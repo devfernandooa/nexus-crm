@@ -1,5 +1,5 @@
 import { db } from '@/firebase-config';
-import { doc, updateDoc } from 'firebase/firestore';
+import { doc, updateDoc, deleteDoc } from 'firebase/firestore';
 
 export async function atualizarEmpresa(empresaId, dadosAtualizados) {
   try {

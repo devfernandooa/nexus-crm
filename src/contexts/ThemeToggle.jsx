@@ -1,4 +1,3 @@
-import clsx from "clsx";
 import { useTheme } from "./ThemeContext";
 
 function ThemeToggle() {
