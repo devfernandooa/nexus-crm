@@ -44,14 +44,18 @@ export default function Configuracoes() {
       setResponsavel(dadosEmpresa.responsavel || '');
       setSegmento(dadosEmpresa.segmento || '');
     }
+    // eslint-disable-next-line react-hooks/set-state-in-effect
   }, [dadosUsuario, dadosEmpresa]);
 
+  // Função para Salvar Perfil (com sincronização)
   async function handleSalvarPerfil(e) {
     e.preventDefault();
     setSalvandoPerfil(true);
 
+    // 1. Atualiza o nome do usuário
     const resultadoUser = await atualizarPerfilUsuario(user.uid, { nome: nomePerfil });
 
+    // 2. Se for Admin, atualiza também o campo 'responsavel' da empresa
     let resultadoEmpresa = { sucesso: true };
     if (dadosUsuario?.role === 'admin' && dadosUsuario?.empresaId) {
       resultadoEmpresa = await atualizarEmpresa(dadosUsuario.empresaId, { responsavel: nomePerfil });
@@ -59,13 +63,13 @@ export default function Configuracoes() {
 
     if (resultadoUser.sucesso && resultadoEmpresa.sucesso) {
       toast.success('Perfil atualizado!');
-      setTimeout(() => window.location.reload(), 1000);
     } else {
       toast.error('Erro ao atualizar perfil.');
     }
     setSalvandoPerfil(false);
   }
 
+  // Função para Salvar Empresa
   async function handleSalvarEmpresa(e) {
     e.preventDefault();
     setSalvandoEmpresa(true);
@@ -77,13 +81,13 @@ export default function Configuracoes() {
 
     if (resultado.sucesso) {
       toast.success('Dados da empresa atualizados!');
-      setTimeout(() => window.location.reload(), 1000);
     } else {
       toast.error('Erro ao atualizar empresa.');
     }
     setSalvandoEmpresa(false);
   }
 
+  // Função para Salvar Senha
   async function handleSalvarSenha(e) {
     e.preventDefault();
     if (novaSenha !== confirmarSenha) {
@@ -137,7 +141,7 @@ export default function Configuracoes() {
 
       <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-6 shadow-sm">
 
-        {/* ABA: Minha Conta */}
+        {/* ABA: Conta */}
         {abaAtiva === 'conta' && (
           <form onSubmit={handleSalvarPerfil} className="space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -151,7 +155,9 @@ export default function Configuracoes() {
               </div>
             </div>
             <div className="flex justify-between items-center pt-4 border-t border-slate-100 dark:border-slate-800 mt-4">
-              <button type="button" className="text-red-500 hover:text-red-700 text-sm font-medium flex items-center gap-2"><Trash2 size={16} /> Excluir Conta</button>
+              <button type="button" className="text-red-500 hover:text-red-700 text-sm font-medium flex items-center gap-2">
+                <Trash2 size={16} /> Excluir Conta
+              </button>
               <button type="submit" disabled={salvandoPerfil} className="bg-blue-600 hover:bg-blue-500 text-white px-4 py-2 rounded-lg text-sm font-medium flex items-center gap-2 transition-colors">
                 <Save size={16} /> {salvandoPerfil ? 'Salvando...' : 'Salvar Alterações'}
               </button>
@@ -185,7 +191,9 @@ export default function Configuracoes() {
               </div>
             </div>
             <div className="flex justify-between items-center pt-4 border-t border-slate-100 dark:border-slate-800 mt-4">
-              <button type="button" className="text-red-500 hover:text-red-700 text-sm font-medium flex items-center gap-2"><Trash2 size={16} /> Excluir Empresa</button>
+              <button type="button" className="text-red-500 hover:text-red-700 text-sm font-medium flex items-center gap-2">
+                <Trash2 size={16} /> Excluir Empresa
+              </button>
               <button type="submit" disabled={salvandoEmpresa} className="bg-blue-600 hover:bg-blue-500 text-white px-4 py-2 rounded-lg text-sm font-medium flex items-center gap-2 transition-colors">
                 <Save size={16} /> {salvandoEmpresa ? 'Salvando...' : 'Salvar Alterações'}
               </button>
@@ -193,7 +201,7 @@ export default function Configuracoes() {
           </form>
         )}
 
-        {/* ABA: Segurança (Alterar Senha) */}
+        {/* ABA: Segurança */}
         {abaAtiva === 'seguranca' && (
           <form onSubmit={handleSalvarSenha} className="space-y-4 max-w-md">
             <div>

@@ -1,5 +1,5 @@
 import { db } from '../firebase-config';
-import { doc, getDoc, updateDoc } from 'firebase/firestore';
+import { doc, getDoc, updateDoc, deleteDoc } from 'firebase/firestore';
 
 export async function buscarDadosUsuario(uid) {
   try {
@@ -19,8 +19,6 @@ export async function buscarDadosUsuario(uid) {
   }
 }
 
-
-
 export async function atualizarPerfilUsuario(uid, dados) {
   try {
     const userRef = doc(db, 'usuarios', uid);
@@ -28,6 +26,17 @@ export async function atualizarPerfilUsuario(uid, dados) {
     return { sucesso: true };
   } catch (error) {
     console.error("Erro ao atualizar perfil:", error);
+    return { sucesso: false, erro: error.message };
+  }
+}
+
+export async function deletarPerfilUsuario(uid) {
+  try {
+    const userRef = doc(db, 'usuarios', uid);
+    await deleteDoc(userRef);
+    return { sucesso: true };
+  } catch (error) {
+    console.error("Erro ao deletar perfil no Firestore:", error);
     return { sucesso: false, erro: error.message };
   }
 }

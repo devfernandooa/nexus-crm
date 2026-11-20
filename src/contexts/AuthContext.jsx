@@ -2,7 +2,6 @@ import { createContext, useState, useEffect } from 'react';
 import { onAuthStateChanged } from 'firebase/auth';
 import { auth, db } from '@/firebase-config';
 import { doc, onSnapshot } from 'firebase/firestore';
-import { buscarDadosUsuario } from '@/services/usuarioService';
 
 const AuthContext = createContext({});
 
@@ -14,22 +13,35 @@ export function AuthProvider({ children }) {
 
   // 1. Escuta o estado de autenticação
   useEffect(() => {
-    const unsubscribeAuth = onAuthStateChanged(auth, async (usuario) => {
-      if (usuario) {
-        const dadosUser = await buscarDadosUsuario(usuario.uid);
-        setUser(usuario);
-        setDadosUsuario(dadosUser);
-      } else {
-        setUser(null);
+    const unsubscribeAuth = onAuthStateChanged(auth, (usuario) => {
+      setUser(usuario);
+      if (!usuario) {
         setDadosUsuario(null);
         setDadosEmpresa(null);
+        setLoading(false);
       }
-      setLoading(false);
     });
     return () => unsubscribeAuth();
   }, []);
 
-  // 2. Escuta os dados da empresa quando o usuário estiver carregado
+  // 2. Escuta o documento do usuário em tempo real
+  useEffect(() => {
+    if (!user) return;
+
+    const userRef = doc(db, 'usuarios', user.uid);
+    const unsubscribeUser = onSnapshot(userRef, (snapshot) => {
+      if (snapshot.exists()) {
+        setDadosUsuario({ id: snapshot.id, ...snapshot.data() });
+      } else {
+        setDadosUsuario(null);
+      }
+      setLoading(false);
+    });
+
+    return () => unsubscribeUser();
+  }, [user]);
+
+  // 3. Escuta o documento da empresa em tempo real
   useEffect(() => {
     if (!dadosUsuario?.empresaId) return;
 

@@ -39,6 +39,7 @@ export default function Contatos() {
     const tipo = searchParams.get('tipo') || 'todos';
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setFiltro(tipo);
+     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchParams]);
 
   useEffect(() => {
@@ -243,12 +244,12 @@ export default function Contatos() {
         )}
       </div>
 
-      {/* Modal */}
       <Modal
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
         title={contatoEditando ? "Editar Contato" : "Novo Contato"}
         icon={contatoEditando ? <Pencil size={18} /> : <Plus size={18} />}
+        size="lg" // <-- Adicione o tamanho
       >
         {/* ... o formulário completo (mantido como estava) ... */}
         <form onSubmit={handleSubmit} className="space-y-4">
