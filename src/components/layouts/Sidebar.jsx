@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { NavLink } from 'react-router-dom';
-import { useAuth } from '@/contexts/AuthContext';
+import { useAuth } from '@/hooks/useAuth';
 import {
   LayoutDashboard, Users, Briefcase, BarChart3, Settings,
   ChevronDown, ChevronRight, LogOut, UserCircle, CheckSquare, Package, Pencil, Building, Shield
@@ -88,7 +88,7 @@ export default function Sidebar({ onClose }) {
               </div>
               <div className="flex flex-col min-w-0">
                 <span className="text-sm font-bold text-slate-900 dark:text-white truncate">
-                  {dadosUsuario?.nome || user?.email?.split('@')[0]}
+                  {dadosEmpresa?.responsavel || dadosUsuario?.nome || user?.email?.split('@')[0]}
                 </span>
                 <span className="text-xs text-slate-500 truncate">
                   {user?.email}

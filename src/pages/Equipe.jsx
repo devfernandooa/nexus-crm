@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useAuth } from '@/contexts/AuthContext';
+import { useAuth } from '@/hooks/useAuth';
 import { escutarEquipe, escutarConvites, criarConvite, cancelarConvite, atualizarCargoMembro, removerMembroEquipe } from '@/services/equipeService';
 import Modal from '@/components/ui/Modal';
 import ConfirmModal from '@/components/ui/ConfirmModal';

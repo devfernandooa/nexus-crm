@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom'; // Importante para ler a URL
-import { useAuth } from '@/contexts/AuthContext';
+import { useAuth } from '@/hooks/useAuth';
 import { escutarContatos, adicionarContato, atualizarContato, deletarContato } from '@/services/contatoService';
 import Modal from '@/components/ui/Modal';
 import ConfirmModal from '@/components/ui/ConfirmModal';
@@ -39,7 +39,7 @@ export default function Contatos() {
     const tipo = searchParams.get('tipo') || 'todos';
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setFiltro(tipo);
-     // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchParams]);
 
   useEffect(() => {

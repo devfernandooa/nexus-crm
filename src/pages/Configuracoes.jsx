@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useAuth } from '@/contexts/AuthContext';
+import { useAuth } from '@/hooks/useAuth';
 import { useTheme } from '@/hooks/useTheme';
 import { atualizarEmpresa } from '@/services/empresaService';
 import { atualizarPerfilUsuario } from '@/services/usuarioService';
