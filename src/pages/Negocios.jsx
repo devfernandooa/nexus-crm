@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useAuth } from '@/contexts/AuthContext';
+import { useAuth } from '@/hooks/useAuth';
 import { escutarNegocios, adicionarNegocio, atualizarNegocio, deletarNegocio } from '@/services/negocioService';
 import { escutarProdutos } from '@/services/produtoService';
 import Modal from '@/components/ui/Modal';

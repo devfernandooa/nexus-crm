@@ -7,60 +7,49 @@ service cloud.firestore {
       return request.auth != null;
     }
 
-    // Função para verificar se o usuário é Admin
-    function isAdmin() {
-      return isAuthenticated() && request.auth.token.role == 'admin';
+    // Função para buscar o empresaId do usuário logado
+    function getEmpresaId() {
+      return get(/databases/$(database)/documents/usuarios/$(request.auth.uid)).data.empresaId;
     }
 
-    // Função para verificar se o documento pertence à empresa do usuário
-    function isSameEmpresa(empresaId) {
-      return isAuthenticated() && request.auth.token.empresaId == empresaId;
+    // Função para buscar o role do usuário logado
+    function getRole() {
+      return get(/databases/$(database)/documents/usuarios/$(request.auth.uid)).data.role;
     }
 
     // --- REGRAS PARA EMPRESAS ---
     match /empresas/{empresaId} {
-      // Qualquer pessoa logada pode ler a própria empresa
-      allow read: if isAuthenticated() && request.auth.token.empresaId == empresaId;
-      // Apenas o Admin da empresa pode atualizar
-      allow update: if isAdmin() && request.auth.token.empresaId == empresaId;
-      // Apenas o Admin pode excluir (cuidado!)
-      allow delete: if isAdmin() && request.auth.token.empresaId == empresaId;
-      // Criação de empresa é feita no cadastro (sem estar logado ainda)
-      allow create: if isAuthenticated(); 
+      allow read: if isAuthenticated() && getEmpresaId() == empresaId;
+      allow update, delete: if isAuthenticated() && getRole() == 'admin' && getEmpresaId() == empresaId;
+      allow create: if isAuthenticated();
     }
 
     // --- REGRAS PARA USUÁRIOS ---
     match /usuarios/{userId} {
-      // O usuário pode ler o próprio perfil, ou o Admin pode ler os da mesma empresa
-      allow read: if isAuthenticated() && (request.auth.uid == userId || isAdmin());
-      // O usuário pode atualizar o próprio perfil, Admin pode atualizar qualquer um da empresa
-      allow update: if isAuthenticated() && (request.auth.uid == userId || isAdmin());
-      // O usuário pode criar o próprio perfil no cadastro
+      allow read: if isAuthenticated() && (request.auth.uid == userId || getRole() == 'admin');
+      allow update: if isAuthenticated() && (request.auth.uid == userId || getRole() == 'admin');
       allow create: if isAuthenticated() && request.auth.uid == userId;
-      // Apenas Admin pode deletar um usuário
-      allow delete: if isAdmin();
+      allow delete: if isAuthenticated() && getRole() == 'admin';
     }
 
     // --- REGRAS PARA CONVITES ---
     match /convites/{conviteId} {
-      // O cadastro precisa ler o convite antes de estar logado
-      allow read: if true; 
-      // Apenas Admin pode criar/cancelar convites
-      allow write: if isAdmin();
+      allow read: if true; // O cadastro precisa ler o convite antes de estar logado
+      allow write: if isAuthenticated() && getRole() == 'admin';
     }
 
-    // --- REGRAS PARA DADOS OPERACIONAIS (Contatos, Negócios, Tarefas, Produtos) ---
+    // --- REGRAS PARA DADOS OPERACIONAIS ---
     match /contatos/{docId} {
-      allow read, write: if isAuthenticated() && isSameEmpresa(resource.data.empresaId);
+      allow read, write: if isAuthenticated() && getEmpresaId() == resource.data.empresaId;
     }
     match /negocios/{docId} {
-      allow read, write: if isAuthenticated() && isSameEmpresa(resource.data.empresaId);
+      allow read, write: if isAuthenticated() && getEmpresaId() == resource.data.empresaId;
     }
     match /tarefas/{docId} {
-      allow read, write: if isAuthenticated() && isSameEmpresa(resource.data.empresaId);
+      allow read, write: if isAuthenticated() && getEmpresaId() == resource.data.empresaId;
     }
     match /produtos/{docId} {
-      allow read, write: if isAuthenticated() && isSameEmpresa(resource.data.empresaId);
+      allow read, write: if isAuthenticated() && getEmpresaId() == resource.data.empresaId;
     }
   }
 }

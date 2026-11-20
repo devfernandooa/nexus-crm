@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useAuth } from '@/contexts/AuthContext';
+import { useAuth } from '@/hooks/useAuth';
 import { escutarTarefas, adicionarTarefa, atualizarTarefa, deletarTarefa } from '@/services/tarefaService';
 import Modal from '@/components/ui/Modal';
 import ConfirmModal from '@/components/ui/ConfirmModal';
@@ -33,6 +33,7 @@ export default function Tarefas() {
 
     // Filtragem
     const tarefasFiltradas = tarefas.filter(t => {
+
         if (filtro === 'pendentes') return !t.concluida;
         if (filtro === 'concluidas') return t.concluida;
         return true;
@@ -98,6 +99,11 @@ export default function Tarefas() {
         setSalvando(false);
     }
 
+    function formatarDataVencimento(dataString) {
+        if (!dataString) return '';
+        const [ano, mes, dia] = dataString.split('-');
+        return new Date(ano, mes - 1, dia).toLocaleDateString('pt-BR');
+    }
     return (
         <div className="w-full h-full flex flex-col">
             <PageHeader
@@ -143,9 +149,10 @@ export default function Tarefas() {
                                     <span className={`font-medium truncate transition-colors ${tarefa.concluida ? 'line-through !text-slate-400' : '!text-slate-900 dark:!text-white'}`}>
                                         {tarefa.titulo}
                                     </span>
+
                                     {tarefa.dataVencimento && (
                                         <span className="text-xs !text-slate-500 flex items-center gap-1 mt-1">
-                                            <Calendar size={12} /> Vence em: {new Date(tarefa.dataVencimento).toLocaleDateString('pt-BR')}
+                                            <Calendar size={12} /> Vence em: {formatarDataVencimento(tarefa.dataVencimento)}
                                         </span>
                                     )}
                                 </div>

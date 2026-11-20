@@ -1,7 +1,7 @@
 import { db } from '@/firebase-config';
 import { doc, getDoc } from 'firebase/firestore';
 import { useState, useEffect } from 'react';
-import { useAuth } from '@/contexts/AuthContext';
+import { useAuth } from '@/hooks/useAuth';
 import { buscarDadosRelatorio, buscarNegociosParaExportacao } from '@/services/relatorioService';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend, BarChart, Bar, XAxis, YAxis, CartesianGrid } from 'recharts';
 import PageHeader from '@/components/ui/PageHeader';
