@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
-import { useTheme } from '@/contexts/ThemeContext';
+import { useTheme } from '@/hooks/useTheme';
 import { atualizarEmpresa } from '@/services/empresaService';
 import { atualizarPerfilUsuario } from '@/services/usuarioService';
 import PageHeader from '@/components/ui/PageHeader';
@@ -32,12 +32,14 @@ export default function Configuracoes() {
   const [salvandoSenha, setSalvandoSenha] = useState(false);
 
   // EFEITO: Preenche os campos quando os dados chegarem do Firestore
+
   useEffect(() => {
     if (dadosUsuario) {
       // eslint-disable-next-line react-hooks/set-state-in-effect
       setNomePerfil(dadosUsuario.nome || '');
     }
     if (dadosEmpresa) {
+
       setNomeEmpresa(dadosEmpresa.nome || '');
       setResponsavel(dadosEmpresa.responsavel || '');
       setSegmento(dadosEmpresa.segmento || '');

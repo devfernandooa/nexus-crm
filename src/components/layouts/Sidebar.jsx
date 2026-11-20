@@ -12,6 +12,7 @@ import Modal from '@/components/ui/Modal';
 import toast from 'react-hot-toast';
 import { atualizarPerfilUsuario } from '@/services/usuarioService';
 
+
 export default function Sidebar({ onClose }) {
   const { user, dadosUsuario, dadosEmpresa } = useAuth();
   const [menuAberto, setMenuAberto] = useState(null);
