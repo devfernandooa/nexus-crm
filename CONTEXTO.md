@@ -88,11 +88,23 @@
 - **Mobile First:** Regra imutável a partir da Sessão 8.
 
 ### Sessão 20 — (Auditoria e Início da Estabilização)
-- **O que fiz:** 
+
+- **O que fiz:**
   - Recebi um relatório de auditoria técnica apontando 5 problemas críticos.
   - Criei o plano de ação no arquivo `AUDITORIA_E_CORRECOES.md`.
   - Criei o arquivo `firestore.rules` com as regras de segurança Multi-tenant e RBAC.
-- **O que aprendi:** 
+- **O que aprendi:**
   - A importância de regras de segurança no Firestore para impedir que usuários mal-intencionados acessem dados de outras empresas via console.
   - O conceito de condição de corrida (race condition) no cadastro.
 - **Próximo passo:** Aplicar as regras no Console, corrigir o bug do `deleteDoc` e refatorar o `AuthContext` para usar `onSnapshot`.
+
+### Sessão 21 — (Testes Finais e Correções)
+
+- **O que fiz:**
+  - Corrigi o bug de fuso horário nas datas de vencimento.
+  - Sincronizei o nome do responsável da empresa com o Sidebar.
+  - Executei a bateria completa de testes em todos os módulos.
+- **O que aprendi:**
+  - A importância de testar o sistema como um todo antes de entregar para o cliente.
+  - Como o isolamento Multi-tenant funciona na prática (teste de URL direta).
+- **Próximo passo:** Deploy na Vercel para o cliente.
