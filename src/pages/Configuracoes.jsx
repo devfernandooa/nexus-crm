@@ -1,17 +1,17 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
-import { useTheme } from '@/contexts/ThemeContext'; // <-- Importar useTheme
+import { useTheme } from '@/hooks/useTheme';
 import { atualizarEmpresa } from '@/services/empresaService';
 import { atualizarPerfilUsuario } from '@/services/usuarioService';
 import PageHeader from '@/components/ui/PageHeader';
 import toast from 'react-hot-toast';
-import { Building, User, Save, Settings, Trash2, Shield, Sun, Moon } from 'lucide-react'; // <-- Ícones adicionados
+import { Building, User, Save, Settings, Trash2, Shield, Sun, Moon } from 'lucide-react';
 import { updatePassword } from 'firebase/auth';
 import { auth } from '@/firebase-config';
 
 export default function Configuracoes() {
   const { user, dadosUsuario, dadosEmpresa } = useAuth();
-  const { theme, toggleTheme } = useTheme(); // <-- Obter o tema
+  const { theme, toggleTheme } = useTheme();
 
   const [abaAtiva, setAbaAtiva] = useState('conta');
 
@@ -32,11 +32,14 @@ export default function Configuracoes() {
   const [salvandoSenha, setSalvandoSenha] = useState(false);
 
   // EFEITO: Preenche os campos quando os dados chegarem do Firestore
+
   useEffect(() => {
     if (dadosUsuario) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setNomePerfil(dadosUsuario.nome || '');
     }
     if (dadosEmpresa) {
+
       setNomeEmpresa(dadosEmpresa.nome || '');
       setResponsavel(dadosEmpresa.responsavel || '');
       setSegmento(dadosEmpresa.segmento || '');
@@ -98,7 +101,7 @@ export default function Configuracoes() {
         setNovaSenha('');
         setConfirmarSenha('');
       }
-    } catch (error) {
+    } catch {
       toast.error('Erro ao atualizar senha. Talvez seja necessário fazer login novamente.');
     } finally {
       setSalvandoSenha(false);

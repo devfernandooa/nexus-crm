@@ -1,4 +1,4 @@
-import { createContext, useState, useEffect, useContext } from 'react';
+import { createContext, useState, useEffect } from 'react';
 import { onAuthStateChanged } from 'firebase/auth';
 import { auth, db } from '@/firebase-config';
 import { doc, onSnapshot } from 'firebase/firestore';
@@ -31,10 +31,8 @@ export function AuthProvider({ children }) {
 
   // 2. Escuta os dados da empresa quando o usuário estiver carregado
   useEffect(() => {
-    if (!dadosUsuario?.empresaId) {
-      setDadosEmpresa(null);
-      return;
-    }
+    if (!dadosUsuario?.empresaId) return;
+
 
     const empresaRef = doc(db, 'empresas', dadosUsuario.empresaId);
     const unsubscribeEmpresa = onSnapshot(empresaRef, (snapshot) => {
@@ -57,6 +55,3 @@ export function AuthProvider({ children }) {
   );
 }
 
-export function useAuth() {
-  return useContext(AuthContext);
-}

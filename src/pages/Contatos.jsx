@@ -37,6 +37,7 @@ export default function Contatos() {
   // Atualiza o filtro se o usuário mudar a URL pela Sidebar
   useEffect(() => {
     const tipo = searchParams.get('tipo') || 'todos';
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setFiltro(tipo);
   }, [searchParams]);
 

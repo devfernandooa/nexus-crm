@@ -77,12 +77,13 @@ export default function Tarefas() {
     async function handleSubmit(e) {
         e.preventDefault();
         setSalvando(true);
-        const dados = { titulo, dataVencimento, concluida: tarefaEditando ? undefined : false };
+        const dados = { titulo, dataVencimento };
 
         let resultado;
         if (tarefaEditando) {
             // Remove o campo concluida do update para não sobrescrever o status atual
-            const { concluida, ...dadosUpdate } = dados;
+            const dadosUpdate = { ...dados };
+            delete dadosUpdate.concluida;
             resultado = await atualizarTarefa(tarefaEditando, dadosUpdate);
         } else {
             resultado = await adicionarTarefa(dados, dadosUsuario.empresaId);

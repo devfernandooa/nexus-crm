@@ -1,5 +1,4 @@
-import clsx from "clsx";
-import { useTheme } from "./ThemeContext";
+import { useTheme } from '@/hooks/useTheme';
 
 function ThemeToggle() {
   const { theme, toggleTheme } = useTheme();
