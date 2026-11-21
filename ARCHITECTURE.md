@@ -41,3 +41,11 @@ src/
         ├── NegocioDrawer.jsx         # Painel lateral de detalhes
         └── ModalConfigurarFunil.jsx  # Editor de etapas do funil
 ```
+
+### 4.4 Resiliência de Funil (Negócios Órfãos)
+
+Como o `status` é uma string (e futuramente `etapaId`), um negócio pode ficar "órfão" se sua etapa for deletada diretamente no banco. Para garantir a integridade dos dados:
+
+1. **Bloqueio de Exclusão:** O modal de funil verifica se existem negócios na etapa antes de permitir a exclusão ou renomeação.
+2. **Coluna Virtual:** O hook `useNegociosKanban` varre a lista de negócios. Qualquer negócio cujo `status` não exista na lista ativa de etapas é direcionado para uma coluna virtual renderizada no final do board (`id: 'sem-etapa'`, flag `isVirtual: true`).
+3. **Imutabilidade da coluna virtual:** Cards de etapas válidas não podem ser arrastados para a coluna "Sem Etapa". No entanto, cards órfãos podem ser arrastados (ou movidos via botão) de volta para qualquer etapa válida.

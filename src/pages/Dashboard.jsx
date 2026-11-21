@@ -1,11 +1,11 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { useNavigate } from 'react-router-dom';
-import { buscarDadosDashboard, buscarContatosRecentes } from '@/services/dashboardService';
+import { buscarContatosRecentes, escutarDadosDashboard } from '@/services/dashboardService'; // Importação corrigida
 import PageHeader from '@/components/ui/PageHeader';
 import {
   Users, Briefcase, DollarSign, TrendingUp, Plus, ArrowRight,
-  Calendar, LayoutDashboard, CheckSquare, Mail, Phone
+  Calendar, LayoutDashboard, Mail, Phone
 } from 'lucide-react';
 
 export default function Dashboard() {
@@ -26,19 +26,19 @@ export default function Dashboard() {
   useEffect(() => {
     if (!dadosUsuario?.empresaId) return;
 
-    async function carregarDados() {
-      const resultado = await buscarDadosDashboard(dadosUsuario.empresaId);
-      if (resultado.sucesso) {
-        setDados(resultado.dados);
-      }
-
-      const contatos = await buscarContatosRecentes(dadosUsuario.empresaId);
+    // 1. Carrega os contatos recentes (leitura única)
+    buscarContatosRecentes(dadosUsuario.empresaId).then((contatos) => {
       setContatosRecentes(contatos);
+      setLoading(false); // Tira o loading assim que os contatos chegarem
+    });
 
-      setLoading(false);
-    }
+    // 2. Conecta o Radar em tempo real (onSnapshot) para os KPIs
+    const unsubscribe = escutarDadosDashboard(dadosUsuario.empresaId, (novosDados) => {
+      setDados(novosDados); // Atualiza o estado com os dados vindos do Firebase em tempo real
+    });
 
-    carregarDados();
+    // 3. Limpa a escuta quando sair da tela (evita vazamento de memória)
+    return () => unsubscribe();
   }, [dadosUsuario?.empresaId]);
 
   const formatarMoeda = (valor) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(valor);
