@@ -182,8 +182,9 @@ export default function Negocios() {
             <div className="flex flex-col md:flex-row gap-1 md:gap-3 overflow-x-auto pb-0 h-full">
               {colunas.map((coluna, index) => (
                 <KanbanColumn
-                  key={coluna.id} coluna={coluna}
-                  negocios={negocios.filter(n => n.status === coluna.id)}
+                  key={coluna.id}
+                  coluna={coluna}
+                  negocios={coluna.cards} // <-- CORRIGIDO AQUI: usa os cards que já vêm agrupados do hook
                   isMobile={isMobile}
                   onOpenDetails={handleOpenDetails}
                   onMoveStage={handleMoverBotao}
