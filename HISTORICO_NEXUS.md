@@ -1,37 +1,80 @@
-# HISTORICO_NEXUS.md — Diário de Bordo Detalhado
+# HISTORICO_NEXUS.md — Diário de Bordo
 
-## Sessão 1 a 15 — (Consolidado)
+> **Propósito:** Registro cronológico das sessões. O plano do ciclo atual fica
+> em `CICLO_KANBAN.md`; decisões estáveis em `ARCHITECTURE.md`.
 
-- **Setup:** Vite, React, Tailwind, Firebase (Auth + Firestore).
-- **Autenticação:** Login, Cadastro, Contexto, Rotas Protegidas.
+## Sessões 1–15 — (Consolidado)
+
+- **Setup:** Vite, React, Tailwind, Firebase.
+- **Auth:** Login, Cadastro, Contexto, Rotas Protegidas.
 - **CRUDs:** Contatos, Negócios (Kanban), Produtos, Tarefas.
-- **Relatórios:** Gráficos (Pizza/Barras) e Exportação (PDF/CSV).
-- **Gestão:** Convites de equipe, Configurações da Empresa, Edição de Perfil.
-- **UI/UX:** Design System, Mobile First, Modais, Toasts, Confirmações.
+- **Relatórios:** Gráficos e Exportação (PDF/CSV).
+- **Gestão:** Convites, Configurações, Edição de Perfil.
+- **UI/UX:** Design System, Mobile First, Modais, Toasts.
 
-## Sessão 16 — (Integração de Produtos e Negócios)
+## Sessão 16 — Integração Produtos ↔ Negócios
 
-- **O que fiz:** Seletor de produtos no modal de negócios, cálculo automático de valor, exibição de itens no Kanban.
-- **O que aprendi:** Criação de dropdown customizado (`SelectProdutos`) para evitar conflitos de z-index com o Modal.
+- Seletor de produtos no modal, cálculo automático, exibição no Kanban.
+- **Aprendi:** dropdown customizado evita conflito de z-index com Modal.
 
-## Sessão 17 — (Exportação de Relatórios)
+## Sessão 17 — Exportação de Relatórios
 
-- **O que fiz:** Implementação real de exportação PDF/CSV usando `jspdf` e `papaparse`.
+- `jspdf` + `papaparse` para PDF/CSV.
 
-## Sessão 18 — (Edição de Perfil e Logout Refinado)
+## Sessão 18 — Edição de Perfil e Logout
 
-- **O que fiz:** Modal de edição de perfil, logout com confirmação e redirecionamento via `RotaProtegida`.
+- Modal de edição, logout com confirmação e redirecionamento.
 
-### Sessão 19 — (Configurações Avançadas e Sidebar Refinada)
+## Sessão 19 — Configurações Avançadas e Sidebar
 
-- **O que fiz:**
-  - Transformei a tela de Configurações em um painel com 4 abas (Conta, Empresa, Segurança, Preferências).
-  - Implementei a troca de senha usando `updatePassword`.
-  - Implementei a troca de tema diretamente nas preferências.
-  - Atualizei o `AuthContext` para escutar a empresa em tempo real (`onSnapshot`), resolvendo o problema dos dados vazios.
-  - Refinei o card do usuário na Sidebar, movendo os botões de ação para o topo.
-- **O que aprendi:**
-  - Como sincronizar dados entre coleções diferentes (usuários e empresas).
-  - Como usar `onSnapshot` para escutar múltiplas fontes de dados no Contexto.
-  - A importância de usar `setTimeout` com `window.location.reload()` para garantir que o AuthContext seja atualizado após edições críticas.
-- **Próximo passo:** Implementar a Auditoria (logs de ações) ou finalizar a lógica de exclusão de conta/empresa.
+- Painel com 4 abas (Conta, Empresa, Segurança, Preferências).
+- Troca de senha e tema.
+- `AuthContext` com `onSnapshot` para empresa.
+- **Aprendi:** sincronizar coleções via `onSnapshot`; `setTimeout` + reload
+  após edições críticas.
+
+## Sessão 20 — Auditoria e Estabilização
+
+- Plano em `AUDITORIA_E_CORRECOES.md`.
+- `firestore.rules` com multi-tenant + RBAC.
+- **Aprendi:** regras impedem acesso via console; race condition no cadastro.
+
+## Sessão 21 — Testes Finais
+
+- Correção de fuso horário; sync do nome do responsável.
+- **Aprendi:** testar como um todo; validar isolamento via URL direta.
+
+## Sessões 22–25 — Refatoração do Kanban e SoC
+
+- Extração para `useNegociosKanban`, `KanbanCard`, `KanbanColumn`.
+- Drag seguro + navegação mobile com setas.
+- **Decisão:** mobile usa toque; desktop usa arrasto.
+
+## Sessões 26–28 — Drawer e Integração de Tarefas
+
+- `NegocioDrawer` com abas; tarefas vinculadas por `negocioId`.
+- **Decisão:** filtragem client-side para evitar índices compostos.
+
+## Sessões 29–31 — Switcher de Views
+
+- `ListView` + switcher Kanban/Lista; preferência em localStorage.
+- **Decisão:** view mode é estado local persistente.
+
+## Sessões 32–36 — Funil Dinâmico e Full Bleed
+
+- `ModalConfigurarFunil` com CRUD e reordenação via DND.
+- Layout full bleed; correções de altura para DND.
+- **Decisão:** altura fixa via `calc(100vh - Xpx)`; funil como array.
+
+## Sessão 37 — Refinamento Final UI/UX
+
+- Contraste, drawer sem ID, botões no rodapé, aba Visão Geral enriquecida.
+- **Decisão:** drawer fecha ao editar.
+
+## Sessão 38 (2026-11-21) — Planejamento do Ciclo Kanban Mobile First
+
+- **Contexto:** auditoria revelou ausência de `order` e uso de `status` por nome.
+- **Decisões:** ver `CICLO_KANBAN.md` §2 (D1–D8).
+- **Docs reorganizados:** `ARCHITECTURE.md` (estável), `CICLO_KANBAN.md`
+  (plano), `MIGRACAO.md` (operação), este histórico (diário).
+- **Próximo passo:** E0 (auditoria) → E1 (leitura tolerante).
