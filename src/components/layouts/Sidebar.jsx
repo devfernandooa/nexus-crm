@@ -65,8 +65,7 @@ export default function Sidebar({ onClose }) {
 
   return (
     <>
-      <aside className="w-64 bg-white dark:bg-[#0B1120] border-r border-slate-200 dark:border-slate-800 flex flex-col h-screen transition-colors duration-300">
-
+      <aside className="h-full w-64 flex-shrink-0 bg-white dark:bg-slate-900 border-r border-slate-200 dark:border-slate-800 flex flex-col shadow-[4px_0_24px_rgba(0,0,0,0.02)] ">
         {/* Logo */}
         <div className="flex items-center gap-3 px-6 h-16 border-b border-slate-200 dark:border-slate-800">
           <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center text-white font-bold text-lg shrink-0">
@@ -76,7 +75,6 @@ export default function Sidebar({ onClose }) {
             Nexus CRM
           </h3>
         </div>
-
         {/* Card do Usuário */}
         <div className="px-4 py-4 border-b border-slate-200 dark:border-slate-800">
           <div className="flex items-start justify-between gap-2">
