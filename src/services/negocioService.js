@@ -1,5 +1,5 @@
 import { db } from '@/firebase-config';
-import { collection, addDoc, updateDoc, deleteDoc, doc, query, where, onSnapshot, serverTimestamp } from 'firebase/firestore';
+import { collection, addDoc, updateDoc, deleteDoc, doc, query, where, onSnapshot, serverTimestamp, getDocs } from 'firebase/firestore';
 
 export async function adicionarNegocio(dados, empresaId) {
   try {
@@ -41,7 +41,7 @@ export async function deletarNegocio(id) {
 export function escutarNegocios(empresaId, callback) {
   const ref = collection(db, 'negocios');
   const q = query(ref, where('empresaId', '==', empresaId));
-  
+
   const unsubscribe = onSnapshot(q, (snapshot) => {
     const lista = snapshot.docs.map(doc => ({
       id: doc.id,
@@ -53,4 +53,31 @@ export function escutarNegocios(empresaId, callback) {
   });
 
   return unsubscribe;
+}
+
+/**
+ * NOVO: Retorna um mapa com a contagem de negócios agrupados por status (etapa).
+ * Exemplo de retorno: { "Prospecção": 2, "Demo Online": 1 }
+ * Utilizado para bloquear a exclusão/edição de etapas que possuem negócios.
+ */
+export async function buscarContagemNegociosPorEtapa(empresaId) {
+  try {
+    const ref = collection(db, 'negocios');
+    const q = query(ref, where('empresaId', '==', empresaId));
+    const snapshot = await getDocs(q);
+
+    const contagem = {};
+
+    snapshot.forEach((doc) => {
+      const status = doc.data().status;
+      if (status) {
+        contagem[status] = (contagem[status] || 0) + 1;
+      }
+    });
+
+    return { sucesso: true, dados: contagem };
+  } catch (error) {
+    console.error("Erro ao buscar contagem de negócios por etapa:", error);
+    return { sucesso: false, erro: error.message, dados: {} };
+  }
 }
