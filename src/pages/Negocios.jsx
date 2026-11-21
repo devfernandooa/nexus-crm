@@ -10,14 +10,11 @@ import ConfirmModal from '@/components/ui/ConfirmModal';
 import PageHeader from '@/components/ui/PageHeader';
 import SelectProdutos from '@/components/ui/SelectProdutos';
 import toast from 'react-hot-toast';
+import { Plus, Briefcase, DollarSign, TrendingUp, Pencil, LayoutGrid, List, Settings } from 'lucide-react';
 import { DragDropContext } from '@hello-pangea/dnd';
-import { Plus, Briefcase, DollarSign, TrendingUp, Pencil } from 'lucide-react';
 
 import ListView from '@/features/negocios/ListView';
-import { LayoutGrid, List } from 'lucide-react';
-
 import ModalConfigurarFunil from '@/features/negocios/ModalConfigurarFunil';
-import { Settings } from 'lucide-react'; // Ícone para o botão
 
 function useIsMobile() {
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
@@ -54,6 +51,7 @@ export default function Negocios() {
   const [viewMode, setViewMode] = useState(() => localStorage.getItem('negocios_view_mode') || 'kanban');
   const [sortConfig, setSortConfig] = useState({ key: 'dataCriacao', direction: 'desc' });
   const [isFunilModalOpen, setIsFunilModalOpen] = useState(false);
+
   // Handler de ordenação
   const handleSort = (key) => {
     setSortConfig(prev => ({
@@ -69,7 +67,6 @@ export default function Negocios() {
       let valA = a[sortConfig.key];
       let valB = b[sortConfig.key];
 
-      // Tratamento especial para datas e números
       if (sortConfig.key === 'dataCriacao') {
         valA = valA?.toMillis() || 0;
         valB = valB?.toMillis() || 0;
@@ -126,91 +123,101 @@ export default function Negocios() {
   };
 
   return (
-    <div className="w-full h-full flex flex-col">
-      <PageHeader
-        icon={<Briefcase size={18} />}
-        title="Negócios"
-        subtitle="Arraste ou use as setas."
-        action={
-          <div className="flex gap-2 w-full md:w-auto">
-            <button onClick={abrirModalCriar} className="bg-blue-600 hover:bg-blue-500 text-white px-4 py-2 rounded-lg font-medium flex items-center gap-2 shadow-sm">
-              <Plus size={18} /> Novo Negócio
+    <div className="w-full h-full flex flex-col overflow-hidden bg-white dark:bg-slate-900">
+
+      {/* 1. ÁREA FIXA SUPER COMPACTA */}
+      <div className="shrink-0 px-3 pt-2 pb-1 z-10 border-b border-slate-100 dark:border-slate-800">
+        <PageHeader
+          icon={<Briefcase size={18} />}
+          title="Negócios"
+          subtitle="Arraste ou use as setas."
+          action={
+            <div className="flex gap-2 w-full md:w-auto">
+              <button onClick={abrirModalCriar} className="bg-blue-600 hover:bg-blue-500 text-white px-3 py-1.5 rounded-lg font-medium flex items-center gap-2 shadow-sm text-xs">
+                <Plus size={14} /> Novo Negócio
+              </button>
+              <button
+                onClick={() => setIsFunilModalOpen(true)}
+                className="bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 px-3 py-1.5 rounded-lg font-medium flex items-center gap-2 border border-slate-200 dark:border-slate-700 text-xs"
+                title="Configurar etapas do funil"
+              >
+                <Settings size={14} /> Etapas
+              </button>
+            </div>
+          }
+        />
+
+        {/* KPIs Compactos */}
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 mb-2 mt-3">
+          <KPICard title="Em Aberto" value={formatarMoeda(kpiData.totalAberto)} icon={<Briefcase size={14} />} color="blue" compact />
+          <KPICard title="Ganhos" value={formatarMoeda(kpiData.totalGanho)} icon={<TrendingUp size={14} />} color="emerald" compact />
+          <KPICard title="Perdidos" value={formatarMoeda(kpiData.totalPerdido)} icon={<DollarSign size={14} />} color="red" compact />
+        </div>
+
+        {/* Switcher de Views */}
+        <div className="flex items-center justify-between mb-1">
+          <div className="flex bg-slate-100 dark:bg-slate-800 p-0.5 rounded-md">
+            <button
+              onClick={() => setViewMode('kanban')}
+              className={`flex items-center gap-1.5 px-2.5 py-1 text-[11px] font-medium rounded transition-all ${viewMode === 'kanban' ? 'bg-white dark:bg-slate-700 text-blue-600 dark:text-blue-400 shadow-sm' : 'text-slate-500'}`}
+            >
+              <LayoutGrid size={12} /> Kanban
             </button>
             <button
-              onClick={() => setIsFunilModalOpen(true)}
-              className="bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 px-3 py-2 rounded-lg font-medium flex items-center gap-2 transition-colors border border-slate-200 dark:border-slate-700"
-              title="Configurar etapas do funil"
+              onClick={() => setViewMode('lista')}
+              className={`flex items-center gap-1.5 px-2.5 py-1 text-[11px] font-medium rounded transition-all ${viewMode === 'lista' ? 'bg-white dark:bg-slate-700 text-blue-600 dark:text-blue-400 shadow-sm' : 'text-slate-500'}`}
             >
-              <Settings size={18} /> <span className="hidden sm:inline">Etapas</span>
+              <List size={12} /> Lista
             </button>
           </div>
-        }
-      />
-
-      {/* KPIs Compactos Mobile First */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-4 md:mb-6">
-        <KPICard title="Em Aberto" value={formatarMoeda(kpiData.totalAberto)} icon={<Briefcase size={16} />} color="blue" compact />
-        <KPICard title="Ganhos" value={formatarMoeda(kpiData.totalGanho)} icon={<TrendingUp size={16} />} color="emerald" compact />
-        <KPICard title="Perdidos" value={formatarMoeda(kpiData.totalPerdido)} icon={<DollarSign size={16} />} color="red" compact />
-      </div>
-
-      <div className="flex items-center justify-between mb-4">
-        {/* Switcher de Views */}
-        <div className="flex bg-slate-100 dark:bg-slate-800 p-1 rounded-lg">
-          <button
-            onClick={() => setViewMode('kanban')}
-            className={`flex items-center gap-2 px-3 py-1.5 text-xs font-medium rounded-md transition-all ${viewMode === 'kanban' ? 'bg-white dark:bg-slate-700 text-blue-600 dark:text-blue-400 shadow-sm' : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'}`}
-          >
-            <LayoutGrid size={14} /> Kanban
-          </button>
-          <button
-            onClick={() => setViewMode('lista')}
-            className={`flex items-center gap-2 px-3 py-1.5 text-xs font-medium rounded-md transition-all ${viewMode === 'lista' ? 'bg-white dark:bg-slate-700 text-blue-600 dark:text-blue-400 shadow-sm' : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'}`}
-          >
-            <List size={14} /> Lista
-          </button>
         </div>
       </div>
 
-      {loading ? (
-        <div className="flex items-center justify-center h-64">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-        </div>
-      ) : (
-        viewMode === 'kanban' ? (
-          <DragDropContext onDragEnd={handleDragEnd}>
-            <div className="flex flex-col md:flex-row gap-1 md:gap-3 overflow-x-auto pb-0 h-full">
-              {colunas.map((coluna, index) => (
-                <KanbanColumn
-                  key={coluna.id}
-                  coluna={coluna}
-                  negocios={coluna.cards} // <-- CORRIGIDO AQUI: usa os cards que já vêm agrupados do hook
-                  isMobile={isMobile}
-                  onOpenDetails={handleOpenDetails}
-                  onMoveStage={handleMoverBotao}
-                  onEdit={handleEditar}
-                  onDelete={handleDeletar}
-                  columnIndex={index}
-                />
-              ))}
-            </div>
-          </DragDropContext>
+      {/* 2. ÁREA DO BOARD - SEM PADDING LATERAL E FULL WIDTH */}
+      <div className="flex-1 overflow-auto bg-[#f9fafb] dark:bg-slate-900/50 p-2">
+        {loading ? (
+          <div className="flex items-center justify-center h-64">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+          </div>
         ) : (
-          <ListView
-            negocios={sortedNegocios}
-            onEdit={handleEditar}
-            onDelete={handleDeletar}
-            onOpenDetails={handleOpenDetails}
-            sortConfig={sortConfig}
-            onSort={handleSort}
-          />
-        )
-      )}
+          viewMode === 'kanban' ? (
+            <DragDropContext onDragEnd={handleDragEnd}>
+              {/* AQUI ESTÁ A MÁGICA: w-full preenche a tela, e o flex-1 nas colunas divide igualmente */}
+              <div className="flex flex-row gap-1.5 w-full h-full items-start">
+                {colunas.map((coluna, index) => (
+                  <KanbanColumn
+                    key={coluna.id}
+                    coluna={coluna}
+                    negocios={coluna.cards}
+                    isMobile={isMobile}
+                    onOpenDetails={handleOpenDetails}
+                    onMoveStage={handleMoverBotao}
+                    onEdit={handleEditar}
+                    onDelete={handleDeletar}
+                    columnIndex={index}
+                  />
+                ))}
+              </div>
+            </DragDropContext>
+          ) : (
+            <ListView
+              negocios={sortedNegocios}
+              onEdit={handleEditar}
+              onDelete={handleDeletar}
+              onOpenDetails={handleOpenDetails}
+              sortConfig={sortConfig}
+              onSort={handleSort}
+            />
+          )
+        )}
+      </div>
+
+      {/* Modais e Drawer */}
       <NegocioDrawer
         negocio={negocioDetalhes}
         isOpen={!!negocioDetalhes}
         onClose={handleCloseDetails}
-        onEdit={handleEditar} // <--- ADICIONE ESTA LINHA
+        onEdit={handleEditar}
       />
 
       <Modal isOpen={isFormModalOpen} onClose={() => setIsFormModalOpen(false)} title={negocioEditando ? "Editar" : "Novo"} icon={<Pencil size={18} />} size="lg" footer={
@@ -248,12 +255,12 @@ export default function Negocios() {
 function KPICard({ title, value, icon, color, compact }) {
   const colors = { blue: 'bg-blue-50 dark:bg-blue-500/10 text-blue-600', emerald: 'bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600', red: 'bg-red-50 dark:bg-red-500/10 text-red-600' };
   return (
-    <div className={`bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm flex justify-between items-center ${compact ? 'p-3' : 'p-4'}`}>
+    <div className={`bg-white dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-800 shadow-sm flex justify-between items-center ${compact ? 'p-2' : 'p-4'}`}>
       <div>
-        <p className={`font-semibold text-slate-500 uppercase tracking-wider mb-1 ${compact ? 'text-[10px]' : 'text-xs'}`}>{title}</p>
-        <p className={`font-bold ${compact ? 'text-base' : 'text-xl'} ${color === 'blue' ? 'text-slate-900 dark:text-white' : `text-${color}-600 dark:text-${color}-400`}`}>{value}</p>
+        <p className={`font-semibold text-slate-500 uppercase tracking-wider mb-0.5 ${compact ? 'text-[9px]' : 'text-xs'}`}>{title}</p>
+        <p className={`font-bold ${compact ? 'text-xs' : 'text-xl'} ${color === 'blue' ? 'text-slate-900 dark:text-white' : `text-${color}-600 dark:text-${color}-400`}`}>{value}</p>
       </div>
-      <div className={`p-2 rounded-lg ${colors[color]}`}>{icon}</div>
+      <div className={`p-1 rounded-md ${colors[color]}`}>{icon}</div>
     </div>
   );
 }

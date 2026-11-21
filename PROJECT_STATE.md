@@ -204,3 +204,15 @@ Estado: **E0 não iniciada.** Detalhes em §2.
 - **O que faz:** reespaça `order` da coluna com gaps de 1.0.
 - **Frequência esperada:** raríssima.
 - **Idempotente:** sim.
+
+### ✅ Concluído (fato)
+
+- (Manter os itens anteriores)
+- CRUD de Negócios com Kanban (drag desktop + setas mobile)
+- **Kanban Resiliência:** Bloqueio de exclusão de etapas com negócios e coluna virtual "Sem Etapa" para resgate de órfãos.
+- Funil dinâmico por tenant (`etapasFunil: string[]` — **será migrado**)
+- (Manter os demais itens...)
+
+### 🟡 Em andamento — Ciclo Kanban Mobile First
+
+**Estado atual:** A camada de resiliência (E0 parcial, tratamento de órfãos) foi concluída. O foco agora muda para a **ordenação interna das colunas (E2 e E3)**.

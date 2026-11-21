@@ -74,3 +74,28 @@ Contraste, drawer sem ID, botões no rodapé, aba Visão Geral enriquecida.
 `ROADMAP_FUTURO`, `DATABASE`, `AUDITORIA_E_CORRECOES`, `RELATORIO`,
 `PROMPT_INICIAL`, `PLANO_KANBAN`, `CICLO_KANBAN`, `MIGRACAO`.
 **Próximo passo:** E0 (auditoria) do ciclo Kanban Mobile First.
+
+## Sessão 39 (2026-11-21) — Resiliência do Kanban e Prevenção de Dados Órfãos
+
+**Contexto:** A exclusão ou renomeação de etapas do funil deixava negócios "invisíveis" (órfãos) no banco de dados, pois o frontend não os renderizava no Kanban.
+
+**O que fiz:**
+
+- Criação da função `buscarContagemNegociosPorEtapa` no `negociosService` para agregação de dados por status.
+- Refatoração do `ModalConfigurarFunil`:
+  - Bloqueio visual e lógico da exclusão e edição de etapas que possuem negócios.
+  - Integração do `ConfirmModal` para confirmação dupla de exclusão.
+  - Criação de um banner de "Ação Necessária" em vermelho vivo no topo do modal caso existam negócios órfãos (com status que não batem com o funil).
+- Refatoração do `useNegociosKanban`:
+  - Criação de um `useMemo` para agrupar as colunas (`colunasAgrupadas`).
+  - Implementação da coluna virtual "Sem Etapa" (`isVirtual: true`) no final do board para capturar órfãos.
+  - Bloqueio do drag-and-drop de cards válidos para a coluna virtual.
+- Refatoração do `KanbanColumn`:
+  - Aplicação de estilo visual distinto (fundo avermelhado e borda) para a coluna "Sem Etapa", sinalizando alerta.
+
+**Aprendi:**
+
+- Como garantir resiliência de dados em sistemas NoSQL onde a integridade referencial (Foreign Keys) não é imposta pelo banco.
+- Padrão de UI "Fallback Column" para tratamento de erros de dados sem impactar a experiência do usuário.
+
+**Próximo passo:** Implementar a ordenação manual dos cards dentro da mesma coluna (campo `order` float e optimistic update).

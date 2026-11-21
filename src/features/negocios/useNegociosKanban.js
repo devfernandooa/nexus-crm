@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { escutarNegocios, atualizarNegocio, deletarNegocio } from '@/services/negocioService';
 import { buscarConfiguracoesEmpresa } from '@/services/empresaService';
+import { migrarFunilAntigo } from '@/utils/funilUtils'; // <-- IMPORTANTE
 import toast from 'react-hot-toast';
 
 export function useNegociosKanban(empresaId) {
@@ -12,7 +13,12 @@ export function useNegociosKanban(empresaId) {
     const [colunasDinamicas, setColunasDinamicas] = useState([]);
     const [loadingFunil, setLoadingFunil] = useState(true);
 
-    const coresPadrao = ['bg-blue-500', 'bg-indigo-500', 'bg-purple-500', 'bg-pink-500', 'bg-orange-500', 'bg-yellow-500', 'bg-teal-500', 'bg-cyan-500'];
+    // O ID (slug) agora define a cor. O tipo define o comportamento.
+    const coresPorTipo = {
+        'aberto': ['bg-blue-500', 'bg-indigo-500', 'bg-purple-500', 'bg-pink-500', 'bg-orange-500', 'bg-yellow-500', 'bg-teal-500', 'bg-cyan-500'],
+        'ganho': 'bg-emerald-500',
+        'perdido': 'bg-red-500'
+    };
 
     // Carregar Funil Dinâmico
     useEffect(() => {
@@ -20,15 +26,33 @@ export function useNegociosKanban(empresaId) {
         const carregarFunil = async () => {
             try {
                 const res = await buscarConfiguracoesEmpresa(empresaId);
-                let etapasBase = ['Prospecção', 'Qualificação', 'Proposta'];
-                if (res.sucesso && res.dados?.etapasFunil && res.dados.etapasFunil.length > 0) {
-                    etapasBase = res.dados.etapasFunil;
-                }
-                const colunasFormatadas = etapasBase.map((etapa, index) => ({
-                    id: etapa, titulo: etapa, cor: coresPadrao[index % coresPadrao.length], index
-                }));
-                setColunasDinamicas(colunasFormatadas);
-            } catch (error) { console.error("Erro ao carregar funil:", error); } finally { setLoadingFunil(false); }
+                let etapasBrutas = res.dados?.etapasFunil || [];
+
+                // Aplica a migração se necessário
+                const etapasFormatadas = migrarFunilAntigo(etapasBrutas);
+
+                let indexAberto = 0;
+                const colunas = etapasFormatadas.map((etapa) => {
+                    let cor = coresPorTipo[etapa.tipo];
+                    if (etapa.tipo === 'aberto') {
+                        cor = coresPorTipo.aberto[indexAberto % coresPorTipo.aberto.length];
+                        indexAberto++;
+                    }
+
+                    return {
+                        id: etapa.id,
+                        titulo: etapa.nome,
+                        tipo: etapa.tipo, // 'aberto', 'ganho' ou 'perdido'
+                        cor: cor
+                    };
+                });
+
+                setColunasDinamicas(colunas);
+            } catch (error) {
+                console.error("Erro ao carregar funil:", error);
+            } finally {
+                setLoadingFunil(false);
+            }
         };
         carregarFunil();
     }, [empresaId]);
@@ -40,61 +64,42 @@ export function useNegociosKanban(empresaId) {
         return () => unsubscribe();
     }, [empresaId]);
 
-    // Migração Automática de Status Antigos
+    // NOVO: Migração Automática de status por nome para slug
     useEffect(() => {
         if (colunasDinamicas.length === 0 || negocios.length === 0) return;
-        const mapaMigracao = {
-            'Aberto': colunasDinamicas[0]?.id,
-            'Ganho': colunasDinamicas[colunasDinamicas.length - 2]?.id,
-            'Perdido': colunasDinamicas[colunasDinamicas.length - 1]?.id
-        };
+
+        // Mapeia do nome da etapa para o ID (slug) dela
+        const mapaMigracao = {};
+        colunasDinamicas.forEach(c => {
+            mapaMigracao[c.titulo] = c.id; // Ex: "Prospecção" -> "prospeccao"
+            mapaMigracao[c.id] = c.id;    // Ex: "prospeccao" -> "prospeccao" (para manter os que já migraram)
+        });
+
         const negociosParaMigrar = negocios.filter(n => mapaMigracao[n.status] && mapaMigracao[n.status] !== n.status);
+
         if (negociosParaMigrar.length > 0) {
             const executarMigracao = async () => {
                 await Promise.all(negociosParaMigrar.map(n => atualizarNegocio(n.id, { status: mapaMigracao[n.status] })));
-                toast.success(`${negociosParaMigrar.length} negócios migrados para o novo funil!`);
+                toast.success(`${negociosParaMigrar.length} negócios atualizados para o novo funil!`);
             };
             executarMigracao();
         }
     }, [colunasDinamicas, negocios]);
 
-    // NOVO: Agrupamento de Colunas incluindo os Negócios Órfãos
-    const colunasAgrupadas = useMemo(() => {
-        if (colunasDinamicas.length === 0) return [];
-
-        // 1. Mapeia as colunas normais
-        const colunas = colunasDinamicas.map(coluna => {
-            return {
-                ...coluna,
-                cards: negocios.filter(n => n.status === coluna.id)
-            };
-        });
-
-        // 2. Identifica os negócios que não estão em nenhuma etapa válida (órfãos)
-        const negociosOrfaos = negocios.filter(negocio => {
-            return !colunasDinamicas.some(coluna => coluna.id === negocio.status);
-        });
-
-        // 3. Se houver órfãos, cria a coluna virtual no final
-        if (negociosOrfaos.length > 0) {
-            colunas.push({
-                id: 'sem-etapa', // ID reservado para a coluna virtual
-                titulo: '⚠️ Sem Etapa',
-                cor: 'bg-red-500', // Cor de alerta
-                isVirtual: true, // Flag para o frontend saber que é uma coluna de erro
-                cards: negociosOrfaos
-            });
-        }
-
-        return colunas;
-    }, [negocios, colunasDinamicas]);
-
-    // KPIs Adaptativos
+    // KPIs baseados no TIPO da coluna
     const kpiData = useMemo(() => {
         if (colunasDinamicas.length === 0) return { totalAberto: 0, totalGanho: 0, totalPerdido: 0 };
-        const idsAberto = colunasDinamicas.slice(0, -2).map(c => c.id);
-        const idGanho = colunasDinamicas[colunasDinamicas.length - 2]?.id || colunasDinamicas[0]?.id;
-        const idPerdido = colunasDinamicas[colunasDinamicas.length - 1]?.id || colunasDinamicas[0]?.id;
+
+        // Procura as colunas marcadas com o tipo. 
+        // Se não achar, usa a penúltima como ganho e a última como perdido (Fallback)
+        let idGanho = colunasDinamicas.find(c => c.tipo === 'ganho')?.id;
+        let idPerdido = colunasDinamicas.find(c => c.tipo === 'perdido')?.id;
+
+        if (!idGanho) idGanho = colunasDinamicas[colunasDinamicas.length - 2]?.id;
+        if (!idPerdido) idPerdido = colunasDinamicas[colunasDinamicas.length - 1]?.id;
+
+        const idsAberto = colunasDinamicas.filter(c => c.id !== idGanho && c.id !== idPerdido).map(c => c.id);
+
         return {
             totalAberto: negocios.filter(n => idsAberto.includes(n.status)).reduce((acc, c) => acc + Number(c.valor || 0), 0),
             totalGanho: negocios.filter(n => n.status === idGanho).reduce((acc, c) => acc + Number(c.valor || 0), 0),
@@ -102,28 +107,42 @@ export function useNegociosKanban(empresaId) {
         };
     }, [negocios, colunasDinamicas]);
 
-    const handleDragEnd = async (result) => {
-        const { source, destination, draggableId } = result;
-        // Se não tem destino, ou é a mesma coluna, ignora.
-        if (!destination || source.droppableId === destination.droppableId) return;
+    // Agrupamento de Colunas incluindo os Negócios Órfãos
+    const colunasAgrupadas = useMemo(() => {
+        if (colunasDinamicas.length === 0) return [];
 
-        // NOVO: Impede que um negócio seja arrastado para a coluna "Sem Etapa"
-        if (destination.droppableId === 'sem-etapa') {
-            toast.error('Você não pode mover um negócio para a coluna de órfãos. Escolha uma etapa válida.');
-            return;
+        const colunas = colunasDinamicas.map(coluna => {
+            return { ...coluna, cards: negocios.filter(n => n.status === coluna.id) };
+        });
+
+        const negociosOrfaos = negocios.filter(negocio => {
+            return !colunasDinamicas.some(coluna => coluna.id === negocio.status);
+        });
+
+        if (negociosOrfaos.length > 0) {
+            colunas.push({
+                id: 'sem-etapa', titulo: '⚠️ Sem Etapa', tipo: 'erro', cor: 'bg-red-500', isVirtual: true, cards: negociosOrfaos
+            });
         }
 
+        return colunas;
+    }, [negocios, colunasDinamicas]);
+
+    const handleDragEnd = async (result) => {
+        const { source, destination, draggableId } = result;
+        if (!destination || source.droppableId === destination.droppableId) return;
+        if (destination.droppableId === 'sem-etapa') {
+            toast.error('Escolha uma etapa válida.'); return;
+        }
         await moverStatus(draggableId, destination.droppableId);
     };
 
     const handleMoverBotao = async (negocioId, direcao, colunaAtualId) => {
-        // Se estiver na coluna virtual e clicar em "voltar", ele vai para a última etapa válida
         if (colunaAtualId === 'sem-etapa' && direcao === 'prev') {
-            const ultimaEtapaValida = colunasDinamicas[colunasDinamicas.length - 1];
-            await moverStatus(negocioId, ultimaEtapaValida.id);
+            const ultimaEtapaAberta = [...colunasDinamicas].reverse().find(c => c.tipo === 'aberto');
+            if (ultimaEtapaAberta) await moverStatus(negocioId, ultimaEtapaAberta.id);
             return;
         }
-
         const indexAtual = colunasDinamicas.findIndex(c => c.id === colunaAtualId);
         if (indexAtual === -1) return;
         let novoIndex = direcao === 'next' ? indexAtual + 1 : indexAtual - 1;
@@ -134,8 +153,10 @@ export function useNegociosKanban(empresaId) {
 
     const moverStatus = async (id, novoStatus) => {
         const resultado = await atualizarNegocio(id, { status: novoStatus });
-        if (resultado.sucesso) toast.success(`Movido para ${novoStatus}!`);
-        else toast.error('Erro ao mover.');
+        if (resultado.sucesso) {
+            const nomeColuna = colunasDinamicas.find(c => c.id === novoStatus)?.titulo || novoStatus;
+            toast.success(`Movido para ${nomeColuna}!`);
+        } else { toast.error('Erro ao mover.'); }
     };
 
     const handleDeletar = (id) => { setIdParaDeletar(id); setIsConfirmOpen(true); };
@@ -148,7 +169,7 @@ export function useNegociosKanban(empresaId) {
     };
 
     return {
-        negocios, loading, colunas: colunasAgrupadas, loadingFunil, kpiData, // Retorna as colunas já agrupadas com os órfãos
+        negocios, loading, colunas: colunasAgrupadas, loadingFunil, kpiData,
         handleDragEnd, handleMoverBotao, handleDeletar, isConfirmOpen, confirmarDelecao,
         negocioDetalhes, handleOpenDetails: (n) => setNegocioDetalhes(n), handleCloseDetails: () => setNegocioDetalhes(null)
     };
