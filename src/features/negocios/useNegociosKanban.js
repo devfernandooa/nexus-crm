@@ -1,7 +1,8 @@
 import { useState, useEffect, useMemo } from 'react';
 import { escutarNegocios, atualizarNegocio, deletarNegocio } from '@/services/negocioService';
 import { buscarConfiguracoesEmpresa } from '@/services/empresaService';
-import { migrarFunilAntigo } from '@/utils/funilUtils'; // <-- IMPORTANTE
+import { migrarFunilAntigo } from '@/utils/funilUtils';
+import { CORES_FUNIL, obterCorPadraoId } from '@/constants/funilCores';
 import toast from 'react-hot-toast';
 
 export function useNegociosKanban(empresaId) {
@@ -13,37 +14,26 @@ export function useNegociosKanban(empresaId) {
     const [colunasDinamicas, setColunasDinamicas] = useState([]);
     const [loadingFunil, setLoadingFunil] = useState(true);
 
-    // O ID (slug) agora define a cor. O tipo define o comportamento.
-    const coresPorTipo = {
-        'aberto': ['bg-blue-500', 'bg-indigo-500', 'bg-purple-500', 'bg-pink-500', 'bg-orange-500', 'bg-yellow-500', 'bg-teal-500', 'bg-cyan-500'],
-        'ganho': 'bg-emerald-500',
-        'perdido': 'bg-red-500'
-    };
-
     // Carregar Funil Dinâmico
     useEffect(() => {
         if (!empresaId) return;
         const carregarFunil = async () => {
             try {
                 const res = await buscarConfiguracoesEmpresa(empresaId);
-                let etapasBrutas = res.dados?.etapasFunil || [];
+                const etapasBrutas = res.dados?.etapasFunil || [];
 
-                // Aplica a migração se necessário
                 const etapasFormatadas = migrarFunilAntigo(etapasBrutas);
 
-                let indexAberto = 0;
-                const colunas = etapasFormatadas.map((etapa) => {
-                    let cor = coresPorTipo[etapa.tipo];
-                    if (etapa.tipo === 'aberto') {
-                        cor = coresPorTipo.aberto[indexAberto % coresPorTipo.aberto.length];
-                        indexAberto++;
-                    }
+                const colunas = etapasFormatadas.map((etapa, index) => {
+                    const corValida = etapa.cor && CORES_FUNIL[etapa.cor]
+                        ? etapa.cor
+                        : obterCorPadraoId(etapa, index);
 
                     return {
                         id: etapa.id,
                         titulo: etapa.nome,
                         tipo: etapa.tipo, // 'aberto', 'ganho' ou 'perdido'
-                        cor: cor
+                        cor: corValida
                     };
                 });
 
@@ -64,15 +54,14 @@ export function useNegociosKanban(empresaId) {
         return () => unsubscribe();
     }, [empresaId]);
 
-    // NOVO: Migração Automática de status por nome para slug
+    // Migração Automática de status por nome para slug
     useEffect(() => {
         if (colunasDinamicas.length === 0 || negocios.length === 0) return;
 
-        // Mapeia do nome da etapa para o ID (slug) dela
         const mapaMigracao = {};
         colunasDinamicas.forEach(c => {
-            mapaMigracao[c.titulo] = c.id; // Ex: "Prospecção" -> "prospeccao"
-            mapaMigracao[c.id] = c.id;    // Ex: "prospeccao" -> "prospeccao" (para manter os que já migraram)
+            mapaMigracao[c.titulo] = c.id;
+            mapaMigracao[c.id] = c.id;
         });
 
         const negociosParaMigrar = negocios.filter(n => mapaMigracao[n.status] && mapaMigracao[n.status] !== n.status);
@@ -90,8 +79,6 @@ export function useNegociosKanban(empresaId) {
     const kpiData = useMemo(() => {
         if (colunasDinamicas.length === 0) return { totalAberto: 0, totalGanho: 0, totalPerdido: 0 };
 
-        // Procura as colunas marcadas com o tipo. 
-        // Se não achar, usa a penúltima como ganho e a última como perdido (Fallback)
         let idGanho = colunasDinamicas.find(c => c.tipo === 'ganho')?.id;
         let idPerdido = colunasDinamicas.find(c => c.tipo === 'perdido')?.id;
 
@@ -121,7 +108,12 @@ export function useNegociosKanban(empresaId) {
 
         if (negociosOrfaos.length > 0) {
             colunas.push({
-                id: 'sem-etapa', titulo: '⚠️ Sem Etapa', tipo: 'erro', cor: 'bg-red-500', isVirtual: true, cards: negociosOrfaos
+                id: 'sem-etapa',
+                titulo: '⚠️ Sem Etapa',
+                tipo: 'erro',
+                cor: 'rose',
+                isVirtual: true,
+                cards: negociosOrfaos
             });
         }
 

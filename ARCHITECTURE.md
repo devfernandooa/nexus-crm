@@ -28,6 +28,7 @@ src/
 ├── components/
 │   ├── layouts/           # Layout, Sidebar, AuthLayout
 │   └── ui/                # Reutilizáveis (Botao, Modal, PageHeader, SelectProdutos)
+├── constants/             # Constantes visuais e de domínio (funilCores.js)
 ├── contexts/              # Estado global (AuthContext, ThemeContext)
 ├── services/              # Regras de negócio e comunicação com Firebase (CRUDs)
 ├── pages/                 # Telas (Dashboard, Contatos, Negocios, etc.)
