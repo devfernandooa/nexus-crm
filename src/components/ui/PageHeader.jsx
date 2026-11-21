@@ -12,7 +12,7 @@ export default function PageHeader({ icon, title, subtitle, action }) {
             {title}
           </h2>
           {subtitle && (
-            <p className="text-xs !text-slate-500 dark:!text-slate-400">
+            <p className="text-xs !text-slate-600 dark:!text-slate-400">
               {subtitle}
             </p>
           )}

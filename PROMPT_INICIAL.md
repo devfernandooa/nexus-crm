@@ -12,8 +12,8 @@ Anexei os arquivos `CONTEXTO.md` e `ARCHITECTURE.md` para você entender a arqui
 
 **Próximo passo planejado:** [Escolha uma opção]
 
-1. Implementar a Auditoria (registrar log de quem criou/editou/deletou cada registro).
-2. Integrar os Produtos aos Negócios (vincular itens do catálogo a uma oportunidade).
-3. Outro: [descreva].
+1. Melhorar o módulo de Negocios do quandro Kanban
 
 **Instrução:** Vamos seguir o padrão **Mobile First** e manter o código limpo (separation of concerns). Por favor, me guie no próximo passo como um Professor Sênior, sem me dar o código pronto de imediato.
+
+Segue o repositório no github: https://github.com/devfernandooa/nexus-crm
