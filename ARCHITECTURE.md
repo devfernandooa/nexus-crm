@@ -1,96 +1,43 @@
 # ARCHITECTURE.md — Nexus CRM
 
-> **Propósito:** Descreve a arquitetura, os padrões e os fluxos do sistema. É a "lei" do projeto.
+> **Propósito:** Lei do projeto. Descreve o que é **estável**: visão geral,
+> pastas, camadas, modelo de dados, segurança, decisões arquiteturais, fluxos,
+> operações de manutenção, dívida técnica e convenções.
+>
+> O que muda por ciclo fica em `PROJECT_STATE.md`. O passado em `CHANGELOG.md`.
+> Se um dado aparece em dois lugares, é bug de documentação.
 
 ---
 
-## 1. Estrutura de Pastas e Camadas (Atualizada)
+## 1. Visão Geral
 
-O projeto segue o padrão de **Separação de Responsabilidades (SoC)**, utilizando uma arquitetura baseada em features para módulos complexos:
+Nexus CRM é um SaaS multi-tenant de CRM: **React + Vite + TailwindCSS +
+Firebase** (Auth + Firestore). O produto é vendido por assinatura (planejado)
+e o isolamento de dados por empresa é regra imutável em todas as camadas.
+
+**Público:** pequenas e médias empresas que precisam de funil de vendas,
+contatos, tarefas e relatórios em um só lugar.
+
+## 2. Estrutura de Pastas e Camadas
+
+O projeto segue **Separação de Responsabilidades (SoC)**, com arquitetura
+baseada em features para módulos complexos:
 
 ```text
 src/
 ├── components/
-│   ├── layouts/      # Layout, Sidebar, AuthLayout
-│   └── ui/           # Componentes reutilizáveis (Botao, Modal, PageHeader, SelectProdutos)
-├── contexts/         # Estado global (AuthContext, ThemeContext)
-├── services/         # Regras de negócio e comunicação direta com Firebase (CRUDs)
-├── pages/            # Telas do sistema (Dashboard, Contatos, Negocios, etc.)
-└── features/         # Módulos complexos com múltiplos componentes e hooks
-    └── negocios/     # Módulo de Negócios (Kanban, Lista, Drawer, Funil)
-        ├── useNegociosKanban.js  # Hook principal de lógica e dados
-        ├── KanbanColumn.jsx      # Coluna do kanban com DND
-        ├── KanbanCard.jsx        # Card individual com interações mobile/desktop
-        ├── ListView.jsx          # Visualização em tabela
-        ├── NegocioDrawer.jsx     # Painel lateral de detalhes
-        └── ModalConfigurarFunil.jsx # Editor de etapas do funil
+│   ├── layouts/           # Layout, Sidebar, AuthLayout
+│   └── ui/                # Reutilizáveis (Botao, Modal, PageHeader, SelectProdutos)
+├── contexts/              # Estado global (AuthContext, ThemeContext)
+├── services/              # Regras de negócio e comunicação com Firebase (CRUDs)
+├── pages/                 # Telas (Dashboard, Contatos, Negocios, etc.)
+├── utils/                 # Funções puras (slug, order, datas)
+└── features/
+    └── negocios/          # Módulo de Negócios (Kanban, Lista, Drawer, Funil)
+        ├── useNegociosKanban.js      # Hook principal (dados + lógica do board)
+        ├── KanbanColumn.jsx          # Coluna com DND
+        ├── KanbanCard.jsx            # Card individual
+        ├── ListView.jsx              # Visualização em tabela
+        ├── NegocioDrawer.jsx         # Painel lateral de detalhes
+        └── ModalConfigurarFunil.jsx  # Editor de etapas do funil
 ```
-
-## Módulo Negócios — Modelo de dados e ordenação
-
-### Identificador de etapa
-
-- `negocios/{id}.etapaId: string` (slug, ex.: `"qualificacao"`) — **novo padrão**.
-- `negocios/{id}.status: string` — **legado**, removido na Fase 3 da migração.
-- `empresas/{id}.etapasFunil: { id, nome, ordem }[]` — **novo padrão**.
-  Antes: `string[]`.
-
-Regra: nunca referenciar etapa por `nome`. Sempre por `etapaId`.
-
-### Ordenação dentro da coluna
-
-- `negocios/{id}.order: number` (float).
-- Ordenação: `where('etapaId','==',etapaId).orderBy('order','asc')`.
-- Inserção entre vizinhos: `order = (a.order + b.order) / 2`.
-- Início: `order = primeiroOrder / 2`. Fim: `ultimoOrder + 1`.
-- Rebalanceamento: quando `|a.order - b.order| < 0.0001`, reespaçar a coluna
-  (script admin) — ver PLANO_KANBAN.md §D4.
-
-### Interação por breakpoint
-
-- **Desktop (≥ md):** drag-and-drop via `@hello-pangea/dnd`.
-- **Mobile (< md):** sem drag. Ação "Mover para…" no card abre sheet com
-  etapas disponíveis. Escolha motivada por conflito entre touch sensor e
-  `scroll-snap` horizontal.
-
-### Fluxo de movimentação
-
----
-
-### 📄 `ARCHITECTURE.md` — seção a adicionar
-
-```markdown
-## Módulo Negócios — Modelo de dados e ordenação
-
-### Identificador de etapa
-
-- `negocios/{id}.etapaId: string` (slug, ex.: `"qualificacao"`) — padrão novo.
-- `negocios/{id}.status: string` — legado, removido na Fase 3 (PLANO_KANBAN.md §3).
-- `empresas/{id}.etapasFunil: { id, nome, ordem }[]` — padrão novo.
-  Antes: `string[]`.
-
-Regra: **nunca** referenciar etapa por `nome`. Sempre por `etapaId`.
-
-### Ordenação dentro da coluna
-
-- `negocios/{id}.order: number` (float).
-- Query: `where('etapaId','==',etapaId).orderBy('order','asc')`.
-- Inserção entre vizinhos: `order = (a.order + b.order) / 2`.
-- Início: `order = primeiroOrder / 2`. Fim: `order = ultimoOrder + 1`.
-- Rebalanceamento: quando `|a.order - b.order| < 0.0001`, reespaçar coluna
-  via script admin (PLANO_KANBAN.md D4).
-
-### Interação por breakpoint
-
-- **Desktop (≥ md):** drag-and-drop via `@hello-pangea/dnd`.
-- **Mobile (< md):** sem drag. Ação "Mover para…" no card abre sheet com
-  etapas disponíveis. Motivo: touch sensor conflita com `scroll-snap` x.
-
-### Fluxo de movimentação
-```
-
-### Camadas
-
-- `hooks/useKanban.js` — `onSnapshot`, agrupamento por etapa, `moveCard`.
-- `components/kanban/KanbanBoard.jsx` — apresentação pura (props only).
-- `services/negociosService.js` — escritas no Firestore.
