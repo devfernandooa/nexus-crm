@@ -58,6 +58,37 @@ export function useNegociosKanban(empresaId) {
         }
     }, [colunasDinamicas, negocios]);
 
+    // NOVO: Agrupamento de Colunas incluindo os Negócios Órfãos
+    const colunasAgrupadas = useMemo(() => {
+        if (colunasDinamicas.length === 0) return [];
+
+        // 1. Mapeia as colunas normais
+        const colunas = colunasDinamicas.map(coluna => {
+            return {
+                ...coluna,
+                cards: negocios.filter(n => n.status === coluna.id)
+            };
+        });
+
+        // 2. Identifica os negócios que não estão em nenhuma etapa válida (órfãos)
+        const negociosOrfaos = negocios.filter(negocio => {
+            return !colunasDinamicas.some(coluna => coluna.id === negocio.status);
+        });
+
+        // 3. Se houver órfãos, cria a coluna virtual no final
+        if (negociosOrfaos.length > 0) {
+            colunas.push({
+                id: 'sem-etapa', // ID reservado para a coluna virtual
+                titulo: '⚠️ Sem Etapa',
+                cor: 'bg-red-500', // Cor de alerta
+                isVirtual: true, // Flag para o frontend saber que é uma coluna de erro
+                cards: negociosOrfaos
+            });
+        }
+
+        return colunas;
+    }, [negocios, colunasDinamicas]);
+
     // KPIs Adaptativos
     const kpiData = useMemo(() => {
         if (colunasDinamicas.length === 0) return { totalAberto: 0, totalGanho: 0, totalPerdido: 0 };
@@ -73,11 +104,26 @@ export function useNegociosKanban(empresaId) {
 
     const handleDragEnd = async (result) => {
         const { source, destination, draggableId } = result;
+        // Se não tem destino, ou é a mesma coluna, ignora.
         if (!destination || source.droppableId === destination.droppableId) return;
+
+        // NOVO: Impede que um negócio seja arrastado para a coluna "Sem Etapa"
+        if (destination.droppableId === 'sem-etapa') {
+            toast.error('Você não pode mover um negócio para a coluna de órfãos. Escolha uma etapa válida.');
+            return;
+        }
+
         await moverStatus(draggableId, destination.droppableId);
     };
 
     const handleMoverBotao = async (negocioId, direcao, colunaAtualId) => {
+        // Se estiver na coluna virtual e clicar em "voltar", ele vai para a última etapa válida
+        if (colunaAtualId === 'sem-etapa' && direcao === 'prev') {
+            const ultimaEtapaValida = colunasDinamicas[colunasDinamicas.length - 1];
+            await moverStatus(negocioId, ultimaEtapaValida.id);
+            return;
+        }
+
         const indexAtual = colunasDinamicas.findIndex(c => c.id === colunaAtualId);
         if (indexAtual === -1) return;
         let novoIndex = direcao === 'next' ? indexAtual + 1 : indexAtual - 1;
@@ -102,7 +148,7 @@ export function useNegociosKanban(empresaId) {
     };
 
     return {
-        negocios, loading, colunas: colunasDinamicas, loadingFunil, kpiData,
+        negocios, loading, colunas: colunasAgrupadas, loadingFunil, kpiData, // Retorna as colunas já agrupadas com os órfãos
         handleDragEnd, handleMoverBotao, handleDeletar, isConfirmOpen, confirmarDelecao,
         negocioDetalhes, handleOpenDetails: (n) => setNegocioDetalhes(n), handleCloseDetails: () => setNegocioDetalhes(null)
     };

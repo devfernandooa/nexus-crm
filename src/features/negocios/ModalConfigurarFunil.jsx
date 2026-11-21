@@ -167,11 +167,15 @@ export default function ModalConfigurarFunil({ isOpen, onClose, empresaId }) {
                 ) : (
                     <div className="space-y-4">
                         {negociosOrfaos.length > 0 && (
-                            <div className="p-3 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg flex gap-2 items-start text-amber-800 dark:text-amber-200 text-sm">
-                                <AlertTriangle size={18} className="shrink-0 mt-0.5" />
-                                <p>
-                                    Atenção: Existem negócios em etapas que não estão mais listadas (ex: <strong>{negociosOrfaos.join(', ')}</strong>). Vá na Lista de Negócios e mova-os para uma etapa válida.
-                                </p>
+                            <div className="p-4 bg-red-50 dark:bg-red-900/20 border-2 border-red-500 dark:border-red-500/50 rounded-xl flex gap-3 items-start text-red-800 dark:text-red-200 shadow-sm animate-pulse-slow">
+                                <AlertTriangle size={24} className="shrink-0 text-red-600 dark:text-red-400 mt-0.5" />
+                                <div className="flex-1">
+                                    <h4 className="font-bold text-base mb-1">Ação Necessária!</h4>
+                                    <p className="text-sm">
+                                        Existem negócios presos em etapas que foram excluídas (ex: <strong className="font-bold underline">{negociosOrfaos.join(', ')}</strong>).
+                                        Vá na Lista de Negócios, edite esses negócios e mova-os para uma etapa válida para não perder o rastreio deles.
+                                    </p>
+                                </div>
                             </div>
                         )}
 
