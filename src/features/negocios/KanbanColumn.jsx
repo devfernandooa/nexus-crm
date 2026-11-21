@@ -2,6 +2,7 @@ import { useState } from 'react';
 import KanbanCard from './KanbanCard';
 import { Plus, AlertTriangle } from 'lucide-react';
 import { Droppable, Draggable } from '@hello-pangea/dnd';
+import { obterTemaColuna } from '@/constants/funilCores';
 
 export default function KanbanColumn({
     coluna,
@@ -11,13 +12,19 @@ export default function KanbanColumn({
     onMoveStage,
     onEdit,
     onDelete,
-    columnIndex
+    onQuickCreate,
+    columnIndex,
 }) {
     const [isDraggingOver, setIsDraggingOver] = useState(false);
     const totalValor = negocios.reduce((acc, curr) => acc + Number(curr.valor || 0), 0);
+    const tema = obterTemaColuna(coluna, columnIndex);
 
     const formatarMoeda = (valor) =>
-        new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 }).format(valor || 0);
+        new Intl.NumberFormat('pt-BR', {
+            style: 'currency',
+            currency: 'BRL',
+            maximumFractionDigits: 0,
+        }).format(valor || 0);
 
     const handleDragOver = (e) => {
         if (isMobile) return;
@@ -31,50 +38,51 @@ export default function KanbanColumn({
         setIsDraggingOver(false);
     };
 
-    const bgClass = coluna.isVirtual ? 'bg-red-50/30 dark:bg-red-900/10' : 'bg-[#f4f5f7] dark:bg-slate-900/50';
-
     return (
         <div
             className={`
-                flex flex-col 
-                flex-1 w-0 min-w-[150px] /* A MÁGICA AQUI: flex-1 divide a tela, min-w-[150px] impede de esmagar demais */
-                rounded-lg 
-                ${bgClass}
-                ${isDraggingOver ? 'ring-2 ring-blue-400 dark:ring-blue-600' : ''}
-            `}
+        flex flex-col w-full md:flex-1 md:w-0 md:min-w-[190px] lg:min-w-[205px] md:min-h-full
+        border-b md:border-b-0 md:border-r border-slate-200/80 dark:border-slate-800 last:border-b-0 md:last:border-r-0
+        transition-colors ${tema.column}
+        ${isDraggingOver ? 'ring-1 ring-inset ring-blue-400/70 dark:ring-blue-500/50' : ''}
+      `}
             onDragOver={handleDragOver}
             onDragLeave={handleDragLeave}
         >
-            {/* CABEÇALHO FIXO E COMPACTO */}
-            <div className="sticky top-0 z-10 flex items-center justify-between p-2 rounded-t-lg bg-[#f4f5f7] dark:bg-slate-900/90 backdrop-blur-sm border-b border-transparent">
-                <div className="flex items-center gap-1 overflow-hidden">
-                    <h3 className={`font-bold text-[12px] truncate ${coluna.isVirtual ? 'text-red-700 dark:text-red-400' : 'text-slate-800 dark:text-slate-200'}`} title={coluna.titulo}>
-                        {coluna.titulo}
-                    </h3>
-                    <span className="text-[10px] font-semibold text-slate-400 shrink-0">
-                        {negocios.length}
-                    </span>
-                </div>
-                <div className="text-[10px] text-slate-500 font-medium shrink-0 ml-1">
-                    {formatarMoeda(totalValor)}
-                </div>
+            {/* Cabeçalho com cor personalizada ou padrão da etapa */}
+            <div
+                className={`
+          md:sticky md:top-0 z-20 px-3 py-2.5 backdrop-blur-xs
+          border-b text-left md:shadow-2xs ${tema.accent} ${tema.header}
+        `}
+            >
+                <h3 className={`font-semibold text-[12px] truncate ${tema.title}`} title={coluna.titulo}>
+                    {coluna.titulo}
+                </h3>
+                <p className="text-[11px] text-slate-600/90 dark:text-slate-300/85 mt-0.5 tabular-nums truncate">
+                    {formatarMoeda(totalValor)} · {negocios.length}{' '}
+                    {negocios.length === 1 ? 'negócio' : 'negócios'}
+                </p>
             </div>
 
-            {/* ÁREA DE CARDS */}
+            {/* Área de cartões */}
             <Droppable droppableId={coluna.id}>
                 {(provided, snapshot) => (
                     <div
                         ref={provided.innerRef}
                         {...provided.droppableProps}
-                        className="flex flex-col space-y-1.5 p-1.5"
+                        className={`flex-1 flex flex-col gap-2 p-2 transition-colors ${snapshot.isDraggingOver ? 'bg-blue-500/10 dark:bg-blue-400/10' : ''
+                            }`}
                     >
                         {negocios.length === 0 ? (
-                            <div className={`flex flex-col items-center justify-center py-4 rounded-md
-                                ${coluna.isVirtual ? 'text-red-400' : 'text-slate-400/60'}
-                            `}>
-                                {coluna.isVirtual ? <AlertTriangle size={14} className="mb-1" /> : <Plus size={14} className="mb-1" />}
-                                <p className="text-[10px] font-medium">Adicionar</p>
-                            </div>
+                            <button
+                                type="button"
+                                onClick={() => onQuickCreate?.(coluna.id)}
+                                className="w-full py-6 px-2 rounded-md border border-dashed border-slate-300/80 dark:border-slate-700/80 bg-white/45 dark:bg-slate-900/35 text-slate-500 dark:text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 hover:border-blue-300 dark:hover:border-blue-700 hover:bg-white/80 dark:hover:bg-slate-900/60 transition-colors flex flex-col items-center justify-center gap-1"
+                            >
+                                {coluna.isVirtual ? <AlertTriangle size={14} /> : <Plus size={14} />}
+                                <span className="text-[11px]">Adicionar</span>
+                            </button>
                         ) : (
                             negocios.map((negocio, index) => (
                                 <Draggable key={negocio.id} draggableId={negocio.id} index={index}>
@@ -83,7 +91,9 @@ export default function KanbanColumn({
                                             ref={provided.innerRef}
                                             {...provided.draggableProps}
                                             {...provided.dragHandleProps}
-                                            className={`${snapshot.isDragging ? 'opacity-50 scale-[0.98] rotate-1 shadow-xl z-50' : ''}`}
+                                            className={
+                                                snapshot.isDragging ? 'opacity-95 scale-[1.02] shadow-lg z-50' : ''
+                                            }
                                         >
                                             <KanbanCard
                                                 negocio={negocio}

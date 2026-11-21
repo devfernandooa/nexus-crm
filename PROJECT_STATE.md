@@ -216,3 +216,6 @@ Estado: **E0 não iniciada.** Detalhes em §2.
 ### 🟡 Em andamento — Ciclo Kanban Mobile First
 
 **Estado atual:** A camada de resiliência (E0 parcial, tratamento de órfãos) foi concluída. O foco agora muda para a **ordenação interna das colunas (E2 e E3)**.
+
+- Rebranding para **Nexus Hub** e refinamento de layout/responsividade (Sidebar, `Layout.jsx`, `Negocios.jsx` e `KanbanColumn.jsx`)
+- Esquema de cores suaves por etapa do funil com cor padrão inicial, personalização na criação/edição e persistência no funil
