@@ -47,13 +47,13 @@ export default function Sidebar({ onClose }) {
 
   const linkClass = ({ isActive }) =>
     `group flex items-center px-3 py-2.5 rounded-lg text-[16px] font-medium border transition-all duration-150 ${isActive
-      ? 'bg-blue-50 text-blue-700 border-blue-200/80 shadow-2xs dark:bg-emerald-500/15 dark:text-emerald-300 dark:border-emerald-500/30'
+      ? 'bg-emerald-50 text-emerald-700 border-emerald-200/80 shadow-2xs dark:bg-emerald-500/15 dark:text-emerald-300 dark:border-emerald-500/30'
       : 'border-transparent text-slate-600 hover:bg-slate-100/90 hover:text-slate-900 hover:translate-x-0.5 dark:text-slate-300 dark:hover:bg-slate-800/75 dark:hover:text-white'
     }`;
 
   const subLinkClass = ({ isActive }) =>
     `block px-3 py-2 rounded-md text-[15px] font-medium transition-all duration-150 ${isActive
-      ? 'text-blue-700 bg-blue-50/80 dark:text-emerald-300 dark:bg-emerald-500/10'
+      ? 'text-emerald-700 bg-emerald-50/80 dark:text-emerald-300 dark:bg-emerald-500/10'
       : 'text-slate-500 hover:text-slate-900 hover:bg-slate-100/70 hover:translate-x-0.5 dark:text-slate-400 dark:hover:text-white dark:hover:bg-slate-800/50'
     }`;
 
@@ -62,7 +62,7 @@ export default function Sidebar({ onClose }) {
       <aside className="h-full w-64 lg:w-72 max-w-[85vw] flex-shrink-0 bg-white dark:bg-[#0b192c] border-r border-slate-200/90 dark:border-slate-800/90 flex flex-col text-left select-none">
         {/* Logo */}
         <div className="flex items-center gap-2.5 px-4 h-14 border-b border-slate-200/80 dark:border-slate-800/90">
-          <div className="w-8 h-8 bg-blue-600 dark:bg-emerald-500 rounded-lg flex items-center justify-center text-white dark:text-slate-950 font-bold text-base shrink-0 shadow-2xs">
+          <div className="w-8 h-8 bg-emerald-600 dark:bg-emerald-500 rounded-lg flex items-center justify-center text-white dark:text-slate-950 font-bold text-base shrink-0 shadow-2xs">
             N
           </div>
           <span className="text-[18px] font-bold tracking-tight text-slate-900 dark:text-white whitespace-nowrap truncate">
@@ -74,7 +74,7 @@ export default function Sidebar({ onClose }) {
         <div className="px-3.5 py-3 border-b border-slate-200/80 dark:border-slate-800/90 bg-slate-50/60 dark:bg-slate-900/45">
           <div className="flex items-start justify-between gap-2">
             <div className="flex items-center gap-2.5 min-w-0">
-              <div className="w-9 h-9 rounded-full bg-blue-100 text-blue-700 dark:bg-emerald-500/15 dark:text-emerald-300 flex items-center justify-center shrink-0">
+              <div className="w-9 h-9 rounded-full bg-emerald-100 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300 flex items-center justify-center shrink-0">
                 <UserCircle size={20} />
               </div>
               <div className="flex flex-col min-w-0">
@@ -91,7 +91,7 @@ export default function Sidebar({ onClose }) {
               <button
                 type="button"
                 onClick={abrirModalPerfil}
-                className="p-1.5 text-slate-400 hover:text-blue-600 dark:hover:text-emerald-400 transition-colors rounded-md hover:bg-slate-200/60 dark:hover:bg-slate-800"
+                className="p-1.5 text-slate-400 hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors rounded-md hover:bg-slate-200/60 dark:hover:bg-slate-800"
                 title="Editar Perfil"
               >
                 <Pencil size={14} />
@@ -108,7 +108,7 @@ export default function Sidebar({ onClose }) {
           </div>
 
           <div className="flex items-center justify-between gap-2 mt-2.5 pt-2 border-t border-slate-200/70 dark:border-slate-800/80">
-            <span className="text-[11px] font-bold text-blue-700 dark:text-emerald-400 uppercase tracking-wider flex items-center gap-1 shrink-0">
+            <span className="text-[11px] font-bold text-emerald-700 dark:text-emerald-400 uppercase tracking-wider flex items-center gap-1 shrink-0">
               <Shield size={11} /> {dadosUsuario?.role || 'Admin'}
             </span>
             <span className="text-[11px] text-slate-500 dark:text-slate-400 truncate flex items-center gap-1" title={dadosEmpresa?.nome}>
@@ -234,7 +234,7 @@ export default function Sidebar({ onClose }) {
               type="text"
               value={nomePerfil}
               onChange={(e) => setNomePerfil(e.target.value)}
-              className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-slate-800 dark:border-slate-700 dark:text-white"
+              className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 dark:bg-slate-800 dark:border-slate-700 dark:text-white"
               required
             />
           </div>
@@ -260,7 +260,7 @@ export default function Sidebar({ onClose }) {
             <button
               type="submit"
               disabled={salvandoPerfil}
-              className="px-4 py-2 text-sm bg-blue-600 hover:bg-blue-500 text-white rounded-lg font-medium transition-colors"
+              className="px-4 py-2 text-sm bg-emerald-600 hover:bg-emerald-500 dark:bg-emerald-500 dark:hover:bg-emerald-400 text-white dark:text-slate-950 rounded-lg font-semibold transition-colors"
             >
               {salvandoPerfil ? 'Salvando...' : 'Salvar Alterações'}
             </button>

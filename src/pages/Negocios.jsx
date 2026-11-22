@@ -25,8 +25,6 @@ function useIsMobile() {
   return isMobile;
 }
 
-
-
 export default function Negocios() {
   const { dadosUsuario } = useAuth();
   const isMobile = useIsMobile();
@@ -135,92 +133,106 @@ export default function Negocios() {
     setSalvando(false);
   };
 
-  return (
-    <div className="w-full h-full flex flex-col overflow-hidden bg-slate-50/70 dark:bg-slate-950 text-left">
+  const modalInputClass =
+    'w-full px-3 py-2 text-sm border border-slate-300 dark:border-slate-700 rounded-lg bg-white dark:bg-slate-900/80 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-all';
 
-      {/* 1. ÁREA FIXA SUPERIOR */}
-      <div className="shrink-0 px-3 py-2.5 bg-white dark:bg-slate-900 border-b border-slate-200/80 dark:border-slate-800 z-10 space-y-3">
+  return (
+    <div className="w-full h-full flex flex-col overflow-hidden bg-slate-50/70 dark:bg-slate-950 text-left transition-colors">
+
+      {/* 1. ÁREA FIXA SUPERIOR (Padrão de página única com respiro lateral e botões/KPIs maiores) */}
+      <div className="shrink-0 px-4 sm:px-6 lg:px-7 py-3.5 sm:py-4 bg-white dark:bg-[#0b192c] border-b border-slate-200/80 dark:border-slate-800/90 z-10 space-y-3.5">
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <div className="flex items-center gap-2.5 min-w-0">
-            <span className="p-1.5 rounded-lg bg-blue-50 dark:bg-blue-500/10 text-blue-600 dark:text-blue-400 shrink-0">
-              <Briefcase size={15} />
+          <div className="flex items-center gap-3 min-w-0">
+            <span className="w-9 h-9 rounded-lg bg-emerald-600 dark:bg-emerald-500 text-white dark:text-slate-950 flex items-center justify-center shrink-0 shadow-2xs">
+              <Briefcase size={18} />
             </span>
-            <div className="flex flex-wrap items-baseline gap-2.5 min-w-0">
-              <h1
-                style={{ fontSize: '16px', lineHeight: '1.2', margin: 0 }}
-                className="font-bold !text-slate-900 dark:!text-white truncate"
-              >
+            <div className="flex flex-col min-w-0">
+              <h1 className="text-lg sm:text-xl font-bold !text-slate-900 dark:!text-white leading-tight truncate m-0">
                 Negócios
               </h1>
-              <span className="text-xs text-slate-500 dark:text-slate-400 truncate">
+              <span className="text-xs text-slate-500 dark:text-slate-400 truncate mt-0.5">
                 Arraste os cards ou use as setas para avançar etapas
               </span>
             </div>
           </div>
 
-          <div className="flex items-center gap-2.5 flex-wrap">
-            <div className="flex bg-slate-100 dark:bg-slate-800 p-0.5 rounded-lg">
+          <div className="flex items-center gap-2.5 flex-wrap mr-0.5">
+            <div className="flex bg-slate-100 dark:bg-slate-900/80 border border-slate-200/80 dark:border-slate-800 p-1 rounded-lg">
               <button
                 type="button"
                 onClick={() => setViewMode('kanban')}
-                className={`flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium rounded-md transition-all ${viewMode === 'kanban'
-                  ? 'bg-white dark:bg-slate-700 text-blue-600 dark:text-blue-400 shadow-2xs'
-                  : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'
+                className={`flex items-center gap-1.5 px-3 py-1.5 text-xs sm:text-sm font-semibold rounded-md transition-all ${viewMode === 'kanban'
+                    ? 'bg-emerald-50 dark:bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border border-emerald-200/80 dark:border-emerald-500/30 shadow-2xs'
+                    : 'border border-transparent text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
                   }`}
               >
-                <LayoutGrid size={13} /> Kanban
+                <LayoutGrid size={15} /> Kanban
               </button>
               <button
                 type="button"
                 onClick={() => setViewMode('lista')}
-                className={`flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium rounded-md transition-all ${viewMode === 'lista'
-                  ? 'bg-white dark:bg-slate-700 text-blue-600 dark:text-blue-400 shadow-2xs'
-                  : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'
+                className={`flex items-center gap-1.5 px-3 py-1.5 text-xs sm:text-sm font-semibold rounded-md transition-all ${viewMode === 'lista'
+                    ? 'bg-emerald-50 dark:bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border border-emerald-200/80 dark:border-emerald-500/30 shadow-2xs'
+                    : 'border border-transparent text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
                   }`}
               >
-                <List size={13} /> Lista
+                <List size={15} /> Lista
               </button>
             </div>
 
             <button
               type="button"
               onClick={abrirModalCriar}
-              className="bg-blue-600 hover:bg-blue-500 text-white px-3 py-1.5 rounded-lg font-medium flex items-center gap-1.5 shadow-2xs text-xs transition-colors"
+              className="bg-emerald-600 hover:bg-emerald-500 dark:bg-emerald-500 dark:hover:bg-emerald-400 text-white dark:text-slate-950 px-4 py-2 rounded-lg font-semibold flex items-center gap-1.5 shadow-2xs text-xs sm:text-sm transition-colors"
             >
-              <Plus size={14} /> Novo Negócio
+              <Plus size={16} /> Novo Negócio
             </button>
 
             <button
               type="button"
               onClick={() => setIsFunilModalOpen(true)}
-              className="bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 px-3 py-1.5 rounded-lg font-medium flex items-center gap-1.5 border border-slate-200 dark:border-slate-700 text-xs transition-colors"
+              className="bg-white dark:bg-slate-900 hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200 px-3.5 py-2 rounded-lg font-semibold flex items-center gap-1.5 border border-slate-200 dark:border-slate-700 text-xs sm:text-sm transition-colors shadow-2xs"
               title="Configurar etapas do funil"
             >
-              <Settings size={14} /> Etapas
+              <Settings size={15} /> Etapas
             </button>
           </div>
         </div>
 
-        {/* KPIs um pouco maiores com espaçamento equilibrado */}
+        {/* KPIs maiores com espaçamento equilibrado */}
         <div className="flex flex-wrap items-center justify-between gap-3">
-          {/* KPIs alinhados em 3 colunas */}
-          <div className="grid grid-cols-3 gap-2">
-            <KPICard title="Em Aberto" value={formatarMoeda(kpiData.totalAberto)} icon={<Briefcase size={14} />} color="blue" />
-            <KPICard title="Ganhos" value={formatarMoeda(kpiData.totalGanho)} icon={<TrendingUp size={14} />} color="emerald" />
-            <KPICard title="Perdidos" value={formatarMoeda(kpiData.totalPerdido)} icon={<DollarSign size={14} />} color="red" />
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 flex-1 max-w-2xl">
+            <KPICard
+              title="Em Aberto"
+              value={formatarMoeda(kpiData.totalAberto)}
+              icon={<Briefcase size={16} />}
+              color="emerald"
+            />
+            <KPICard
+              title="Ganhos"
+              value={formatarMoeda(kpiData.totalGanho)}
+              icon={<TrendingUp size={16} />}
+              color="emeraldStrong"
+            />
+            <KPICard
+              title="Perdidos"
+              value={formatarMoeda(kpiData.totalPerdido)}
+              icon={<DollarSign size={16} />}
+              color="red"
+            />
           </div>
 
-          <span className="text-[11px] font-medium text-slate-500 dark:text-slate-400 tabular-nums">
+          <span className="text-xs font-semibold text-slate-500 dark:text-slate-400 tabular-nums">
             {negocios.length} {negocios.length === 1 ? 'negócio no funil' : 'negócios no funil'}
           </span>
         </div>
       </div>
 
-      {/* 2. SOMENTE A SEÇÃO DAS COLUNAS TEM SCROLL */}
-      <div className="flex-1 min-h-0 overflow-auto scrollbar-thin bg-[#f9fafb] dark:bg-slate-900/50">
+      {/* 2. ESTRUTURA E FORMATO DAS COLUNAS PRESERVADOS INTEGRALMENTE */}
+      <div className="flex-1 min-h-0 overflow-auto scrollbar-thin bg-[#f9fafb] dark:bg-slate-950/60">
         {loading ? (
           <div className="flex items-center justify-center h-64">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600" />
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-emerald-600 dark:border-emerald-400" />
           </div>
         ) : viewMode === 'kanban' ? (
           <DragDropContext onDragEnd={handleDragEnd}>
@@ -279,7 +291,7 @@ export default function Negocios() {
               type="submit"
               form="form-negocio"
               disabled={salvando}
-              className="px-4 py-2 text-sm bg-blue-600 hover:bg-blue-500 text-white rounded-lg font-medium"
+              className="px-4 py-2 text-sm bg-emerald-600 hover:bg-emerald-500 dark:bg-emerald-500 dark:hover:bg-emerald-400 text-white dark:text-slate-950 rounded-lg font-semibold transition-colors disabled:opacity-60"
             >
               {salvando ? '...' : 'Salvar'}
             </button>
@@ -294,7 +306,7 @@ export default function Negocios() {
                 type="text"
                 value={titulo}
                 onChange={(e) => setTitulo(e.target.value)}
-                className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg dark:bg-slate-800 dark:border-slate-700 dark:text-white"
+                className={modalInputClass}
                 required
               />
             </div>
@@ -304,7 +316,7 @@ export default function Negocios() {
                 type="text"
                 value={contato}
                 onChange={(e) => setContato(e.target.value)}
-                className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg dark:bg-slate-800 dark:border-slate-700 dark:text-white"
+                className={modalInputClass}
               />
             </div>
           </div>
@@ -315,7 +327,7 @@ export default function Negocios() {
                 type="number"
                 value={valor}
                 onChange={(e) => setValor(e.target.value)}
-                className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg dark:bg-slate-800 dark:border-slate-700 dark:text-white"
+                className={modalInputClass}
                 required
               />
             </div>
@@ -324,7 +336,7 @@ export default function Negocios() {
               <select
                 value={status}
                 onChange={(e) => setStatus(e.target.value)}
-                className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg dark:bg-slate-800 dark:border-slate-700 dark:text-white"
+                className={modalInputClass}
               >
                 {colunas.map((c) => (
                   <option key={c.id} value={c.id}>
@@ -372,33 +384,33 @@ export default function Negocios() {
 
 function KPICard({ title, value, icon, color }) {
   const styles = {
-    blue: {
-      badge: 'bg-blue-50 dark:bg-blue-500/10 text-blue-600 dark:text-blue-400',
+    emerald: {
+      badge: 'bg-emerald-50 dark:bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border border-emerald-200/70 dark:border-emerald-500/25',
       value: 'text-slate-900 dark:text-white',
     },
-    emerald: {
-      badge: 'bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400',
-      value: 'text-emerald-600 dark:text-emerald-400',
+    emeraldStrong: {
+      badge: 'bg-emerald-100/90 dark:bg-emerald-500/20 text-emerald-800 dark:text-emerald-300 border border-emerald-300/70 dark:border-emerald-500/30',
+      value: 'text-emerald-700 dark:text-emerald-400',
     },
     red: {
-      badge: 'bg-red-50 dark:bg-red-500/10 text-red-600 dark:text-red-400',
+      badge: 'bg-red-50 dark:bg-red-500/15 text-red-600 dark:text-red-400 border border-red-200/70 dark:border-red-500/25',
       value: 'text-red-600 dark:text-red-400',
     },
   };
 
-  const current = styles[color] || styles.blue;
+  const current = styles[color] || styles.emerald;
 
   return (
-    <div className="bg-white dark:bg-slate-900 rounded-lg border border-slate-200/80 dark:border-slate-800 px-2.5 py-2 flex items-center justify-between gap-2 shadow-2xs min-w-0">
+    <div className="bg-white dark:bg-slate-900/80 rounded-xl border border-slate-200/90 dark:border-slate-800 px-3.5 py-2.5 flex items-center justify-between gap-2.5 shadow-2xs min-w-0">
       <div className="min-w-0">
-        <p className="text-[9px] sm:text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider truncate m-0">
+        <p className="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider truncate m-0">
           {title}
         </p>
-        <p className={`text-xs sm:text-sm font-bold tabular-nums truncate mt-0.5 m-0 ${current.value}`}>
+        <p className={`text-sm sm:text-base font-bold tabular-nums truncate mt-0.5 m-0 ${current.value}`}>
           {value}
         </p>
       </div>
-      <div className={`p-1.5 sm:p-2 rounded-lg shrink-0 hidden xs:flex sm:flex ${current.badge}`}>
+      <div className={`p-2 rounded-lg shrink-0 flex items-center justify-center ${current.badge}`}>
         {icon}
       </div>
     </div>
