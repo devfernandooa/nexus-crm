@@ -1,6 +1,6 @@
 import { db } from '@/firebase-config';
-import { collection, query, where, getDocs, doc, getDoc, onSnapshot } from 'firebase/firestore';
-import { migrarFunilAntigo } from '@/utils/funilUtils';
+import { collection, query, where, getDocs, onSnapshot } from 'firebase/firestore';
+
 
 export async function buscarContatosRecentes(empresaId) {
     try {
