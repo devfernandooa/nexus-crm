@@ -887,14 +887,11 @@ export default function LandingPage() {
 
       {/* Botões Flutuantes (Tema + WhatsApp com efeito sonar) */}
       <div className="fixed bottom-5 right-5 z-40 flex flex-col items-center gap-3">
-        <button
-          type="button"
-          aria-label="Alternar tema claro ou escuro"
-          title="Alternar tema claro/escuro"
-          className="w-11 h-11 rounded-full bg-white/95 dark:bg-[#0b192c]/95 border border-slate-200/90 dark:border-slate-700/90 text-slate-700 dark:text-slate-200 shadow-lg flex items-center justify-center overflow-hidden transition-all duration-200 hover:scale-105 hover:border-emerald-400 dark:hover:border-emerald-500 [&_button]:!w-full [&_button]:!h-full [&_button]:!rounded-full [&_button]:!border-0 [&_button]:!bg-transparent [&_button]:!shadow-none [&_button]:!p-0 [&_button]:flex [&_button]:items-center [&_button]:justify-center"
+        <div
+          className="w-11 h-11 rounded-full bg-white/95 dark:bg-[#0b192c]/95 border border-slate-200/90 dark:border-slate-700/90 text-slate-700 dark:text-slate-200 flex items-center justify-center"
         >
           <ThemeToggle />
-        </button>
+        </div>
 
         <div className="relative flex items-center justify-center w-12 h-12">
           <span

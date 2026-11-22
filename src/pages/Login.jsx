@@ -3,7 +3,8 @@ import { useNavigate } from 'react-router-dom';
 import { signInWithEmailAndPassword } from 'firebase/auth';
 import { auth } from '../firebase-config';
 import AuthLayout from '../components/layouts/AuthLayout';
-import { Mail, Lock, Eye, EyeOff, Globe, Building, MessageCircle } from 'lucide-react';
+import { Mail, Lock, Eye, EyeOff } from 'lucide-react';
+import ModalRecuperarSenha from '@/components/ui/ModalRecuperarSenha';
 
 export default function Login() {
     const [email, setEmail] = useState('');
@@ -12,6 +13,8 @@ export default function Login() {
     const [erro, setErro] = useState('');
     const [loading, setLoading] = useState(false);
     const navigate = useNavigate();
+    const [isModalRecuperarOpen, setIsModalRecuperarOpen] = useState(false);
+
 
     async function handleSubmit(e) {
         e.preventDefault();
@@ -158,12 +161,13 @@ export default function Login() {
                 </div>
 
                 <div className="flex justify-end">
-                    <a
-                        href="#"
-                        className="text-sm font-medium text-emerald-600 hover:text-emerald-500 dark:text-emerald-400 dark:hover:text-emerald-300 transition-colors"
+                    <button
+                        type="button"
+                        onClick={() => setIsModalRecuperarOpen(true)}
+                        className="text-sm text-emerald-600 hover:text-emerald-700 dark:text-emerald-400 dark:hover:text-emerald-300"
                     >
                         Esqueceu sua senha?
-                    </a>
+                    </button>
                 </div>
 
                 {erro && (
@@ -178,6 +182,12 @@ export default function Login() {
                     {loading ? 'Entrando...' : 'ENTRAR'}
                 </button>
             </form>
+            <ModalRecuperarSenha
+                isOpen={isModalRecuperarOpen}
+                onClose={() => setIsModalRecuperarOpen(false)}
+            />
         </AuthLayout>
+
+
     );
 }

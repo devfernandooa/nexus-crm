@@ -108,16 +108,26 @@ export default function Dashboard() {
   useEffect(() => {
     if (!dadosUsuario?.empresaId) return;
 
+    // 1. Carrega os contatos recentes
     buscarContatosRecentes(dadosUsuario.empresaId).then((contatos) => {
       setContatosRecentes(contatos);
+    });
+
+    // 2. Conecta o Radar em tempo real
+    const unsubscribe = escutarDadosDashboard(dadosUsuario.empresaId, (novosDados) => {
+      setDados(novosDados);
       setLoading(false);
     });
 
-    const unsubscribe = escutarDadosDashboard(dadosUsuario.empresaId, (novosDados) => {
-      setDados(novosDados);
-    });
+    // 3. Timeout de segurança (libera a tela após 2s caso o Firebase oscile)
+    const timeout = setTimeout(() => {
+      setLoading(false);
+    }, 2000);
 
-    return () => unsubscribe();
+    return () => {
+      unsubscribe();
+      clearTimeout(timeout);
+    };
   }, [dadosUsuario?.empresaId]);
 
   const formatarMoeda = (valor) =>
@@ -201,7 +211,7 @@ export default function Dashboard() {
 
       {/* Layout Principal */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 items-start flex-1">
-        {/* Coluna Esquerda: Contatos Recentes + Resumo Operacional (preenche a área inferior) */}
+        {/* Coluna Esquerda */}
         <div className="lg:col-span-8 flex flex-col gap-4">
           <div className="bg-white dark:bg-[#0b192c] rounded-xl border border-slate-200/90 dark:border-slate-800 shadow-2xs overflow-hidden flex flex-col">
             <div className="px-4 py-3.5 border-b border-slate-200/80 dark:border-slate-800 flex justify-between items-center">
@@ -264,7 +274,7 @@ export default function Dashboard() {
             </div>
           </div>
 
-          {/* Bloco inferior para preencher o espaço vazio com dados úteis do pipeline */}
+          {/* Pulso Comercial */}
           <div className="bg-white dark:bg-[#0b192c] rounded-xl border border-slate-200/90 dark:border-slate-800 shadow-2xs p-4">
             <div className="flex items-center justify-between gap-2 mb-3">
               <div className="flex items-center gap-2">
