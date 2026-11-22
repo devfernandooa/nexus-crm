@@ -15,6 +15,10 @@ import { DragDropContext } from '@hello-pangea/dnd';
 import ListView from '@/features/negocios/ListView';
 import ModalConfigurarFunil from '@/features/negocios/ModalConfigurarFunil';
 
+import { garantirContatoVinculado } from '@/services/negocioContatoService';
+
+
+
 function useIsMobile() {
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
   useEffect(() => {
@@ -119,18 +123,54 @@ export default function Negocios() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setSalvando(true);
-    const dados = { titulo, valor: Number(valor), status, contato, produtos: produtosSelecionados };
-    const res = negocioEditando
-      ? await atualizarNegocio(negocioEditando, dados)
-      : await adicionarNegocio(dados, dadosUsuario.empresaId);
 
-    if (res.sucesso) {
-      toast.success(negocioEditando ? 'Atualizado!' : 'Criado!');
-      setIsFormModalOpen(false);
-    } else {
-      toast.error(res.erro);
+    try {
+      const empresaId = dadosUsuario?.empresaId;
+      if (!empresaId) {
+        toast.error('Empresa não identificada.');
+        return;
+      }
+
+      const colunaCorrespondente = (colunas || []).find(
+        (col) =>
+          String(col.id).toLowerCase() === String(status || '').trim().toLowerCase() ||
+          String(col.titulo).toLowerCase() === String(status || '').trim().toLowerCase()
+      );
+
+      const statusNormalizado =
+        colunaCorrespondente?.id ||
+        (colunas?.[0]?.id ?? status) ||
+        'prospeccao';
+
+      const contatoId = await garantirContatoVinculado({
+        empresaId,
+        nomeContato: titulo,
+        telefoneOuEmail: contato,
+        tipo: 'lead',
+      });
+
+      const dados = {
+        titulo,
+        valor: Number(valor),
+        status: statusNormalizado,
+        contato,
+        produtos: produtosSelecionados,
+        ...(contatoId ? { contatoId } : {}),
+      };
+
+      const res = negocioEditando
+        ? await atualizarNegocio(negocioEditando, dados)
+        : await adicionarNegocio(dados, empresaId);
+
+      if (res.sucesso) {
+        toast.success(negocioEditando ? 'Atualizado!' : 'Criado!');
+        setIsFormModalOpen(false);
+      } else {
+        toast.error(res.erro);
+      }
+    } finally {
+      setSalvando(false);
     }
-    setSalvando(false);
   };
 
   const modalInputClass =
@@ -162,8 +202,8 @@ export default function Negocios() {
                 type="button"
                 onClick={() => setViewMode('kanban')}
                 className={`flex items-center gap-1.5 px-3 py-1.5 text-xs sm:text-sm font-semibold rounded-md transition-all ${viewMode === 'kanban'
-                    ? 'bg-emerald-50 dark:bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border border-emerald-200/80 dark:border-emerald-500/30 shadow-2xs'
-                    : 'border border-transparent text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+                  ? 'bg-emerald-50 dark:bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border border-emerald-200/80 dark:border-emerald-500/30 shadow-2xs'
+                  : 'border border-transparent text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
                   }`}
               >
                 <LayoutGrid size={15} /> Kanban
@@ -172,8 +212,8 @@ export default function Negocios() {
                 type="button"
                 onClick={() => setViewMode('lista')}
                 className={`flex items-center gap-1.5 px-3 py-1.5 text-xs sm:text-sm font-semibold rounded-md transition-all ${viewMode === 'lista'
-                    ? 'bg-emerald-50 dark:bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border border-emerald-200/80 dark:border-emerald-500/30 shadow-2xs'
-                    : 'border border-transparent text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+                  ? 'bg-emerald-50 dark:bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border border-emerald-200/80 dark:border-emerald-500/30 shadow-2xs'
+                  : 'border border-transparent text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
                   }`}
               >
                 <List size={15} /> Lista
