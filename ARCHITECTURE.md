@@ -50,3 +50,27 @@ Como o `status` é uma string (e futuramente `etapaId`), um negócio pode ficar 
 1. **Bloqueio de Exclusão:** O modal de funil verifica se existem negócios na etapa antes de permitir a exclusão ou renomeação.
 2. **Coluna Virtual:** O hook `useNegociosKanban` varre a lista de negócios. Qualquer negócio cujo `status` não exista na lista ativa de etapas é direcionado para uma coluna virtual renderizada no final do board (`id: 'sem-etapa'`, flag `isVirtual: true`).
 3. **Imutabilidade da coluna virtual:** Cards de etapas válidas não podem ser arrastados para a coluna "Sem Etapa". No entanto, cards órfãos podem ser arrastados (ou movidos via botão) de volta para qualquer etapa válida.
+
+## 7. Notificações
+
+O sistema utiliza a coleção `notificacoes` para manter os usuários informados sobre eventos importantes.
+
+### Estrutura da Coleção `notificacoes`
+
+| Campo            | Tipo      | Descrição                                                                           |
+| :--------------- | :-------- | :---------------------------------------------------------------------------------- |
+| `id`             | string    | ID único da notificação.                                                            |
+| `empresaId`      | string    | **Chave estrangeira** para `empresas`.                                              |
+| `tipo`           | string    | Tipo do evento: `novo_lead`, `negocio_ganho`, `negocio_perdido`, `tarefa_vencendo`. |
+| `mensagem`       | string    | Texto exibido ao usuário.                                                           |
+| `link`           | string    | Rota para onde o usuário deve ir ao clicar.                                         |
+| `lida`           | boolean   | `true` se o usuário já visualizou.                                                  |
+| `destinatarioId` | string    | `todos` (para todos da empresa) ou um `userId` específico.                          |
+| `dataCriacao`    | timestamp | Data/hora do evento.                                                                |
+
+### Fluxo de Notificações
+
+1.  **Novo Lead:** Ao criar um contato (`contatoService.js`), insere notificação com `tipo: 'novo_lead'` e `destinatarioId: 'todos'`.
+2.  **Negócio Fechado:** Ao atualizar o status para "Ganho" ou "Perdido" (`negocioService.js`), insere notificação com `tipo: 'negocio_ganho'` ou `negocio_perdido`.
+3.  **Lembrete de Agenda:** Um `useEffect` no `Layout.jsx` verifica tarefas com vencimento próximo (ex: 24h) e cria notificações `tarefa_vencendo`.
+4.  **Exibição:** Ícone de sino no Header com contador de não lidas. Dropdown com as últimas 10 notificações.

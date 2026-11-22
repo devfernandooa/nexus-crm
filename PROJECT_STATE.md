@@ -282,3 +282,70 @@ Estado: **E0 não iniciada.** Detalhes em §2.
 ## Próximos Passos Sugeridos
 
 - Aplicar o mesmo padrão visual esmeralda e espaçamento lateral nas demais telas internas conforme avançarem (**Produtos / Serviços**, **Relatórios**, **Gestão de Equipe**, **Configurações** e **Central de Ajuda**).
+
+## Resumo
+
+Este PR consolida melhorias de identidade visual, responsividade mobile, gerenciamento de equipe e consistência de dados no fluxo de negócios do **Nexus Hub**.
+
+## O que foi alterado
+
+### 1. Identidade Visual e Layout Mobile (`Layout.jsx`, `Sidebar.jsx`)
+
+- Atualização da marca para **Nexus Hub** com destaque em verde esmeralda (`emerald`), centralizada e redimensionada na barra superior mobile e na sidebar.
+- Correção no acionamento do menu hambúrguer mobile (`setIsSidebarOpen`) e ajuste de rolagem vertical (`overflow-y-auto`) nas telas internas.
+
+### 2. Relatórios e Configurações (`Relatorios.jsx`, `Configuracoes.jsx`)
+
+- Ajuste de espaçamento e altura dos gráficos em `Relatorios.jsx` para melhor encaixe em tela cheia e liberação completa do scroll em dispositivos `< 768px`.
+- Padronização visual da tela de **Configurações** para a paleta esmeralda, com seleção explícita de tema (Claro/Escuro) e rolagem responsiva.
+
+### 3. Gestão de Equipe (`Equipe.jsx`, `equipeService.js`)
+
+- Adição de edição em tempo real do **Nome da Equipe** no documento da empresa.
+- Implementação de cadastro direto, edição completa de dados (`nome`, `e-mail`, `telefone`, `cargo` e `função/permissão`) e remoção de membros da equipe com modal de confirmação.
+- Inclusão de resumo de indicadores e busca rápida por membros e convites pendentes.
+
+### 4. Negócios e Vínculo Automático de Contatos (`Negocios.jsx`, `negocioContatoService.js`)
+
+- Normalização do `status`/etapa selecionada no formulário de negócios para garantir que novos cards caiam na coluna correta do funil e não em **"Sem Etapa"**.
+- Criação de `garantirContatoVinculado` para registrar e vincular automaticamente o contato/lead na coleção `contatos` quando um negócio for criado para alguém ainda não cadastrado.
+
+## Checklist de Validação
+
+- [x] Menu hambúrguer abre e fecha corretamente no mobile
+- [x] Scroll vertical funciona até o final em telas `< 768px` (Relatórios, Equipe e Configurações)
+- [x] Nome da equipe e CRUD de membros persistem corretamente no Firestore
+- [x] Criação de negócio salva na etapa escolhida e cria o contato vinculado quando inexistente
+
+### Sessão 22 — (Planejamento do Módulo WhatsApp)
+
+- **O que fiz:**
+  - Documentei a arquitetura e o fluxo do módulo de integração com WhatsApp.
+  - Criei o `MODULO_WHATSAPP.md` com detalhes técnicos, custos e riscos.
+  - Planejei a estrutura de Cloud Functions para receber Webhooks e rodar o bot de captação.
+- **O que aprendi:**
+  - A API oficial do WhatsApp cobra por mensagem de serviço (R$ 0,035) após 1.000 mensagens gratuitas por número/mês.
+  - O app da Meta precisa estar em modo **Live** para receber mensagens reais (não apenas testes sintéticos).
+- **Próximo passo:** Implementar a Cloud Function de Webhook e o fluxo de conversa do bot.
+
+### Sessão 23 — (Segurança, Notificações e Recuperação de Senha)
+
+- **O que fiz:**
+  - Documentei a implementação de logout por inatividade (30 minutos).
+  - Documentei o fluxo de recuperação/reset de senha.
+  - Modelei a coleção `notificacoes` para eventos de novo lead, negócio fechado e lembretes de agenda.
+- **O que aprendi:**
+  - A importância de expirar sessões inativas para segurança em ambientes corporativos.
+  - Como estruturar notificações multi-tenant com a coleção `notificacoes`.
+- **Próximo passo:** Implementar as Cloud Functions de WhatsApp (conforme `MODULO_WHATSAPP.md`).
+
+### Sessão 24 — (Logout por Inatividade e Alinhamento Visual)
+
+- **O que fiz:**
+  - Implementei o hook `useInactivityLogout` que monitora a interação do usuário e faz logout automático após 30 minutos.
+  - Integrei o hook ao `AuthContext` com feedback via Toast.
+  - Alinhei o código de notificações ao novo esquema de cores (verde esmeralda).
+- **O que aprendi:**
+  - A importância de limpar os timers no `useEffect` para evitar vazamentos de memória.
+  - Como o `signOut` do Firebase é seguro para ser chamado mesmo se o usuário já estiver deslogado.
+- **Próximo passo:** Implementar o fluxo de recuperação de senha e a coleção de notificações.
