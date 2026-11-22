@@ -61,12 +61,12 @@ export default function Sidebar({ onClose }) {
     <>
       <aside className="h-full w-64 lg:w-72 max-w-[85vw] flex-shrink-0 bg-white dark:bg-[#0b192c] border-r border-slate-200/90 dark:border-slate-800/90 flex flex-col text-left select-none">
         {/* Logo */}
-        <div className="flex items-center gap-2.5 px-4 h-14 border-b border-slate-200/80 dark:border-slate-800/90">
-          <div className="w-8 h-8 bg-emerald-600 dark:bg-emerald-500 rounded-lg flex items-center justify-center text-white dark:text-slate-950 font-bold text-base shrink-0 shadow-2xs">
+        <div className="flex items-center justify-center gap-2.5 px-4 h-16 border-b border-slate-200/80 dark:border-slate-800/90">
+          <div className="w-9 h-9 bg-emerald-600 dark:bg-emerald-500 rounded-lg flex items-center justify-center text-white dark:text-slate-950 font-extrabold text-lg shrink-0 shadow-2xs">
             N
           </div>
-          <span className="text-[18px] font-bold tracking-tight text-slate-900 dark:text-white whitespace-nowrap truncate">
-            Nexus Hub
+          <span className="text-[20px] font-bold tracking-tight text-slate-900 dark:text-white whitespace-nowrap truncate">
+            Nexus <span className="text-emerald-600 dark:text-emerald-400">Hub</span>
           </span>
         </div>
 

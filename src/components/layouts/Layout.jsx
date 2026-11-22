@@ -27,30 +27,38 @@ export default function Layout() {
       {/* Conteúdo Principal */}
       <div className="flex-1 flex flex-col min-w-0 min-h-0 overflow-hidden">
         {/* Header Mobile */}
-        <header className="h-14 shrink-0 bg-white border-b border-slate-200 dark:bg-slate-900 dark:border-slate-800 flex items-center justify-between px-3 md:hidden">
-          <div className="flex items-center gap-2">
-            <div className="w-7 h-7 bg-blue-600 rounded-lg flex items-center justify-center text-white font-bold text-sm">
+        <header className="grid grid-cols-[40px_1fr_40px] items-center px-4 h-16 shrink-0 bg-white dark:bg-[#0b192c] border-b border-slate-200/90 dark:border-slate-800 md:hidden">
+          <div aria-hidden="true" className="w-10 h-10" />
+
+          <div className="flex items-center justify-center gap-2.5">
+            <div className="w-9 h-9 bg-emerald-600 dark:bg-emerald-500 rounded-lg flex items-center justify-center text-white dark:text-slate-950 font-extrabold text-lg shadow-2xs shrink-0">
               N
             </div>
-            <span className="font-bold text-sm text-slate-800 dark:text-white">Nexus CRM</span>
+            <span className="text-[20px] font-bold tracking-tight text-slate-900 dark:text-white whitespace-nowrap">
+              Nexus <span className="text-emerald-600 dark:text-emerald-400">Hub</span>
+            </span>
           </div>
-          <button
-            type="button"
-            onClick={() => setIsSidebarOpen(true)}
-            className="p-2 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors"
-          >
-            <Menu size={20} />
-          </button>
+
+          <div className="flex items-center justify-end">
+            <button
+              type="button"
+              onClick={() => setIsSidebarOpen(true)}
+              className="w-10 h-10 flex items-center justify-center rounded-lg text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+              aria-label="Abrir menu"
+            >
+              <Menu size={20} />
+            </button>
+          </div>
         </header>
 
-        {/* Área de Conteúdo sem padding extra nas bordas */}
-        <main className="flex-1 min-h-0 w-full overflow-hidden flex flex-col">
+        {/* Área de Conteúdo */}
+        <main className="flex-1 min-h-0 w-full overflow-y-auto md:overflow-hidden flex flex-col">
           <Outlet />
         </main>
 
         {/* Rodapé Mobile-First */}
         <footer className="py-2 shrink-0 text-center text-[11px] text-slate-400 dark:text-slate-600 border-t border-slate-200 dark:border-slate-800 md:hidden">
-          Nexus CRM v1.0 • Pro
+          Nexus Hub v1.0 • Pro
         </footer>
       </div>
     </div>
