@@ -1,16 +1,16 @@
-import { useState, useEffect } from 'react';
-import { useSearchParams } from 'react-router-dom'; // Importante para ler a URL
+import { useState, useEffect, useMemo } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { escutarContatos, adicionarContato, atualizarContato, deletarContato } from '@/services/contatoService';
 import Modal from '@/components/ui/Modal';
 import ConfirmModal from '@/components/ui/ConfirmModal';
 import PageHeader from '@/components/ui/PageHeader';
 import toast from 'react-hot-toast';
-import { Plus, Search, Users, Pencil, Trash2 } from 'lucide-react';
+import { Plus, Search, Users, Pencil, Trash2, X, Mail, Phone, Building2 } from 'lucide-react';
 
 export default function Contatos() {
   const { dadosUsuario } = useAuth();
-  const [searchParams] = useSearchParams(); // Lê os parâmetros da URL
+  const [searchParams] = useSearchParams();
 
   const [contatos, setContatos] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -51,24 +51,45 @@ export default function Contatos() {
     return () => unsubscribe();
   }, [dadosUsuario?.empresaId]);
 
+  const contadores = useMemo(() => {
+    const leads = contatos.filter((c) => c.status !== 'Cliente').length;
+    const clientes = contatos.filter((c) => c.status === 'Cliente').length;
+    return {
+      todos: contatos.length,
+      leads,
+      clientes,
+    };
+  }, [contatos]);
+
   // Lógica de Filtragem (Busca + Aba)
-  const contatosFiltrados = contatos.filter(c => {
-    // 1. Filtro da Aba
+  const contatosFiltrados = contatos.filter((c) => {
     let passaNaAba = true;
     if (filtro === 'leads') passaNaAba = c.status !== 'Cliente';
     if (filtro === 'clientes') passaNaAba = c.status === 'Cliente';
 
-    // 2. Filtro da Busca
-    const termo = busca.toLowerCase();
-    const passaNaBusca = c.nome.toLowerCase().includes(termo) || c.email.toLowerCase().includes(termo);
+    const termo = busca.trim().toLowerCase();
+    if (!termo) return passaNaAba;
+
+    const passaNaBusca =
+      c.nome?.toLowerCase().includes(termo) ||
+      c.email?.toLowerCase().includes(termo) ||
+      c.empresa?.toLowerCase().includes(termo) ||
+      c.cargo?.toLowerCase().includes(termo) ||
+      c.telefone?.toLowerCase().includes(termo);
 
     return passaNaAba && passaNaBusca;
   });
 
   function abrirModalCriar() {
     setContatoEditando(null);
-    setNome(''); setEmail(''); setTelefone(''); setStatus('Novo');
-    setCargo(''); setEmpresa(''); setEndereco(''); setObservacoes('');
+    setNome('');
+    setEmail('');
+    setTelefone('');
+    setStatus('Novo');
+    setCargo('');
+    setEmpresa('');
+    setEndereco('');
+    setObservacoes('');
     setIsModalOpen(true);
   }
 
@@ -116,99 +137,228 @@ export default function Contatos() {
       toast.success(contatoEditando ? 'Contato atualizado!' : 'Contato criado!');
       setIsModalOpen(false);
     } else {
-      toast.error("Erro: " + resultado.erro);
+      toast.error('Erro: ' + resultado.erro);
     }
     setSalvando(false);
   }
 
+  const getStatusBadgeClass = (contatoStatus) => {
+    switch (contatoStatus) {
+      case 'Cliente':
+        return 'bg-emerald-100 text-emerald-800 border border-emerald-200/80 dark:bg-emerald-500/20 dark:text-emerald-300 dark:border-emerald-500/30';
+      case 'Em Atendimento':
+        return 'bg-amber-100 text-amber-800 border border-amber-200/80 dark:bg-amber-500/20 dark:text-amber-300 dark:border-amber-500/30';
+      default:
+        return 'bg-slate-100 text-slate-700 border border-slate-200/80 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700';
+    }
+  };
+
   // Classes reutilizáveis
-  const inputClass = "w-full px-3 py-2 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-slate-800 dark:border-slate-700 dark:text-white";
-  const labelClass = "block text-xs font-semibold !text-slate-600 dark:!text-slate-400 mb-1";
+  const inputClass =
+    'w-full px-3 py-2 text-sm border border-slate-300 dark:border-slate-700 rounded-lg bg-white dark:bg-slate-900/80 text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-all';
+  const labelClass = 'block text-xs font-semibold !text-slate-700 dark:!text-slate-300 mb-1';
 
   return (
-    <div className="w-full h-full flex flex-col">
+    <div className="w-full min-h-full flex flex-col px-4 sm:px-6 lg:px-7 py-4 sm:py-5 bg-slate-50/60 dark:bg-slate-950 transition-colors text-left">
       <PageHeader
         icon={<Users size={18} />}
         title="Contatos"
         subtitle="Gerencie os leads e clientes da sua empresa."
         action={
-          <button onClick={abrirModalCriar} className="bg-blue-600 hover:bg-blue-500 text-white px-4 py-2 rounded-lg font-medium flex items-center gap-2 transition-colors w-full md:w-auto justify-center shadow-sm">
-            <Plus size={18} /> Novo Contato
+          <button
+            type="button"
+            onClick={abrirModalCriar}
+            className="bg-emerald-600 hover:bg-emerald-500 dark:bg-emerald-500 dark:hover:bg-emerald-400 text-white dark:text-slate-950 px-3.5 py-2 rounded-lg text-xs sm:text-sm font-semibold flex items-center gap-1.5 transition-colors w-full md:w-auto justify-center shadow-2xs mr-1"
+          >
+            <Plus size={16} /> Novo Contato
           </button>
         }
       />
 
       {/* Barra de Filtros (Abas) e Busca */}
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-4">
-        <div className="flex gap-2 bg-slate-100 dark:bg-slate-800/50 p-1 rounded-lg w-full md:w-auto">
-          <button onClick={() => setFiltro('todos')} className={`flex-1 md:flex-none px-4 py-1.5 rounded-md text-sm font-medium transition-colors ${filtro === 'todos' ? 'bg-white dark:bg-slate-700 shadow-sm !text-slate-900 dark:!text-white' : '!text-slate-500 hover:text-slate-700'}`}>Todos</button>
-          <button onClick={() => setFiltro('leads')} className={`flex-1 md:flex-none px-4 py-1.5 rounded-md text-sm font-medium transition-colors ${filtro === 'leads' ? 'bg-white dark:bg-slate-700 shadow-sm text-blue-600 dark:text-blue-400' : '!text-slate-500 hover:text-slate-700'}`}>Leads</button>
-          <button onClick={() => setFiltro('clientes')} className={`flex-1 md:flex-none px-4 py-1.5 rounded-md text-sm font-medium transition-colors ${filtro === 'clientes' ? 'bg-white dark:bg-slate-700 shadow-sm text-emerald-600 dark:text-emerald-400' : '!text-slate-500 hover:text-slate-700'}`}>Clientes</button>
+      <div className="flex flex-col md:flex-row justify-between items-stretch md:items-center gap-3 mb-4">
+        <div className="flex gap-1.5 bg-white dark:bg-[#0b192c] border border-slate-200/90 dark:border-slate-800 p-1 rounded-xl w-full md:w-auto shadow-2xs">
+          <button
+            type="button"
+            onClick={() => setFiltro('todos')}
+            className={`flex-1 md:flex-none px-3.5 py-1.5 rounded-lg text-xs sm:text-sm font-semibold transition-all inline-flex items-center justify-center gap-1.5 ${filtro === 'todos'
+                ? 'bg-emerald-50 text-emerald-700 border border-emerald-200/80 dark:bg-emerald-500/15 dark:text-emerald-300 dark:border-emerald-500/30 shadow-2xs'
+                : 'border border-transparent !text-slate-600 dark:!text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-50 dark:hover:bg-slate-800/60'
+              }`}
+          >
+            <span>Todos</span>
+            <span className="text-[11px] opacity-75 tabular-nums">({contadores.todos})</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setFiltro('leads')}
+            className={`flex-1 md:flex-none px-3.5 py-1.5 rounded-lg text-xs sm:text-sm font-semibold transition-all inline-flex items-center justify-center gap-1.5 ${filtro === 'leads'
+                ? 'bg-emerald-50 text-emerald-700 border border-emerald-200/80 dark:bg-emerald-500/15 dark:text-emerald-300 dark:border-emerald-500/30 shadow-2xs'
+                : 'border border-transparent !text-slate-600 dark:!text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-50 dark:hover:bg-slate-800/60'
+              }`}
+          >
+            <span>Leads</span>
+            <span className="text-[11px] opacity-75 tabular-nums">({contadores.leads})</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setFiltro('clientes')}
+            className={`flex-1 md:flex-none px-3.5 py-1.5 rounded-lg text-xs sm:text-sm font-semibold transition-all inline-flex items-center justify-center gap-1.5 ${filtro === 'clientes'
+                ? 'bg-emerald-50 text-emerald-700 border border-emerald-200/80 dark:bg-emerald-500/15 dark:text-emerald-300 dark:border-emerald-500/30 shadow-2xs'
+                : 'border border-transparent !text-slate-600 dark:!text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-50 dark:hover:bg-slate-800/60'
+              }`}
+          >
+            <span>Clientes</span>
+            <span className="text-[11px] opacity-75 tabular-nums">({contadores.clientes})</span>
+          </button>
         </div>
 
-        <div className="relative w-full md:w-72">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
+        <div className="relative w-full md:w-80">
+          <Search
+            className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 dark:text-slate-500"
+            size={16}
+          />
           <input
             type="text"
-            placeholder="Buscar contatos..."
+            placeholder="Buscar por nome, e-mail, empresa..."
             value={busca}
             onChange={(e) => setBusca(e.target.value)}
-            // Adicionado pl-10 (padding-left) para o ícone não sobrepor o texto
-            className="w-full pl-10 pr-4 py-2 text-sm border border-slate-200 dark:border-slate-700 rounded-lg dark:bg-slate-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="w-full pl-9 pr-9 py-2 text-sm bg-white dark:bg-[#0b192c] border border-slate-200/90 dark:border-slate-800 rounded-xl text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 shadow-2xs transition-all"
           />
+          {busca && (
+            <button
+              type="button"
+              onClick={() => setBusca('')}
+              aria-label="Limpar busca"
+              className="absolute right-2.5 top-1/2 -translate-y-1/2 p-1 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 rounded-md"
+            >
+              <X size={14} />
+            </button>
+          )}
         </div>
       </div>
 
-      <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl overflow-hidden shadow-sm flex flex-col flex-1">
+      {/* Container da Tabela / Cards */}
+      <div className="bg-white dark:bg-[#0b192c] border border-slate-200/90 dark:border-slate-800 rounded-xl overflow-hidden shadow-2xs flex flex-col flex-1">
         {loading ? (
-          <div className="p-8 text-center !text-slate-500">Carregando contatos...</div>
+          <div className="p-6 space-y-3 animate-pulse">
+            {[1, 2, 3, 4].map((i) => (
+              <div key={i} className="h-12 bg-slate-100 dark:bg-slate-800/70 rounded-lg" />
+            ))}
+          </div>
         ) : contatosFiltrados.length === 0 ? (
           <div className="p-12 text-center flex flex-col items-center justify-center flex-1">
-            <div className="w-16 h-16 bg-blue-50 dark:bg-slate-800 rounded-full flex items-center justify-center text-blue-500 mb-4">
-              <Users size={32} />
+            <div className="w-14 h-14 bg-emerald-50 dark:bg-emerald-500/15 border border-emerald-200/80 dark:border-emerald-500/25 rounded-full flex items-center justify-center text-emerald-600 dark:text-emerald-400 mb-3">
+              <Users size={26} />
             </div>
-            <h3 className="text-lg font-bold !text-slate-900 dark:!text-white mb-2">Nenhum contato encontrado</h3>
-            <p className="!text-slate-500 mb-6 max-w-md">Nenhum contato corresponde a este filtro.</p>
-            <button onClick={abrirModalCriar} className="bg-blue-600 hover:bg-blue-500 text-white px-4 py-2 rounded-lg font-medium flex items-center gap-2 transition-colors">
-              <Plus size={18} /> Adicionar Contato
+            <h3 className="text-base sm:text-lg font-bold !text-slate-900 dark:!text-white mb-1">
+              Nenhum contato encontrado
+            </h3>
+            <p className="text-xs sm:text-sm !text-slate-500 dark:!text-slate-400 mb-5 max-w-md">
+              {busca
+                ? 'Nenhum contato corresponde ao termo pesquisado.'
+                : 'Nenhum contato cadastrado neste filtro ainda.'}
+            </p>
+            <button
+              type="button"
+              onClick={abrirModalCriar}
+              className="bg-emerald-600 hover:bg-emerald-500 dark:bg-emerald-500 dark:hover:bg-emerald-400 text-white dark:text-slate-950 px-4 py-2 rounded-lg text-xs sm:text-sm font-semibold flex items-center gap-1.5 transition-colors shadow-2xs"
+            >
+              <Plus size={16} /> Adicionar Contato
             </button>
           </div>
         ) : (
           <>
             {/* VISÃO DESKTOP */}
-            <div className="hidden md:block overflow-x-auto">
+            <div className="hidden md:block overflow-x-auto flex-1">
               <table className="w-full text-left border-collapse">
                 <thead>
-                  <tr className="bg-slate-50 dark:bg-slate-800/50 border-b border-slate-200 dark:border-slate-700">
-                    <th className="px-6 py-3 text-xs font-semibold !text-slate-500 uppercase">Nome / Cargo</th>
-                    <th className="px-6 py-3 text-xs font-semibold !text-slate-500 uppercase">Empresa</th>
-                    <th className="px-6 py-3 text-xs font-semibold !text-slate-500 uppercase">E-mail</th>
-                    <th className="px-6 py-3 text-xs font-semibold !text-slate-500 uppercase">Telefone</th>
-                    <th className="px-6 py-3 text-xs font-semibold !text-slate-500 uppercase">Status</th>
-                    <th className="px-6 py-3 text-xs font-semibold !text-slate-500 uppercase text-right">Ações</th>
+                  <tr className="bg-slate-50/80 dark:bg-slate-900/65 border-b border-slate-200/80 dark:border-slate-800">
+                    <th className="px-5 py-3 text-[11px] font-bold tracking-wider !text-slate-500 dark:!text-slate-400 uppercase">
+                      Nome / Cargo
+                    </th>
+                    <th className="px-5 py-3 text-[11px] font-bold tracking-wider !text-slate-500 dark:!text-slate-400 uppercase">
+                      Empresa
+                    </th>
+                    <th className="px-5 py-3 text-[11px] font-bold tracking-wider !text-slate-500 dark:!text-slate-400 uppercase">
+                      E-mail
+                    </th>
+                    <th className="px-5 py-3 text-[11px] font-bold tracking-wider !text-slate-500 dark:!text-slate-400 uppercase">
+                      Telefone
+                    </th>
+                    <th className="px-5 py-3 text-[11px] font-bold tracking-wider !text-slate-500 dark:!text-slate-400 uppercase">
+                      Status
+                    </th>
+                    <th className="px-5 py-3 text-[11px] font-bold tracking-wider !text-slate-500 dark:!text-slate-400 uppercase text-right">
+                      Ações
+                    </th>
                   </tr>
                 </thead>
-                <tbody>
+                <tbody className="divide-y divide-slate-100 dark:divide-slate-800/80">
                   {contatosFiltrados.map((contato) => (
-                    <tr key={contato.id} className="border-b border-slate-100 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800/30 transition-colors">
-                      <td className="px-6 py-3">
-                        <p className="text-sm font-medium !text-slate-900 dark:!text-white">{contato.nome}</p>
-                        <p className="text-xs !text-slate-500">{contato.cargo || 'Sem cargo'}</p>
+                    <tr
+                      key={contato.id}
+                      className="hover:bg-emerald-50/35 dark:hover:bg-slate-800/40 transition-colors group"
+                    >
+                      <td className="px-5 py-3">
+                        <div className="flex items-center gap-3">
+                          <div className="w-8 h-8 rounded-full bg-emerald-50 dark:bg-emerald-500/15 border border-emerald-200/70 dark:border-emerald-500/25 text-emerald-700 dark:text-emerald-300 font-bold text-xs flex items-center justify-center shrink-0">
+                            {contato.nome?.charAt(0).toUpperCase() || '?'}
+                          </div>
+                          <div className="min-w-0">
+                            <p className="text-sm font-semibold !text-slate-900 dark:!text-white truncate">
+                              {contato.nome}
+                            </p>
+                            <p className="text-xs !text-slate-500 dark:!text-slate-400 truncate">
+                              {contato.cargo || 'Sem cargo'}
+                            </p>
+                          </div>
+                        </div>
                       </td>
-                      <td className="px-6 py-3 text-sm !text-slate-600 dark:!text-slate-400">{contato.empresa || '-'}</td>
-                      <td className="px-6 py-3 text-sm !text-slate-600 dark:!text-slate-400">{contato.email}</td>
-                      <td className="px-6 py-3 text-sm !text-slate-600 dark:!text-slate-400">{contato.telefone || '-'}</td>
-                      <td className="px-6 py-3">
-                        <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${contato.status === 'Cliente'
-                          ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-500/20 dark:text-emerald-400'
-                          : 'bg-blue-100 text-blue-800 dark:bg-blue-500/20 dark:text-blue-400'
-                          }`}>
-                          {contato.status}
+
+                      <td className="px-5 py-3 text-sm !text-slate-600 dark:!text-slate-300">
+                        {contato.empresa || '-'}
+                      </td>
+
+                      <td className="px-5 py-3 text-sm !text-slate-600 dark:!text-slate-300">
+                        {contato.email}
+                      </td>
+
+                      <td className="px-5 py-3 text-sm !text-slate-600 dark:!text-slate-300 tabular-nums">
+                        {contato.telefone || '-'}
+                      </td>
+
+                      <td className="px-5 py-3">
+                        <span
+                          className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-semibold ${getStatusBadgeClass(
+                            contato.status
+                          )}`}
+                        >
+                          {contato.status || 'Novo'}
                         </span>
                       </td>
-                      <td className="px-6 py-3 text-right space-x-1">
-                        <button onClick={() => handleEditar(contato)} className="p-1.5 text-slate-400 hover:text-blue-600 transition-colors rounded-lg hover:bg-blue-50 dark:hover:bg-blue-500/10"><Pencil size={16} /></button>
-                        <button onClick={() => handleDeletar(contato.id)} className="p-1.5 text-slate-400 hover:text-red-600 transition-colors rounded-lg hover:bg-red-50 dark:hover:bg-red-500/10"><Trash2 size={16} /></button>
+
+                      <td className="px-5 py-3 text-right">
+                        <div className="inline-flex items-center justify-end gap-1">
+                          <button
+                            type="button"
+                            onClick={() => handleEditar(contato)}
+                            title="Editar contato"
+                            className="p-1.5 text-slate-400 hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors rounded-lg hover:bg-emerald-50 dark:hover:bg-emerald-500/10"
+                          >
+                            <Pencil size={15} />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleDeletar(contato.id)}
+                            title="Excluir contato"
+                            className="p-1.5 text-slate-400 hover:text-red-600 dark:hover:text-red-400 transition-colors rounded-lg hover:bg-red-50 dark:hover:bg-red-500/10"
+                          >
+                            <Trash2 size={15} />
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   ))}
@@ -217,25 +367,65 @@ export default function Contatos() {
             </div>
 
             {/* VISÃO MOBILE */}
-            <div className="md:hidden flex flex-col divide-y divide-slate-100 dark:divide-slate-800">
+            <div className="md:hidden flex flex-col divide-y divide-slate-100 dark:divide-slate-800/80">
               {contatosFiltrados.map((contato) => (
-                <div key={contato.id} className="p-4 flex flex-col gap-1">
-                  <div className="flex justify-between items-start">
-                    <h3 className="font-bold !text-slate-900 dark:!text-white">{contato.nome}</h3>
-                    <span className={`text-[10px] font-medium px-2 py-0.5 rounded-full ${contato.status === 'Cliente'
-                      ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-500/20 dark:text-emerald-400'
-                      : 'bg-blue-100 text-blue-800 dark:bg-blue-500/20 dark:text-blue-400'
-                      }`}>
-                      {contato.status}
+                <div key={contato.id} className="p-4 flex flex-col gap-2">
+                  <div className="flex justify-between items-start gap-2">
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      <div className="w-9 h-9 rounded-full bg-emerald-50 dark:bg-emerald-500/15 border border-emerald-200/70 dark:border-emerald-500/25 text-emerald-700 dark:text-emerald-300 font-bold text-xs flex items-center justify-center shrink-0">
+                        {contato.nome?.charAt(0).toUpperCase() || '?'}
+                      </div>
+                      <div className="min-w-0">
+                        <h3 className="font-bold text-sm !text-slate-900 dark:!text-white truncate">
+                          {contato.nome}
+                        </h3>
+                        <p className="text-xs !text-slate-500 dark:!text-slate-400 truncate flex items-center gap-1">
+                          <Building2 size={11} className="shrink-0" />
+                          <span>
+                            {contato.cargo ? `${contato.cargo} • ` : ''}
+                            {contato.empresa || 'Sem empresa'}
+                          </span>
+                        </p>
+                      </div>
+                    </div>
+
+                    <span
+                      className={`text-[10px] font-semibold px-2.5 py-0.5 rounded-full shrink-0 ${getStatusBadgeClass(
+                        contato.status
+                      )}`}
+                    >
+                      {contato.status || 'Novo'}
                     </span>
                   </div>
-                  <p className="text-xs !text-slate-500">{contato.cargo ? `${contato.cargo} na ` : ''}{contato.empresa || 'Sem empresa'}</p>
-                  <p className="text-sm !text-slate-600 dark:!text-slate-400 mt-1">{contato.email}</p>
-                  <p className="text-sm !text-slate-600 dark:!text-slate-400">{contato.telefone}</p>
 
-                  <div className="flex gap-3 mt-2 pt-2 border-t border-slate-100 dark:border-slate-800">
-                    <button onClick={() => handleEditar(contato)} className="flex items-center justify-center gap-1 px-3 py-1.5 text-xs text-blue-700 font-medium bg-blue-50 dark:bg-blue-500/10 rounded-lg w-1/2"><Pencil size={14} /> Editar</button>
-                    <button onClick={() => handleDeletar(contato.id)} className="flex items-center justify-center gap-1 px-3 py-1.5 text-xs text-red-700 font-medium bg-red-50 dark:bg-red-500/10 rounded-lg w-1/2"><Trash2 size={14} /> Excluir</button>
+                  <div className="space-y-1 pt-1 text-xs !text-slate-600 dark:!text-slate-300">
+                    <p className="flex items-center gap-1.5 truncate">
+                      <Mail size={12} className="text-slate-400 shrink-0" />
+                      <span className="truncate">{contato.email}</span>
+                    </p>
+                    {contato.telefone && (
+                      <p className="flex items-center gap-1.5 tabular-nums">
+                        <Phone size={12} className="text-slate-400 shrink-0" />
+                        <span>{contato.telefone}</span>
+                      </p>
+                    )}
+                  </div>
+
+                  <div className="flex gap-2.5 mt-1 pt-2.5 border-t border-slate-100 dark:border-slate-800">
+                    <button
+                      type="button"
+                      onClick={() => handleEditar(contato)}
+                      className="flex items-center justify-center gap-1.5 px-3 py-1.5 text-xs text-emerald-700 dark:text-emerald-300 font-semibold bg-emerald-50 dark:bg-emerald-500/15 border border-emerald-200/70 dark:border-emerald-500/25 rounded-lg w-1/2 transition-colors"
+                    >
+                      <Pencil size={13} /> Editar
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleDeletar(contato.id)}
+                      className="flex items-center justify-center gap-1.5 px-3 py-1.5 text-xs text-red-700 dark:text-red-300 font-semibold bg-red-50 dark:bg-red-500/15 border border-red-200/70 dark:border-red-500/25 rounded-lg w-1/2 transition-colors"
+                    >
+                      <Trash2 size={13} /> Excluir
+                    </button>
                   </div>
                 </div>
               ))}
@@ -244,39 +434,133 @@ export default function Contatos() {
         )}
       </div>
 
+      {/* Modal Criar / Editar Contato */}
       <Modal
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
-        title={contatoEditando ? "Editar Contato" : "Novo Contato"}
+        title={contatoEditando ? 'Editar Contato' : 'Novo Contato'}
         icon={contatoEditando ? <Pencil size={18} /> : <Plus size={18} />}
-        size="lg" // <-- Adicione o tamanho
+        size="lg"
       >
-        {/* ... o formulário completo (mantido como estava) ... */}
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <h3 className="text-xs font-bold uppercase tracking-wider !text-slate-500 dark:!text-slate-400 mb-2 pb-1 border-b border-slate-100 dark:border-slate-800">Dados Pessoais</h3>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-              <div><label className={labelClass}>Nome Completo</label><input type="text" value={nome} onChange={(e) => setNome(e.target.value)} className={inputClass} required /></div>
-              <div><label className={labelClass}>E-mail</label><input type="email" value={email} onChange={(e) => setEmail(e.target.value)} className={inputClass} required /></div>
-              <div><label className={labelClass}>Telefone</label><input type="text" value={telefone} onChange={(e) => setTelefone(e.target.value)} className={inputClass} /></div>
-              <div><label className={labelClass}>Cargo</label><input type="text" value={cargo} onChange={(e) => setCargo(e.target.value)} className={inputClass} placeholder="Ex: Gerente" /></div>
+            <h3 className="text-xs font-bold uppercase tracking-wider !text-slate-500 dark:!text-slate-400 mb-2.5 pb-1 border-b border-slate-200/80 dark:border-slate-800">
+              Dados Pessoais
+            </h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <div>
+                <label className={labelClass}>Nome Completo *</label>
+                <input
+                  type="text"
+                  value={nome}
+                  onChange={(e) => setNome(e.target.value)}
+                  className={inputClass}
+                  placeholder="Ex: João Silva"
+                  required
+                />
+              </div>
+              <div>
+                <label className={labelClass}>E-mail *</label>
+                <input
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  className={inputClass}
+                  placeholder="joao@empresa.com"
+                  required
+                />
+              </div>
+              <div>
+                <label className={labelClass}>Telefone</label>
+                <input
+                  type="text"
+                  value={telefone}
+                  onChange={(e) => setTelefone(e.target.value)}
+                  className={inputClass}
+                  placeholder="(75) 99999-9999"
+                />
+              </div>
+              <div>
+                <label className={labelClass}>Cargo</label>
+                <input
+                  type="text"
+                  value={cargo}
+                  onChange={(e) => setCargo(e.target.value)}
+                  className={inputClass}
+                  placeholder="Ex: Gerente Comercial"
+                />
+              </div>
             </div>
           </div>
+
           <div>
-            <h3 className="text-xs font-bold uppercase tracking-wider !text-slate-500 dark:!text-slate-400 mb-2 pb-1 border-b border-slate-100 dark:border-slate-800">Dados Profissionais</h3>
+            <h3 className="text-xs font-bold uppercase tracking-wider !text-slate-500 dark:!text-slate-400 mb-2.5 pb-1 border-b border-slate-200/80 dark:border-slate-800">
+              Dados Profissionais
+            </h3>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-              <div><label className={labelClass}>Empresa</label><input type="text" value={empresa} onChange={(e) => setEmpresa(e.target.value)} className={inputClass} placeholder="Ex: Google" /></div>
-              <div><label className={labelClass}>Endereço</label><input type="text" value={endereco} onChange={(e) => setEndereco(e.target.value)} className={inputClass} placeholder="Ex: São Paulo - SP" /></div>
-              <div><label className={labelClass}>Status</label><select value={status} onChange={(e) => setStatus(e.target.value)} className={inputClass}><option value="Novo">Novo</option><option value="Em Atendimento">Em Atendimento</option><option value="Cliente">Cliente</option></select></div>
+              <div>
+                <label className={labelClass}>Empresa</label>
+                <input
+                  type="text"
+                  value={empresa}
+                  onChange={(e) => setEmpresa(e.target.value)}
+                  className={inputClass}
+                  placeholder="Ex: Agro Plus"
+                />
+              </div>
+              <div>
+                <label className={labelClass}>Endereço</label>
+                <input
+                  type="text"
+                  value={endereco}
+                  onChange={(e) => setEndereco(e.target.value)}
+                  className={inputClass}
+                  placeholder="Ex: Feira de Santana - BA"
+                />
+              </div>
+              <div>
+                <label className={labelClass}>Status</label>
+                <select
+                  value={status}
+                  onChange={(e) => setStatus(e.target.value)}
+                  className={inputClass}
+                >
+                  <option value="Novo">Novo</option>
+                  <option value="Em Atendimento">Em Atendimento</option>
+                  <option value="Cliente">Cliente</option>
+                </select>
+              </div>
             </div>
           </div>
+
           <div>
-            <h3 className="text-xs font-bold uppercase tracking-wider !text-slate-500 dark:!text-slate-400 mb-2 pb-1 border-b border-slate-100 dark:border-slate-800">Anotações</h3>
-            <textarea value={observacoes} onChange={(e) => setObservacoes(e.target.value)} rows="2" className={inputClass} placeholder="Anotações..."></textarea>
+            <h3 className="text-xs font-bold uppercase tracking-wider !text-slate-500 dark:!text-slate-400 mb-2.5 pb-1 border-b border-slate-200/80 dark:border-slate-800">
+              Anotações
+            </h3>
+            <textarea
+              value={observacoes}
+              onChange={(e) => setObservacoes(e.target.value)}
+              rows={2}
+              className={inputClass}
+              placeholder="Anotações relevantes sobre este contato..."
+            />
           </div>
-          <div className="flex justify-end gap-3 pt-4 border-t border-slate-100 dark:border-slate-800 mt-4">
-            <button type="button" onClick={() => setIsModalOpen(false)} className="px-4 py-2 text-sm font-medium !text-slate-600 hover:bg-slate-100 rounded-lg transition-colors dark:!text-slate-300 dark:hover:bg-slate-800">Cancelar</button>
-            <button type="submit" disabled={salvando} className="px-4 py-2 text-sm bg-blue-600 hover:bg-blue-500 text-white rounded-lg font-medium transition-colors">{salvando ? 'Salvando...' : (contatoEditando ? 'Salvar Alterações' : 'Criar Contato')}</button>
+
+          <div className="flex justify-end gap-3 pt-4 border-t border-slate-200/80 dark:border-slate-800 mt-4">
+            <button
+              type="button"
+              onClick={() => setIsModalOpen(false)}
+              className="px-4 py-2 text-sm font-medium !text-slate-600 hover:bg-slate-100 rounded-lg transition-colors dark:!text-slate-300 dark:hover:bg-slate-800"
+            >
+              Cancelar
+            </button>
+            <button
+              type="submit"
+              disabled={salvando}
+              className="px-4 py-2 text-sm bg-emerald-600 hover:bg-emerald-500 dark:bg-emerald-500 dark:hover:bg-emerald-400 text-white dark:text-slate-950 rounded-lg font-semibold transition-colors disabled:opacity-60"
+            >
+              {salvando ? 'Salvando...' : contatoEditando ? 'Salvar Alterações' : 'Criar Contato'}
+            </button>
           </div>
         </form>
       </Modal>

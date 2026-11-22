@@ -121,3 +121,29 @@ Contraste, drawer sem ID, botões no rodapé, aba Visão Geral enriquecida.
 - Centralizar os tokens de cor e repassá-los pelo _hook_ do Kanban garante consistência visual entre o modal de configuração e as colunas renderizadas.
 
 **Próximo passo:** Continuar o ciclo de evolução do produto a partir deste estado, seguindo o planejamento em `PROJECT_STATE.md`.
+
+# Changelog — Nexus Hub
+
+Todas as mudanças relevantes do projeto estão registradas neste arquivo.
+
+## [2026-11-21]
+
+### Alterado
+
+- **Autenticação (`AuthLayout.jsx`, `Login.jsx`, `Cadastro.jsx`):**
+  - Padronizada a identidade **Nexus Hub** com paleta **verde esmeralda (`emerald`)** e suporte completo aos temas claro e escuro.
+  - Igualada a altura do cartão no desktop (`md:h-[650px]`) entre **Login** e **Cadastro**, adicionada transição direcional entre as rotas e criado plano de fundo em camadas para os modos claro e escuro.
+  - Substituídos os ícones genéricos dos botões do `Login.jsx` por ícones reais (Google, GitHub e WhatsApp).
+  - Adicionada verificação visual em tempo real para divergência ou correspondência entre **Senha** e **Confirmar Senha** no `Cadastro.jsx`.
+- **Sidebar e Cabeçalho (`Sidebar.jsx`, `PageHeader.jsx`):**
+  - Removidos tons azuis residuais da `Sidebar` (logo, avatar, badge de papel, links ativos e modal de perfil) e do ícone do `PageHeader`, adotando **verde esmeralda (`emerald`)** com alto contraste.
+- **Dashboard (`Dashboard.jsx`):**
+  - Adicionado respiro lateral em relação à `Sidebar` e à borda direita, compactados os cartões de KPI, removidos acentos azuis e padronizados os botões **Agendar** e **Novo Contato**.
+  - Adicionado o bloco **Pulso Comercial** na parte inferior para aproveitar o espaço da tela com indicadores do funil.
+- **Contatos (`Contatos.jsx`):**
+  - Alinhado ao tema **verde esmeralda (`emerald`)** e às margens padrão da aplicação, com contadores nas abas (**Todos**, **Leads**, **Clientes**), busca expandida e botão para limpar filtro de texto.
+- **Negócios / Kanban (`Negocios.jsx`):**
+  - Migrados cabeçalho, botões, seletores de visualização, KPIs e modal para **verde esmeralda (`emerald`)** com maior destaque visual e margens alinhadas, preservando integralmente a estrutura e o formato das colunas do Kanban.
+- **Tarefas (`Tarefas.jsx`):**
+  - Adotado formato **Kanban** (**Pendentes**, **Vencidas**, **Concluídas**) com alternância para **Lista**.
+  - Adicionado campo **`textarea` de Observações**, exibição detalhada de prazo/observações nos cards e ação **Renovar data** disponível para qualquer tarefa.

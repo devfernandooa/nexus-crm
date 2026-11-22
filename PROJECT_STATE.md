@@ -219,3 +219,66 @@ Estado: **E0 não iniciada.** Detalhes em §2.
 
 - Rebranding para **Nexus Hub** e refinamento de layout/responsividade (Sidebar, `Layout.jsx`, `Negocios.jsx` e `KanbanColumn.jsx`)
 - Esquema de cores suaves por etapa do funil com cor padrão inicial, personalização na criação/edição e persistência no funil
+
+# Nexus Hub — Estado Atual do Projeto
+
+**Última atualização:** 2026-11-21  
+**Marca:** Nexus Hub  
+**Stack principal:** React, Vite, Tailwind CSS, Firebase (Auth / Firestore), React Router, Lucide React, `react-hot-toast`
+
+---
+
+## Visão Geral e Identidade Visual
+
+- A aplicação foi rebrandizada de **Nexus CRM** para **Nexus Hub**, com padronização visual em **verde esmeralda (`emerald`)** em substituição aos antigos destaques em azul.
+- Suporte completo a **tema claro** e **tema escuro** (`#0b192c` / `slate-950`), com foco em legibilidade, contraste e responsividade mobile-first.
+- Espaçamento lateral padronizado nas telas internas (`px-4 sm:px-6 lg:px-7 py-4 sm:py-5`) para manter respiro em relação à `Sidebar` e à borda direita.
+
+---
+
+## Status por Módulo / Componente
+
+### Autenticação e Entrada
+
+- **`AuthLayout.jsx`:**
+  - Identidade **Nexus Hub** e degradê em tons esmeralda no painel lateral.
+  - Altura fixa sincronizada no desktop (`md:h-[650px]`) para que **Login** e **Cadastro** ocupem exatamente o mesmo espaço sem saltos de tamanho na troca de rota.
+  - Transição direcional animada entre `/login` e `/cadastro`.
+  - Plano de fundo em camadas (gradiente radial, malha sutil e orbes suaves) adaptado para os temas claro e escuro.
+  - Botão de alternância de tema integrado e limpo.
+- **`Login.jsx`:**
+  - Autenticação via Firebase (`signInWithEmailAndPassword`) com redirecionamento para `/app`.
+  - Paleta verde (`emerald`), campos com foco esmeralda, alternância de visibilidade da senha e ícones reais nos atalhos/provedores do topo (Google, GitHub e WhatsApp).
+- **`Cadastro.jsx`:**
+  - Criação de conta e empresa via `criarContaComEmpresa` com redirecionamento para `/app`.
+  - Validação visual em tempo real para confirmar se **Senha** e **Confirmar Senha** coincidem (borda, ícone e mensagem de feedback, além de bloqueio de envio quando divergentes).
+
+### Navegação e Cabeçalho
+
+- **`Sidebar.jsx`:**
+  - Totalmente migrada para **verde esmeralda (`emerald`)** no logo `N`, avatar do usuário, badge de perfil (`ADMIN`), link ativo, submenu de Contatos, botões de perfil e modal de edição de perfil.
+- **`PageHeader.jsx`:**
+  - Ícone de cabeçalho padronizado em **verde esmeralda (`emerald`)** com alto contraste nos temas claro e escuro, substituindo o antigo quadrado azul.
+
+### Área Logada (`/app`)
+
+- **`Dashboard.jsx`:**
+  - KPIs compactos (**Total de Contatos**, **Negócios Abertos**, **Tarefas Pendentes**, **Receita Ganha**), com remoção de cores azuis residuais.
+  - Botões do topo (**Agendar** e **Novo Contato**) padronizados e com margem lateral.
+  - Seção **Contatos Recentes**, coluna lateral (**Meta Mensal**, **Resumo da Empresa**, **Ações Rápidas**) e bloco inferior **Pulso Comercial** para preencher a área inferior com métricas úteis do funil.
+- **`Contatos.jsx`:**
+  - Refatorado para a paleta esmeralda, margens consistentes e suporte claro/escuro.
+  - Abas (**Todos**, **Leads**, **Clientes**) com contadores em tempo real e busca ampliada (nome, e-mail, empresa, cargo e telefone) com botão de limpar.
+  - Visualizações responsivas (tabela no desktop e cards no mobile) e modais de criação/edição e exclusão preservados.
+- **`Negocios.jsx`:**
+  - Cabeçalho, seletores (**Kanban** / **Lista**), botões (**Novo Negócio**, **Etapas**), **KPIs** (**Em Aberto**, **Ganhos**, **Perdidos**) e modal de criação/edição migrados para o padrão visual esmeralda e margens consistentes.
+  - Estrutura, ordem e formato das colunas do Kanban (`KanbanColumn`, `DragDropContext`, `ListView`, `NegocioDrawer` e `ModalConfigurarFunil`) mantidos intactos.
+- **`Tarefas.jsx`:**
+  - Estruturado em **Kanban** (**Pendentes**, **Vencidas**, **Concluídas**) com alternância para **Lista**, KPIs por coluna, conclusão/reabertura rápida e exclusão.
+  - Campo **`textarea` de Observações** no formulário de criação/edição, exibição das observações e status de prazo nos cards, e modal rápido para **Renovar data** de qualquer tarefa (com atalhos _Hoje_, _Amanhã_ e _+7 dias_ ou data livre).
+
+---
+
+## Próximos Passos Sugeridos
+
+- Aplicar o mesmo padrão visual esmeralda e espaçamento lateral nas demais telas internas conforme avançarem (**Produtos / Serviços**, **Relatórios**, **Gestão de Equipe**, **Configurações** e **Central de Ajuda**).
