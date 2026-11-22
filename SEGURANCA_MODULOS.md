@@ -195,3 +195,28 @@ service cloud.firestore {
   }
 }
 ```
+
+## Integração WhatsApp
+
+- **Token de Verificação:** O `VERIFY_TOKEN` deve ser uma string secreta e não deve ser commitado no código (usar variáveis de ambiente).
+- **Validação de Origem:** A Cloud Function deve validar a assinatura `X-Hub-Signature-256` (usando o App Secret da Meta) para garantir que a requisição veio realmente do WhatsApp.
+- **Isolamento Multi-tenant:** O número de telefone que recebe a mensagem deve ser mapeado para um `empresaId`. Um número não pode criar leads para mais de uma empresa.
+
+## Sessão e Autenticação
+
+### Logout por Inatividade (30 minutos)
+
+Para mitigar riscos de acesso não autorizado em computadores compartilhados, a sessão do usuário expira automaticamente após **30 minutos de inatividade**.
+
+- **Implementação:** Hook `useInactivityLogout` que monitora eventos de interação (`mousemove`, `keydown`, `click`, `scroll`).
+- **Timer:** Reiniciado a cada evento. Se atingir 30 minutos, chama `signOut(auth)`.
+- **Redirecionamento:** Após o logout, o usuário é levado para a Landing Page com a mensagem: "Sua sessão expirou por inatividade."
+- **Configuração:** O tempo pode ser ajustado via constante `INACTIVITY_TIMEOUT` (padrão: 30 _ 60 _ 1000 ms).
+
+### Recuperação de Senha
+
+O link "Esqueceu sua senha?" na tela de Login dispara o fluxo de recuperação.
+
+- **Implementação:** Modal com campo de e-mail. Ao submeter, chama `sendPasswordResetEmail(auth, email)`.
+- **Feedback:** Toast de sucesso: "Enviamos um link de recuperação para o seu e-mail. Verifique a caixa de entrada e o spam."
+- **Segurança:** O Firebase não revela se o e-mail existe ou não (proteção contra enumeração de usuários).

@@ -147,3 +147,21 @@ Todas as mudanças relevantes do projeto estão registradas neste arquivo.
 - **Tarefas (`Tarefas.jsx`):**
   - Adotado formato **Kanban** (**Pendentes**, **Vencidas**, **Concluídas**) com alternância para **Lista**.
   - Adicionado campo **`textarea` de Observações**, exibição detalhada de prazo/observações nos cards e ação **Renovar data** disponível para qualquer tarefa.
+
+## [1.1.0] - 2026-11-22
+
+### Adicionado
+
+- **Gestão de Equipe:** Edição do nome da equipe (`empresas/{empresaId}.nomeEquipe`), cadastro direto de membros, edição completa de perfil/cargo/permissão, busca rápida e cards de resumo.
+- **Vínculo Automático Negócio ↔ Contato:** Criação e vinculação automática de registro na coleção `contatos` (`garantirContatoVinculado`) ao cadastrar um negócio cujo cliente/lead ainda não possui cadastro.
+
+### Alterado
+
+- **Identidade Visual (Nexus Hub):** Atualização global da marca para **Nexus Hub** em verde esmeralda, centralizada no cabeçalho mobile e na barra lateral.
+- **Responsividade e Layout:** Compactação da grade de gráficos em **Relatórios** para visualização em página inteira e liberação de rolagem vertical em telas mobile (`< 768px`) nas telas de Relatórios, Equipe e Configurações.
+- **Configurações:** Padronização da interface para o tema esmeralda e seleção direta entre modos Claro e Escuro.
+
+### Corrigido
+
+- Corrigido o botão do menu hambúrguer mobile em `Layout.jsx` (`setIsSidebarOpen`).
+- Corrigido o mapeamento de `status` no formulário de **Negócios** para impedir que novos registros fossem enviados para a coluna **Sem Etapa**.
