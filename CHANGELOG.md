@@ -165,3 +165,7 @@ Todas as mudanças relevantes do projeto estão registradas neste arquivo.
 
 - Corrigido o botão do menu hambúrguer mobile em `Layout.jsx` (`setIsSidebarOpen`).
 - Corrigido o mapeamento de `status` no formulário de **Negócios** para impedir que novos registros fossem enviados para a coluna **Sem Etapa**.
+
+
+
+#41

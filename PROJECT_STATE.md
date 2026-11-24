@@ -1,14 +1,9 @@
----
+# PROJECT_STATE.md — Nexus Hub (Nexus CRM)
 
-### 📄 `PROJECT_STATE.md` (absorve `CONTEXTO`, `CICLO_KANBAN`, `ROADMAP`, `MIGRACAO`)
-
-```markdown
-# PROJECT_STATE.md — Nexus CRM
-
-> **Propósito:** Onde estamos e para onde vamos. Absorve o antigo `CONTEXTO`,
-> `CICLO_KANBAN`, `ROADMAP_FUTURO` e `MIGRACAO`. Seções: status atual, plano
-> do ciclo, roadmap, operações.
-> **Última atualização:** 2026-11-21
+> **Propósito:** Fonte única da verdade sobre onde estamos e para onde vamos. Absorve os antigos `CONTEXTO`, `CICLO_KANBAN`, `ROADMAP_FUTURO` e `MIGRACAO`.  
+> **Última atualização:** 2026-11-24  
+> **Marca:** Nexus Hub  
+> **Stack principal:** React, Vite, Tailwind CSS, Firebase (Auth / Firestore / Admin SDK), Vercel Serverless Functions, React Router, Lucide React, `react-hot-toast`
 
 ---
 
@@ -16,30 +11,33 @@
 
 ### ✅ Concluído (fato)
 
-- Setup React + Vite + Tailwind + Firebase (Auth + Firestore)
-- Landing Page, tema claro/escuro
-- Autenticação completa + `AuthContext` (empresaId, role)
-- Multi-tenant base (isolamento em todas as queries)
-- Layout premium (Sidebar, Header, card de usuário editável)
-- Dashboard com KPIs dinâmicos
-- CRUD de Contatos
-- CRUD de Negócios com Kanban (drag desktop + setas mobile)
-- Funil dinâmico por tenant (`etapasFunil: string[]` — **será migrado**)
-- Visualização Lista + Kanban (preferência em localStorage)
-- Drawer de detalhes com abas
-- Integração Produtos ↔ Negócios
-- CRUD de Produtos/Serviços
-- Módulo de Tarefas (filtros, vencimento, vínculo com negócio)
-- Relatórios com gráficos + exportação PDF/CSV
-- Gestão de Equipe (convites)
-- Configurações da Empresa
-- Mobile First em todos os módulos
-- `firestore.rules` com multi-tenant + RBAC
-- Correções de fuso horário e sync do responsável
+- **Core & Infraestrutura:**
+  - Setup React + Vite + Tailwind CSS + Firebase (Auth + Firestore)
+  - Deploy em produção na Vercel (`https://nexus-crm-green-one.vercel.app`) com acesso externo/mobile validado e `Require Log In` desativado para webhooks públicos
+  - Rebranding para **Nexus Hub** com identidade visual em verde esmeralda (`emerald`) e suporte completo a tema claro/escuro
+  - Layout responsivo Mobile First (`Sidebar`, `Layout.jsx`, `PageHeader`, `AuthLayout` com transição animada)
+- **Autenticação, Segurança & Multi-tenant:**
+  - Autenticação completa (`Login`, `Cadastro`, `AuthContext` com `empresaId` e `role`)
+  - Logout automático por inatividade (30 minutos via `useInactivityLogout`)
+  - Isolamento multi-tenant em todas as queries e `firestore.rules` com RBAC
+  - **Base do Super Admin:** Custom Claim `superAdmin: true` atribuída via `scripts/set-super-admin.js`, regra `isSuperAdmin()` publicada em `firestore.rules` e leitura via `getIdTokenResult(true)` exposta no `AuthContext.jsx`
+- **Módulos Operacionais:**
+  - Dashboard com KPIs dinâmicos, Contatos Recentes e Pulso Comercial
+  - CRUD de Contatos (abas Todos/Leads/Clientes, busca ampliada e visualização responsiva)
+  - CRUD de Negócios com Kanban (drag desktop + setas mobile), resiliência de etapas (bloqueio de exclusão com cards e coluna virtual "Sem Etapa"), vínculo automático de contato (`garantirContatoVinculado`), cores por etapa, visualização em Lista, Drawer de detalhes e integração com Produtos
+  - CRUD de Produtos/Serviços
+  - Módulo de Tarefas em Kanban (Pendentes, Vencidas, Concluídas) e Lista, observações e modal rápido de renovação de data
+  - Relatórios com gráficos e exportação PDF/CSV
+  - Gestão de Equipe (edição do nome da equipe, convites e CRUD direto de membros)
+  - Configurações da Empresa e preferências de tema
 
-### 🟡 Em andamento — Ciclo Kanban Mobile First
+### 🟡 Em andamento
 
-Estado: **E0 não iniciada.** Detalhes em §2.
+1. **Ciclo Kanban Mobile First:** Camada de resiliência (tratamento de órfãos) concluída; próximo foco na ordenação interna das colunas (**E2** e **E3**). Detalhes em §2.
+2. **Módulo WhatsApp Business Cloud API:** Endpoint serverless (`/api/whatsapp-webhook`) publicado em produção na Vercel; aguardando validação end-to-end com a Meta Developers e fluxo completo de captura. Detalhes em §4.
+3. **Painel Técnico Super Admin:** Base de permissão concluída; pendente construir a interface de alternância de empresa (`empresaId`) e monitor de sessões. Detalhes em §4.
+
+---
 
 ## 2. Ciclo Atual — Kanban Mobile First
 
@@ -47,8 +45,7 @@ Estado: **E0 não iniciada.** Detalhes em §2.
 
 - `negocios.status` referencia etapa **pelo nome** → renomear etapa quebra dados.
 - **Não existe `order`** → ordem dentro da coluna é a do Firestore.
-- `handleDragEnd` tem early-return de mesma coluna → arrastar dentro da coluna
-  **não tem efeito**.
+- `handleDragEnd` tem early-return de mesma coluna → arrastar dentro da coluna **não tem efeito**.
 - Mobile usa botões de seta; "Mover para…" é **alvo**, não estado.
 - Lib de DnD não auditada (pode ser descontinuada).
 
@@ -96,7 +93,7 @@ Estado: **E0 não iniciada.** Detalhes em §2.
 #### ⬜ E2.5 — Backfill de `order` (meio dia)
 
 - Script único grava `order` em docs sem o campo (por `createdAt`).
-- Receita em §4.
+- Receita em §5.
 - **Aceite:** 100% dos docs do tenant têm `order` numérico.
 - **Commit:** `chore(kanban): E2.5 - backfill de order`
 
@@ -137,7 +134,7 @@ Estado: **E0 não iniciada.** Detalhes em §2.
 > Preencher ao concluir E0.
 
 - [ ] `order` ausente em todos os docs de `negocios`? \_\_\_
-- [ ] Lib de DnD identificada: **_ (versão _**)
+- [ ] Lib de DnD identificada: \_\_\_ (versão \_\_\_)
 - [ ] `etapaId` presente em algum doc? \_\_\_
 - [ ] `etapasFunil` ainda `string[]` em todos os tenants? \_\_\_
 - [ ] `firestore.rules` valida `status`? \_\_\_
@@ -149,28 +146,30 @@ Estado: **E0 não iniciada.** Detalhes em §2.
 - Migração de produção além da Fase 1.
 - Automação do rebalanceamento.
 
+---
+
 ## 3. Roadmap
 
 ### Curto prazo (concluir MVP)
 
-- [ ] Contatos: separar Leads vs. Clientes
-- [ ] Gestão de Equipe: editar/excluir membros
+- [x] Contatos: separar Leads vs. Clientes (abas implementadas)
+- [x] Gestão de Equipe: editar/excluir membros
+- [ ] Painel Super Admin: seletor de `empresaId` e diagnóstico de sessões WhatsApp
+- [ ] Validação end-to-end do Webhook WhatsApp em produção
 - [ ] Configurações: abas Conta/Segurança/Preferências
-- [ ] Auditoria (logs em `auditoria`)
-- [ ] Central de Ajuda (FAQ)
-- [ ] Importação de dados via CSV
+- [ ] Auditoria (logs em `audit_logs` / `auditoria`)
+- [ ] Central de Ajuda (FAQ) e Importação de dados via CSV
 
 ### Médio prazo (escalabilidade)
 
 - [ ] Multi-tenant avançado (1 usuário → N empresas)
-- [ ] Cloud Functions para transações atômicas
+- [ ] Transações atômicas no backend (Vercel Functions / Cloud Functions)
 - [ ] Planos de assinatura (Stripe/Mercado Pago)
-- [ ] Notificações em tempo real (FCM)
+- [ ] Notificações em tempo real (`notificacoes` + FCM)
 
 ### Longo prazo (inovação)
 
 - [ ] Agente de IA (resumos, follow-ups, sentimento)
-- [ ] Integração WhatsApp (API oficial)
 - [ ] Relatórios preditivos
 
 ### Próximos ciclos (não iniciar antes de fechar Kanban)
@@ -181,171 +180,82 @@ Estado: **E0 não iniciada.** Detalhes em §2.
 - Relatório de tempo por etapa
 - Automação do rebalanceamento de float
 
-## 4. Operações (migração e manutenção)
+---
 
-> Absorve o antigo `MIGRACAO.md`. Scripts únicos, idempotentes.
+## 4. Módulos em Implantação (Super Admin & WhatsApp)
 
-### 4.1 Backfill de `order` (E2.5)
+### 4.1 Módulo Super Admin (Manutenção Técnica)
+
+- **Status:** Base de autenticação e regras concluída.
+- **Implementado:**
+  - Custom Claim `superAdmin: true` atribuída via `scripts/set-super-admin.js` (Firebase Admin SDK; `scripts/service-account.json` protegido no `.gitignore`).
+  - Função `isSuperAdmin()` publicada em `firestore.rules` para leitura e escrita técnica nas coleções operacionais, `whatsapp_sessoes` e `audit_logs`.
+  - Exposição da flag `isSuperAdmin` no `AuthContext.jsx` via `getIdTokenResult(true)`.
+- **O que falta:**
+  - Criar seletor de `empresaId` (Context Switcher) no front-end para o Super Admin visualizar e intervir em qualquer tenant sem alterar credenciais do cliente.
+  - Criar tela de diagnóstico técnico para inspecionar e resetar sessões presas em `whatsapp_sessoes` e gravar registros em `audit_logs`.
+
+### 4.2 Módulo WhatsApp Business Cloud API
+
+- **Status:** Webhook publicado em produção; aguardando validação end-to-end com a Meta.
+- **Onde paramos:**
+  - Arquitetura migrada de Cloud Functions para **Vercel Serverless Functions** (`/api/whatsapp-webhook.js`) para operar sem custo fixo.
+  - Deploy de produção ativo em `https://nexus-crm-green-one.vercel.app` com proteção de preview (`Require Log In`) desativada para permitir requisições públicas da Meta.
+  - Modelagem das coleções `whatsapp_sessoes`, `contatos` e `negocios` definida.
+- **O que falta:**
+  - Confirmar a verificação da **Callback URL** (`https://nexus-crm-green-one.vercel.app/api/whatsapp-webhook`) e a assinatura do campo `messages` no painel da Meta Developers.
+  - Testar o envio de mensagens reais (com o app Meta configurado adequadamente) e validar a transição de estados da conversa em `whatsapp_sessoes` até a criação automática do lead/negócio no `empresaId` correspondente.
+  - Exibir status e erros do webhook no painel de manutenção do Super Admin.
+
+---
+
+## 5. Operações (Migração e Manutenção)
+
+> Scripts únicos e idempotentes.
+
+### 5.1 Backfill de `order` (E2.5)
 
 - **Quando:** após E2, antes de E3.
-- **O que faz:** grava `order` em docs sem o campo (por `createdAt`).
-- **Como rodar:** [preencher na E2.5].
+- **O que faz:** grava `order` em docs sem o campo (ordenado por `createdAt`).
+- **Como rodar:** `[preencher na E2.5]`.
 - **Idempotente:** sim. **Rollback:** remover `order` dos afetados.
 
-### 4.2 Backfill de `etapaId` (Fase 2 da migração)
+### 5.2 Backfill de `etapaId` (Fase 2 da migração)
 
 - **Quando:** após E3, board estável.
 - **O que faz:** grava `etapaId = slugify(status)` em docs sem `etapaId`.
 - **Idempotente:** sim. **Rollback:** remover `etapaId`.
 
-### 4.3 Rebalanceamento de float (D4)
+### 5.3 Rebalanceamento de float (D4)
 
 - **Quando:** quando `|a.order - b.order| < 0.0001`.
-- **O que faz:** reespaça `order` da coluna com gaps de 1.0.
+- **O que faz:** reespaça `order` da coluna com gaps de `1.0`.
 - **Frequência esperada:** raríssima.
 - **Idempotente:** sim.
 
-### ✅ Concluído (fato)
+### 5.4 Atribuição de Super Admin
 
-- (Manter os itens anteriores)
-- CRUD de Negócios com Kanban (drag desktop + setas mobile)
-- **Kanban Resiliência:** Bloqueio de exclusão de etapas com negócios e coluna virtual "Sem Etapa" para resgate de órfãos.
-- Funil dinâmico por tenant (`etapasFunil: string[]` — **será migrado**)
-- (Manter os demais itens...)
-
-### 🟡 Em andamento — Ciclo Kanban Mobile First
-
-**Estado atual:** A camada de resiliência (E0 parcial, tratamento de órfãos) foi concluída. O foco agora muda para a **ordenação interna das colunas (E2 e E3)**.
-
-- Rebranding para **Nexus Hub** e refinamento de layout/responsividade (Sidebar, `Layout.jsx`, `Negocios.jsx` e `KanbanColumn.jsx`)
-- Esquema de cores suaves por etapa do funil com cor padrão inicial, personalização na criação/edição e persistência no funil
-
-# Nexus Hub — Estado Atual do Projeto
-
-**Última atualização:** 2026-11-21  
-**Marca:** Nexus Hub  
-**Stack principal:** React, Vite, Tailwind CSS, Firebase (Auth / Firestore), React Router, Lucide React, `react-hot-toast`
+- **Quando:** sempre que precisar conceder acesso técnico a um novo UID do Firebase Auth.
+- **Como rodar:** editar o `uid` em `scripts/set-super-admin.js` (com `scripts/service-account.json` presente localmente e relógio do sistema sincronizado) e executar `node scripts/set-super-admin.js`.
 
 ---
 
-## Visão Geral e Identidade Visual
-
-- A aplicação foi rebrandizada de **Nexus CRM** para **Nexus Hub**, com padronização visual em **verde esmeralda (`emerald`)** em substituição aos antigos destaques em azul.
-- Suporte completo a **tema claro** e **tema escuro** (`#0b192c` / `slate-950`), com foco em legibilidade, contraste e responsividade mobile-first.
-- Espaçamento lateral padronizado nas telas internas (`px-4 sm:px-6 lg:px-7 py-4 sm:py-5`) para manter respiro em relação à `Sidebar` e à borda direita.
-
----
-
-## Status por Módulo / Componente
-
-### Autenticação e Entrada
-
-- **`AuthLayout.jsx`:**
-  - Identidade **Nexus Hub** e degradê em tons esmeralda no painel lateral.
-  - Altura fixa sincronizada no desktop (`md:h-[650px]`) para que **Login** e **Cadastro** ocupem exatamente o mesmo espaço sem saltos de tamanho na troca de rota.
-  - Transição direcional animada entre `/login` e `/cadastro`.
-  - Plano de fundo em camadas (gradiente radial, malha sutil e orbes suaves) adaptado para os temas claro e escuro.
-  - Botão de alternância de tema integrado e limpo.
-- **`Login.jsx`:**
-  - Autenticação via Firebase (`signInWithEmailAndPassword`) com redirecionamento para `/app`.
-  - Paleta verde (`emerald`), campos com foco esmeralda, alternância de visibilidade da senha e ícones reais nos atalhos/provedores do topo (Google, GitHub e WhatsApp).
-- **`Cadastro.jsx`:**
-  - Criação de conta e empresa via `criarContaComEmpresa` com redirecionamento para `/app`.
-  - Validação visual em tempo real para confirmar se **Senha** e **Confirmar Senha** coincidem (borda, ícone e mensagem de feedback, além de bloqueio de envio quando divergentes).
-
-### Navegação e Cabeçalho
-
-- **`Sidebar.jsx`:**
-  - Totalmente migrada para **verde esmeralda (`emerald`)** no logo `N`, avatar do usuário, badge de perfil (`ADMIN`), link ativo, submenu de Contatos, botões de perfil e modal de edição de perfil.
-- **`PageHeader.jsx`:**
-  - Ícone de cabeçalho padronizado em **verde esmeralda (`emerald`)** com alto contraste nos temas claro e escuro, substituindo o antigo quadrado azul.
-
-### Área Logada (`/app`)
-
-- **`Dashboard.jsx`:**
-  - KPIs compactos (**Total de Contatos**, **Negócios Abertos**, **Tarefas Pendentes**, **Receita Ganha**), com remoção de cores azuis residuais.
-  - Botões do topo (**Agendar** e **Novo Contato**) padronizados e com margem lateral.
-  - Seção **Contatos Recentes**, coluna lateral (**Meta Mensal**, **Resumo da Empresa**, **Ações Rápidas**) e bloco inferior **Pulso Comercial** para preencher a área inferior com métricas úteis do funil.
-- **`Contatos.jsx`:**
-  - Refatorado para a paleta esmeralda, margens consistentes e suporte claro/escuro.
-  - Abas (**Todos**, **Leads**, **Clientes**) com contadores em tempo real e busca ampliada (nome, e-mail, empresa, cargo e telefone) com botão de limpar.
-  - Visualizações responsivas (tabela no desktop e cards no mobile) e modais de criação/edição e exclusão preservados.
-- **`Negocios.jsx`:**
-  - Cabeçalho, seletores (**Kanban** / **Lista**), botões (**Novo Negócio**, **Etapas**), **KPIs** (**Em Aberto**, **Ganhos**, **Perdidos**) e modal de criação/edição migrados para o padrão visual esmeralda e margens consistentes.
-  - Estrutura, ordem e formato das colunas do Kanban (`KanbanColumn`, `DragDropContext`, `ListView`, `NegocioDrawer` e `ModalConfigurarFunil`) mantidos intactos.
-- **`Tarefas.jsx`:**
-  - Estruturado em **Kanban** (**Pendentes**, **Vencidas**, **Concluídas**) com alternância para **Lista**, KPIs por coluna, conclusão/reabertura rápida e exclusão.
-  - Campo **`textarea` de Observações** no formulário de criação/edição, exibição das observações e status de prazo nos cards, e modal rápido para **Renovar data** de qualquer tarefa (com atalhos _Hoje_, _Amanhã_ e _+7 dias_ ou data livre).
-
----
-
-## Próximos Passos Sugeridos
-
-- Aplicar o mesmo padrão visual esmeralda e espaçamento lateral nas demais telas internas conforme avançarem (**Produtos / Serviços**, **Relatórios**, **Gestão de Equipe**, **Configurações** e **Central de Ajuda**).
-
-## Resumo
-
-Este PR consolida melhorias de identidade visual, responsividade mobile, gerenciamento de equipe e consistência de dados no fluxo de negócios do **Nexus Hub**.
-
-## O que foi alterado
-
-### 1. Identidade Visual e Layout Mobile (`Layout.jsx`, `Sidebar.jsx`)
-
-- Atualização da marca para **Nexus Hub** com destaque em verde esmeralda (`emerald`), centralizada e redimensionada na barra superior mobile e na sidebar.
-- Correção no acionamento do menu hambúrguer mobile (`setIsSidebarOpen`) e ajuste de rolagem vertical (`overflow-y-auto`) nas telas internas.
-
-### 2. Relatórios e Configurações (`Relatorios.jsx`, `Configuracoes.jsx`)
-
-- Ajuste de espaçamento e altura dos gráficos em `Relatorios.jsx` para melhor encaixe em tela cheia e liberação completa do scroll em dispositivos `< 768px`.
-- Padronização visual da tela de **Configurações** para a paleta esmeralda, com seleção explícita de tema (Claro/Escuro) e rolagem responsiva.
-
-### 3. Gestão de Equipe (`Equipe.jsx`, `equipeService.js`)
-
-- Adição de edição em tempo real do **Nome da Equipe** no documento da empresa.
-- Implementação de cadastro direto, edição completa de dados (`nome`, `e-mail`, `telefone`, `cargo` e `função/permissão`) e remoção de membros da equipe com modal de confirmação.
-- Inclusão de resumo de indicadores e busca rápida por membros e convites pendentes.
-
-### 4. Negócios e Vínculo Automático de Contatos (`Negocios.jsx`, `negocioContatoService.js`)
-
-- Normalização do `status`/etapa selecionada no formulário de negócios para garantir que novos cards caiam na coluna correta do funil e não em **"Sem Etapa"**.
-- Criação de `garantirContatoVinculado` para registrar e vincular automaticamente o contato/lead na coleção `contatos` quando um negócio for criado para alguém ainda não cadastrado.
-
-## Checklist de Validação
-
-- [x] Menu hambúrguer abre e fecha corretamente no mobile
-- [x] Scroll vertical funciona até o final em telas `< 768px` (Relatórios, Equipe e Configurações)
-- [x] Nome da equipe e CRUD de membros persistem corretamente no Firestore
-- [x] Criação de negócio salva na etapa escolhida e cria o contato vinculado quando inexistente
+## 6. Histórico Recente de Sessões
 
 ### Sessão 22 — (Planejamento do Módulo WhatsApp)
-
-- **O que fiz:**
-  - Documentei a arquitetura e o fluxo do módulo de integração com WhatsApp.
-  - Criei o `MODULO_WHATSAPP.md` com detalhes técnicos, custos e riscos.
-  - Planejei a estrutura de Cloud Functions para receber Webhooks e rodar o bot de captação.
-- **O que aprendi:**
-  - A API oficial do WhatsApp cobra por mensagem de serviço (R$ 0,035) após 1.000 mensagens gratuitas por número/mês.
-  - O app da Meta precisa estar em modo **Live** para receber mensagens reais (não apenas testes sintéticos).
-- **Próximo passo:** Implementar a Cloud Function de Webhook e o fluxo de conversa do bot.
+- Documentação inicial da arquitetura e fluxo de integração com WhatsApp (`MODULO_WHATSAPP.md`), custos de mensagens de serviço da Meta e requisitos do modo **Live**.
 
 ### Sessão 23 — (Segurança, Notificações e Recuperação de Senha)
-
-- **O que fiz:**
-  - Documentei a implementação de logout por inatividade (30 minutos).
-  - Documentei o fluxo de recuperação/reset de senha.
-  - Modelei a coleção `notificacoes` para eventos de novo lead, negócio fechado e lembretes de agenda.
-- **O que aprendi:**
-  - A importância de expirar sessões inativas para segurança em ambientes corporativos.
-  - Como estruturar notificações multi-tenant com a coleção `notificacoes`.
-- **Próximo passo:** Implementar as Cloud Functions de WhatsApp (conforme `MODULO_WHATSAPP.md`).
+- Documentação do logout por inatividade (30 min), fluxo de recuperação de senha e modelagem da coleção `notificacoes` multi-tenant.
 
 ### Sessão 24 — (Logout por Inatividade e Alinhamento Visual)
+- Implementação do hook `useInactivityLogout` integrado ao `AuthContext.jsx` com limpeza de timers e alinhamento visual ao tema esmeralda.
 
+### Sessão 25 — (Deploy em Produção, Super Admin e Status WhatsApp)
 - **O que fiz:**
-  - Implementei o hook `useInactivityLogout` que monitora a interação do usuário e faz logout automático após 30 minutos.
-  - Integrei o hook ao `AuthContext` com feedback via Toast.
-  - Alinhei o código de notificações ao novo esquema de cores (verde esmeralda).
+  - Validei o deploy de produção em `https://nexus-crm-green-one.vercel.app` (incluindo acesso externo via rede móvel/celular) e liberei o acesso público ao webhook desativando `Require Log In` na Vercel.
+  - Implementei a base de **Super Admin** com Custom Claim (`superAdmin: true`) via `scripts/set-super-admin.js`, adicionei `isSuperAdmin()` nas `firestore.rules` e expus `isSuperAdmin` no `AuthContext.jsx`.
 - **O que aprendi:**
-  - A importância de limpar os timers no `useEffect` para evitar vazamentos de memória.
-  - Como o `signOut` do Firebase é seguro para ser chamado mesmo se o usuário já estiver deslogado.
-- **Próximo passo:** Implementar o fluxo de recuperação de senha e a coleção de notificações.
+  - A importação modular (`firebase-admin/app` e `firebase-admin/auth`) com `readFileSync` evita erros ESM no Node v24, e o relógio do Windows precisa estar sincronizado para não gerar `invalid_grant: Invalid JWT`.
+  - Manter `scripts/service-account.json` no `.gitignore` é essencial para segurança das credenciais administrativas.
+- **Próximo passo:** Criar a interface do Super Admin (seletor de `empresaId` e monitor de sessões) e concluir a validação end-to-end do webhook do WhatsApp na Meta Developers.
