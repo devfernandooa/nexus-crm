@@ -124,6 +124,11 @@ export default function Sidebar({ onClose }) {
             <span className="ml-3 truncate">Dashboard</span>
           </NavLink>
 
+          <NavLink to="/app/relatorios" className={linkClass} onClick={onClose}>
+            <BarChart3 size={18} className="shrink-0 opacity-85 group-hover:opacity-100" />
+            <span className="ml-3 truncate">Relatórios</span>
+          </NavLink>
+
           {/* Contatos */}
           <div>
             <button
@@ -172,10 +177,7 @@ export default function Sidebar({ onClose }) {
             <span className="ml-3 truncate">Produtos / Serviços</span>
           </NavLink>
 
-          <NavLink to="/app/relatorios" className={linkClass} onClick={onClose}>
-            <BarChart3 size={18} className="shrink-0 opacity-85 group-hover:opacity-100" />
-            <span className="ml-3 truncate">Relatórios</span>
-          </NavLink>
+
 
           {/* Separador */}
           <div className="pt-3 pb-1.5 border-t border-slate-200/80 dark:border-slate-800/90 mt-3">
