@@ -79,7 +79,7 @@ export default function Sidebar({ onClose }) {
               </div>
               <div className="flex flex-col min-w-0">
                 <span className="text-[14px] font-bold text-slate-900 dark:text-white truncate leading-tight">
-                  {dadosEmpresa?.responsavel || dadosUsuario?.nome || user?.email?.split('@')[0]}
+                  {dadosUsuario?.nome || user?.email?.split('@')[0]}
                 </span>
                 <span className="text-[12px] text-slate-500 dark:text-slate-400 truncate leading-tight mt-0.5">
                   {user?.email}
