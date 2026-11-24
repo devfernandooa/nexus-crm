@@ -12,19 +12,43 @@ export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
   const [dadosUsuario, setDadosUsuario] = useState(null);
   const [dadosEmpresa, setDadosEmpresa] = useState(null);
+  const [isSuperAdmin, setIsSuperAdmin] = useState(false);
   const [loading, setLoading] = useState(true);
 
-  // 1. Escuta o estado de autenticação
+  // 1. Escuta o estado de autenticação e lê o Custom Claim superAdmin
   useEffect(() => {
-    const unsubscribeAuth = onAuthStateChanged(auth, (usuario) => {
+    let active = true;
+
+    const unsubscribeAuth = onAuthStateChanged(auth, async (usuario) => {
+      if (!active) return;
+
       setUser(usuario);
+
       if (!usuario) {
         setDadosUsuario(null);
         setDadosEmpresa(null);
-        setLoading(false); // Libera a tela se não houver usuário (tela de login)
+        setIsSuperAdmin(false);
+        setLoading(false);
+        return;
+      }
+
+      try {
+        const tokenResult = await usuario.getIdTokenResult(true);
+        if (active) {
+          setIsSuperAdmin(Boolean(tokenResult.claims?.superAdmin));
+        }
+      } catch (error) {
+        console.error('Erro ao atualizar token de autenticação:', error);
+        if (active) {
+          setIsSuperAdmin(false);
+        }
       }
     });
-    return () => unsubscribeAuth();
+
+    return () => {
+      active = false;
+      unsubscribeAuth();
+    };
   }, []);
 
   // 2. Escuta o documento do usuário em tempo real (COM TRATAMENTO DE ERRO)
@@ -32,30 +56,31 @@ export function AuthProvider({ children }) {
     if (!user) return;
 
     const userRef = doc(db, 'usuarios', user.uid);
+    let unsubscribeUser = null;
 
-    // Adicionamos um pequeno delay para garantir que o Firebase atualizou o token
     const timeoutId = setTimeout(() => {
-      const unsubscribeUser = onSnapshot(
+      unsubscribeUser = onSnapshot(
         userRef,
         (snapshot) => {
           if (snapshot.exists()) {
             setDadosUsuario({ id: snapshot.id, ...snapshot.data() });
           } else {
-            console.warn("Documento do usuário não encontrado no Firestore.");
+            console.warn('Documento do usuário não encontrado no Firestore.');
             setDadosUsuario(null);
           }
           setLoading(false);
         },
         (error) => {
-          // Se der erro (ex: permission-denied), não travamos a tela
-          console.error("Erro ao buscar usuário:", error.message);
+          console.error('Erro ao buscar usuário:', error.message);
           setLoading(false);
         }
       );
-      return unsubscribeUser;
-    }, 500); // 500ms de delay para sincronização de token
+    }, 500);
 
-    return () => clearTimeout(timeoutId);
+    return () => {
+      clearTimeout(timeoutId);
+      if (unsubscribeUser) unsubscribeUser();
+    };
   }, [user]);
 
   // 3. Escuta o documento da empresa em tempo real
@@ -71,7 +96,7 @@ export function AuthProvider({ children }) {
         }
       },
       (error) => {
-        console.error("Erro ao buscar empresa:", error.message);
+        console.error('Erro ao buscar empresa:', error.message);
       }
     );
 
@@ -82,6 +107,7 @@ export function AuthProvider({ children }) {
   const handleLogout = async (isInatividade = false) => {
     try {
       await signOut(auth);
+      setIsSuperAdmin(false);
       if (isInatividade) {
         toast.error('Sua sessão expirou por inatividade. Faça login novamente.', { duration: 5000 });
       } else {
@@ -94,13 +120,14 @@ export function AuthProvider({ children }) {
 
   useInactivityLogout(() => handleLogout(true), 30 * 60 * 1000);
 
-  // Se o AuthContext estiver carregando, mostra a tela de carregamento
   if (loading) {
     return <div className="flex h-screen items-center justify-center">Carregando sessão...</div>;
   }
 
   return (
-    <AuthContext.Provider value={{ user, dadosUsuario, dadosEmpresa, handleLogout }}>
+    <AuthContext.Provider
+      value={{ user, dadosUsuario, dadosEmpresa, isSuperAdmin, handleLogout }}
+    >
       {children}
     </AuthContext.Provider>
   );

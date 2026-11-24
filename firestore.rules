@@ -1,10 +1,15 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    
+
     // Função para verificar se o usuário está logado
     function isAuthenticated() {
       return request.auth != null;
+    }
+
+    // Função para verificar se é Super Admin via Custom Claim no token JWT
+    function isSuperAdmin() {
+      return isAuthenticated() && request.auth.token.superAdmin == true;
     }
 
     // Função para buscar o empresaId do usuário logado
@@ -19,37 +24,50 @@ service cloud.firestore {
 
     // --- REGRAS PARA EMPRESAS ---
     match /empresas/{empresaId} {
-      allow read: if isAuthenticated() && getEmpresaId() == empresaId;
-      allow update, delete: if isAuthenticated() && getRole() == 'admin' && getEmpresaId() == empresaId;
+      allow read: if isSuperAdmin() || (isAuthenticated() && getEmpresaId() == empresaId);
+      allow update, delete: if isSuperAdmin() || (isAuthenticated() && getRole() == 'admin' && getEmpresaId() == empresaId);
       allow create: if isAuthenticated();
     }
 
     // --- REGRAS PARA USUÁRIOS ---
     match /usuarios/{userId} {
-      allow read: if isAuthenticated() && (request.auth.uid == userId || getRole() == 'admin');
-      allow update: if isAuthenticated() && (request.auth.uid == userId || getRole() == 'admin');
-      allow create: if isAuthenticated() && request.auth.uid == userId;
-      allow delete: if isAuthenticated() && getRole() == 'admin';
+      allow read: if isSuperAdmin() || (isAuthenticated() && (request.auth.uid == userId || getRole() == 'admin'));
+      allow update: if isSuperAdmin() || (isAuthenticated() && (request.auth.uid == userId || getRole() == 'admin'));
+      allow create: if isSuperAdmin() || (isAuthenticated() && request.auth.uid == userId);
+      allow delete: if isSuperAdmin() || (isAuthenticated() && getRole() == 'admin');
     }
 
     // --- REGRAS PARA CONVITES ---
     match /convites/{conviteId} {
       allow read: if true; // O cadastro precisa ler o convite antes de estar logado
-      allow write: if isAuthenticated() && getRole() == 'admin';
+      allow write: if isSuperAdmin() || (isAuthenticated() && getRole() == 'admin');
     }
 
     // --- REGRAS PARA DADOS OPERACIONAIS ---
     match /contatos/{docId} {
-      allow read, write: if isAuthenticated() && getEmpresaId() == resource.data.empresaId;
+      allow create: if isSuperAdmin() || (isAuthenticated() && getEmpresaId() == request.resource.data.empresaId);
+      allow read, update, delete: if isSuperAdmin() || (isAuthenticated() && getEmpresaId() == resource.data.empresaId);
     }
     match /negocios/{docId} {
-      allow read, write: if isAuthenticated() && getEmpresaId() == resource.data.empresaId;
+      allow create: if isSuperAdmin() || (isAuthenticated() && getEmpresaId() == request.resource.data.empresaId);
+      allow read, update, delete: if isSuperAdmin() || (isAuthenticated() && getEmpresaId() == resource.data.empresaId);
     }
     match /tarefas/{docId} {
-      allow read, write: if isAuthenticated() && getEmpresaId() == resource.data.empresaId;
+      allow create: if isSuperAdmin() || (isAuthenticated() && getEmpresaId() == request.resource.data.empresaId);
+      allow read, update, delete: if isSuperAdmin() || (isAuthenticated() && getEmpresaId() == resource.data.empresaId);
     }
     match /produtos/{docId} {
-      allow read, write: if isAuthenticated() && getEmpresaId() == resource.data.empresaId;
+      allow create: if isSuperAdmin() || (isAuthenticated() && getEmpresaId() == request.resource.data.empresaId);
+      allow read, update, delete: if isSuperAdmin() || (isAuthenticated() && getEmpresaId() == resource.data.empresaId);
+    }
+
+    // --- COLEÇÕES TÉCNICAS / WHATSAPP (se usar no Firestore) ---
+    match /whatsapp_sessoes/{docId} {
+      allow read, write: if isSuperAdmin();
+    }
+
+    match /audit_logs/{docId} {
+      allow read, create: if isSuperAdmin();
     }
   }
 }
