@@ -229,15 +229,14 @@ async function salvarOuAtualizarLead({ empresaId, telefone, dadosExtraidos, cria
   } else {
     const novoContato = await contatosRef.add({
       empresaId,
-      nome: nomeLimpo,
-      cargo: cargoLimpo,
+      nome: nomeFinal,
+      cargo: '',
       empresa: empresaCliente,
-      email: emailLimpo,
-      telefone,
-      origem: 'whatsapp',
+      email: emailFinal,
+      telefone: telefoneFinal,
+      endereco: '',
       status: 'Novo',
-      tipo: 'lead',
-      observacoes: interesseLimpo ? `Interesse via WhatsApp: ${interesseLimpo}` : '',
+      observacoes: `Interesse via WhatsApp: ${interesseFinal}`,
       dataCriacao: agora,
       atualizadoEm: agora,
     });
