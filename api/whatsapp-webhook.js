@@ -1,17 +1,18 @@
-import admin from 'firebase-admin';
+import { getApps, initializeApp, cert } from 'firebase-admin/app';
+import { getFirestore, FieldValue } from 'firebase-admin/firestore';
 
-// Inicialização segura do Firebase Admin SDK (Single-Tenant via variáveis de ambiente)
-if (!admin.apps.length) {
-  admin.initializeApp({
-    credential: admin.credential.cert({
-      projectId: process.env.FIREBASE_PROJECT_ID,
-      clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
-      privateKey: process.env.FIREBASE_PRIVATE_KEY?.replace(/\\n/g, '\n'),
-    }),
-  });
-}
+const apps = getApps();
+const app = apps.length
+  ? apps[0]
+  : initializeApp({
+      credential: cert({
+        projectId: process.env.FIREBASE_PROJECT_ID,
+        clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
+        privateKey: process.env.FIREBASE_PRIVATE_KEY?.replace(/\\n/g, '\n'),
+      }),
+    });
 
-const db = admin.firestore();
+const db = getFirestore(app);
 
 // Configurações de ambiente
 const VERIFY_TOKEN = process.env.WHATSAPP_VERIFY_TOKEN;
@@ -160,7 +161,7 @@ ${JSON.stringify(dadosAtuais || {})}
  * e registra um Negócio vinculado quando um novo atendimento é qualificado.
  */
 async function salvarOuAtualizarLead({ empresaId, telefone, dadosExtraidos, criarNegocio }) {
-  const agora = admin.firestore.FieldValue.serverTimestamp();
+  const agora = FieldValue.serverTimestamp();
   const contatosRef = db.collection('contatos');
 
   // Busca contato existente com mesmo telefone na mesma empresa
@@ -365,7 +366,7 @@ export default async function handler(req, res) {
           dadosColetados: dadosConsolidados,
           negocioCriadoNaSessao: negocioCriado,
           etapa: resultadoIA.leadCompleto ? 'qualificado' : 'em_atendimento_ia',
-          atualizadoEm: admin.firestore.FieldValue.serverTimestamp(),
+          atualizadoEm: FieldValue.serverTimestamp(),
         },
         { merge: true }
       );
