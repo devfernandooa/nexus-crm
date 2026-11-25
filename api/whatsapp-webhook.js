@@ -216,16 +216,16 @@ async function gerarLeadNoCRM({ empresaId, dados, textoOriginal, remetenteWa }) 
 
   let negocioId = null;
   if (interesseFinal) {
-    const novoNegocio = await db.collection('negocios').add({
+    const novoContato = await contatosRef.add({
       empresaId,
-      titulo: `${interesseFinal} - ${nomeFinal}`,
-      contatoId,
-      contatoNome: nomeFinal,
+      nome: nomeFinal,
+      cargo: '',
+      empresa: empresaCliente,
+      email: emailFinal,
       telefone: telefoneFinal,
-      etapa: 'Novo Lead',
-      valor: 0,
-      origem: 'whatsapp',
-      descricao: `Mensagem original: "${textoOriginal}"`,
+      endereco: '',
+      status: 'Novo',
+      observacoes: `Interesse via WhatsApp: ${interesseFinal}`,
       dataCriacao: agora,
       atualizadoEm: agora,
     });
