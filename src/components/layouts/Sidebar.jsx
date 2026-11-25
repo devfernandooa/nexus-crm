@@ -11,6 +11,7 @@ import ConfirmModal from '@/components/ui/ConfirmModal';
 import Modal from '@/components/ui/Modal';
 import toast from 'react-hot-toast';
 import { atualizarPerfilUsuario } from '@/services/usuarioService';
+import NotificacoesLeads from '@/components/NotificacoesLeads';
 
 export default function Sidebar({ onClose }) {
   const { user, dadosUsuario, dadosEmpresa } = useAuth();
@@ -65,9 +66,11 @@ export default function Sidebar({ onClose }) {
           <div className="w-9 h-9 bg-emerald-600 dark:bg-emerald-500 rounded-lg flex items-center justify-center text-white dark:text-slate-950 font-extrabold text-lg shrink-0 shadow-2xs">
             N
           </div>
+          
           <span className="text-[20px] font-bold tracking-tight text-slate-900 dark:text-white whitespace-nowrap truncate">
             Nexus <span className="text-emerald-600 dark:text-emerald-400">Hub</span>
           </span>
+          <NotificacoesLeads />
         </div>
 
         {/* Card do Usuário */}

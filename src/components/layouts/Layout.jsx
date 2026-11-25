@@ -2,6 +2,8 @@ import { useState } from 'react';
 import { Outlet } from 'react-router-dom';
 import { Menu } from 'lucide-react';
 import Sidebar from './Sidebar';
+import NotificacoesLeads from '@/components/NotificacoesLeads';
+
 
 export default function Layout() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
@@ -30,6 +32,7 @@ export default function Layout() {
         <header className="grid grid-cols-[40px_1fr_40px] items-center px-4 h-16 shrink-0 bg-white dark:bg-[#0b192c] border-b border-slate-200/90 dark:border-slate-800 md:hidden">
           <div aria-hidden="true" className="w-10 h-10" />
 
+        
           <div className="flex items-center justify-center gap-2.5">
             <div className="w-9 h-9 bg-emerald-600 dark:bg-emerald-500 rounded-lg flex items-center justify-center text-white dark:text-slate-950 font-extrabold text-lg shadow-2xs shrink-0">
               N
@@ -37,6 +40,7 @@ export default function Layout() {
             <span className="text-[20px] font-bold tracking-tight text-slate-900 dark:text-white whitespace-nowrap">
               Nexus <span className="text-emerald-600 dark:text-emerald-400">Hub</span>
             </span>
+            
           </div>
 
           <div className="flex items-center justify-end">

@@ -75,7 +75,8 @@ export default function Contatos() {
       c.email?.toLowerCase().includes(termo) ||
       c.empresa?.toLowerCase().includes(termo) ||
       c.cargo?.toLowerCase().includes(termo) ||
-      c.telefone?.toLowerCase().includes(termo);
+      c.telefone?.toLowerCase().includes(termo) ||
+      c.observacoes?.toLowerCase().includes(termo);
 
     return passaNaAba && passaNaBusca;
   });
@@ -289,6 +290,9 @@ export default function Contatos() {
                       Telefone
                     </th>
                     <th className="px-5 py-3 text-[11px] font-bold tracking-wider !text-slate-500 dark:!text-slate-400 uppercase">
+                      Observações
+                    </th>
+                    <th className="px-5 py-3 text-[11px] font-bold tracking-wider !text-slate-500 dark:!text-slate-400 uppercase">
                       Status
                     </th>
                     <th className="px-5 py-3 text-[11px] font-bold tracking-wider !text-slate-500 dark:!text-slate-400 uppercase text-right">
@@ -313,7 +317,6 @@ export default function Contatos() {
                             </p>
                             <p className="text-xs !text-slate-500 dark:!text-slate-400 truncate">
                               {contato.cargo || 'Sem cargo'}
-                              {contato.observacoes ? ` • ${contato.observacoes.replace(/^Interesse via WhatsApp:\s*/i, '')}` : ''}
                             </p>
                           </div>
                         </div>
@@ -330,7 +333,16 @@ export default function Contatos() {
                       <td className="px-5 py-3 text-sm !text-slate-600 dark:!text-slate-300 tabular-nums">
                         {contato.telefone || '-'}
                       </td>
-
+                      <td
+                        className="px-5 py-3 text-sm !text-slate-600 dark:!text-slate-300 max-w-xs"
+                        title={contato.observacoes || ''}
+                      >
+                        <p className="line-clamp-2">
+                          {contato.observacoes
+                            ? contato.observacoes.replace(/^Interesse via WhatsApp:\s*/i, '')
+                            : '-'}
+                        </p>
+                      </td>
                       <td className="px-5 py-3">
                         <span
                           className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-semibold ${getStatusBadgeClass(
