@@ -1,11 +1,35 @@
 import { initializeApp, cert, getApps } from 'firebase-admin/app';
-import { getFirestore, FieldValue } from 'firebase-admin/firestore';
+import { getFirestore, Timestamp, FieldValue } from 'firebase-admin/firestore';
 
-// --- Inicialização Firebase Admin ---
+function obterCredencialFirebase() {
+  if (
+    process.env.FIREBASE_PROJECT_ID &&
+    process.env.FIREBASE_CLIENT_EMAIL &&
+    process.env.FIREBASE_PRIVATE_KEY
+  ) {
+    return {
+      projectId: process.env.FIREBASE_PROJECT_ID,
+      clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
+      privateKey: process.env.FIREBASE_PRIVATE_KEY.replace(/\\n/g, '\n'),
+    };
+  }
+
+  if (process.env.FIREBASE_SERVICE_ACCOUNT_KEY) {
+    const parsed = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT_KEY);
+    if (parsed.private_key && typeof parsed.private_key === 'string') {
+      parsed.private_key = parsed.private_key.replace(/\\n/g, '\n');
+    }
+    return parsed;
+  }
+
+  throw new Error(
+    'Credenciais do Firebase ausentes: configure FIREBASE_PROJECT_ID, FIREBASE_CLIENT_EMAIL e FIREBASE_PRIVATE_KEY na Vercel.'
+  );
+}
+
 if (!getApps().length) {
-  const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT_KEY);
   initializeApp({
-    credential: cert(serviceAccount),
+    credential: cert(obterCredencialFirebase()),
   });
 }
 
@@ -18,7 +42,6 @@ const GROQ_API_KEY = process.env.GROQ_API_KEY;
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
 const DEFAULT_EMPRESA_ID = process.env.DEFAULT_EMPRESA_ID || 'sAYH5cVoqDn3m5LllObO';
 
-// --- Limpa telefone mantendo apenas dígitos ---
 function normalizarTelefone(tel) {
   if (!tel) return '';
   const digitos = String(tel).replace(/\D/g, '');
@@ -28,7 +51,6 @@ function normalizarTelefone(tel) {
   return digitos;
 }
 
-// --- Busca produtos cadastrados para ajudar a identificar o interesse ---
 async function buscarProdutosEmpresa(empresaId) {
   try {
     const snap = await db
@@ -48,7 +70,6 @@ async function buscarProdutosEmpresa(empresaId) {
   }
 }
 
-// --- Extrai Nome, Telefone e Produto/Serviço/Interesse via IA (Groq -> Gemini -> Fallback) ---
 async function extrairDadosLead({ textoMensagem, nomePerfilWa, telefoneRemetente, produtos }) {
   const listaProdutos =
     produtos.length > 0
@@ -73,7 +94,6 @@ Responda APENAS com o JSON, sem markdown ou texto extra.`;
 
   const promptUsuario = `Remetente WhatsApp: ${nomePerfilWa} (${telefoneRemetente})\nMensagem: "${textoMensagem}"`;
 
-  // 1. Tenta via Groq
   if (GROQ_API_KEY) {
     try {
       const resp = await fetch('https://api.groq.com/openai/v1/chat/completions', {
@@ -105,7 +125,6 @@ Responda APENAS com o JSON, sem markdown ou texto extra.`;
     }
   }
 
-  // 2. Fallback via Gemini
   if (GEMINI_API_KEY) {
     try {
       const resp = await fetch(
@@ -132,7 +151,6 @@ Responda APENAS com o JSON, sem markdown ou texto extra.`;
     }
   }
 
-  // 3. Fallback garantido sem IA (nunca perde o lead)
   return {
     nome: nomePerfilWa || 'Lead WhatsApp',
     telefone: telefoneRemetente,
@@ -143,9 +161,9 @@ Responda APENAS com o JSON, sem markdown ou texto extra.`;
   };
 }
 
-// --- Grava ou atualiza o Lead em "contatos" e cria card em "negocios" ---
 async function gerarLeadNoCRM({ empresaId, dados, textoOriginal, remetenteWa }) {
-  const agora = new Date().toISOString();
+  const agora = Timestamp.now();
+  const agoraIso = new Date().toISOString();
   const telefoneFinal = normalizarTelefone(dados.telefone) || normalizarTelefone(remetenteWa);
   const nomeFinal = (dados.nome || '').trim() || 'Lead WhatsApp';
   const interesseFinal = (dados.interesse || textoOriginal || '').trim();
@@ -168,7 +186,7 @@ async function gerarLeadNoCRM({ empresaId, dados, textoOriginal, remetenteWa }) 
       nome: nomeFinal,
       ...(empresaCliente && { empresa: empresaCliente }),
       ...(emailFinal && { email: emailFinal }),
-      observacoes: `Último interesse via WhatsApp: ${interesseFinal}`,
+      observacoes: `Interesse via WhatsApp: ${interesseFinal}`,
       atualizadoEm: agora,
     });
     console.log(`♻️ Lead atualizado em contatos: ${contatoId} (${nomeFinal})`);
@@ -176,6 +194,7 @@ async function gerarLeadNoCRM({ empresaId, dados, textoOriginal, remetenteWa }) 
     const novoContato = await contatosRef.add({
       empresaId,
       nome: nomeFinal,
+      cargo: '',
       empresa: empresaCliente,
       email: emailFinal,
       telefone: telefoneFinal,
@@ -190,7 +209,6 @@ async function gerarLeadNoCRM({ empresaId, dados, textoOriginal, remetenteWa }) 
     console.log(`✅ Novo Lead criado em contatos: ${contatoId} (${nomeFinal})`);
   }
 
-  // Cria negócio no funil se houver interesse/produto identificado
   let negocioId = null;
   if (interesseFinal) {
     const novoNegocio = await db.collection('negocios').add({
@@ -210,10 +228,9 @@ async function gerarLeadNoCRM({ empresaId, dados, textoOriginal, remetenteWa }) 
     console.log(`💼 Negócio criado em negocios: ${negocioId}`);
   }
 
-  // Registra log na coleção whatsapp_sessoes para histórico
   await db
     .collection('whatsapp_sessoes')
-    .doc(telefoneFinal)
+    .doc(normalizarTelefone(remetenteWa))
     .set(
       {
         empresaId,
@@ -226,7 +243,7 @@ async function gerarLeadNoCRM({ empresaId, dados, textoOriginal, remetenteWa }) 
         historico: FieldValue.arrayUnion({
           role: 'user',
           text: textoOriginal,
-          timestamp: agora,
+          timestamp: agoraIso,
         }),
       },
       { merge: true }
@@ -235,7 +252,6 @@ async function gerarLeadNoCRM({ empresaId, dados, textoOriginal, remetenteWa }) 
   return { contatoId, negocioId, nomeFinal, telefoneFinal, interesseFinal };
 }
 
-// --- Envio opcional de resposta (não bloqueia o fluxo se a conta Meta estiver restrita) ---
 async function tentarResponderWhatsApp(para, texto) {
   if (!WHATSAPP_TOKEN || !PHONE_NUMBER_ID || !para || !texto) return;
 
@@ -265,9 +281,7 @@ async function tentarResponderWhatsApp(para, texto) {
   }
 }
 
-// --- Handler Principal Vercel ---
 export default async function handler(req, res) {
-  // Verificação do Webhook pela Meta (GET)
   if (req.method === 'GET') {
     const mode = req.query['hub.mode'];
     const token = req.query['hub.verify_token'];
@@ -288,7 +302,6 @@ export default async function handler(req, res) {
     const value = body?.entry?.[0]?.changes?.[0]?.value;
     const message = value?.messages?.[0];
 
-    // Ignora eventos de status (delivered, read, failed)
     if (!message) {
       return res.status(200).json({ status: 'ignored_event' });
     }
@@ -324,7 +337,6 @@ export default async function handler(req, res) {
       remetenteWa,
     });
 
-    // Tenta responder no WhatsApp sem travar ou falhar a requisição caso a Meta bloqueie
     await tentarResponderWhatsApp(remetenteWa, dadosExtraidos.respostaCurta);
 
     return res.status(200).json({
