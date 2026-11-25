@@ -1,215 +1,385 @@
-/* global process */
-import { initializeApp, getApps, cert } from 'firebase-admin/app';
-import { getFirestore, FieldValue } from 'firebase-admin/firestore';
+import admin from 'firebase-admin';
 
-let db = null;
-
-try {
-    if (
-        !getApps().length &&
-        process.env.FIREBASE_PROJECT_ID &&
-        process.env.FIREBASE_CLIENT_EMAIL &&
-        process.env.FIREBASE_PRIVATE_KEY
-    ) {
-        initializeApp({
-            credential: cert({
-                projectId: process.env.FIREBASE_PROJECT_ID,
-                clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
-                privateKey: process.env.FIREBASE_PRIVATE_KEY
-                    .replace(/^["']|["']$/g, '')
-                    .replace(/\\n/g, '\n'),
-            }),
-        });
-    }
-
-    if (getApps().length) {
-        db = getFirestore();
-    }
-} catch (initError) {
-    console.error('❌ Erro ao inicializar Firebase Admin:', initError);
+// Inicialização segura do Firebase Admin SDK (Single-Tenant via variáveis de ambiente)
+if (!admin.apps.length) {
+  admin.initializeApp({
+    credential: admin.credential.cert({
+      projectId: process.env.FIREBASE_PROJECT_ID,
+      clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
+      privateKey: process.env.FIREBASE_PRIVATE_KEY?.replace(/\\n/g, '\n'),
+    }),
+  });
 }
 
-const WHATSAPP_TOKEN = process.env.WHATSAPP_TOKEN;
-const PHONE_NUMBER_ID = process.env.WHATSAPP_PHONE_NUMBER_ID;
+const db = admin.firestore();
+
+// Configurações de ambiente
 const VERIFY_TOKEN = process.env.WHATSAPP_VERIFY_TOKEN;
-const EMPRESA_ID = process.env.NEXUS_EMPRESA_ID;
+const WHATSAPP_TOKEN = process.env.WHATSAPP_TOKEN;
+const PHONE_NUMBER_ID = process.env.PHONE_NUMBER_ID;
+const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
+const DEFAULT_EMPRESA_ID = process.env.DEFAULT_EMPRESA_ID || 'empresa_padrao';
 
-async function enviarMensagemWhatsApp(para, texto) {
-    if (!WHATSAPP_TOKEN || !PHONE_NUMBER_ID) {
-        console.error('❌ WHATSAPP_TOKEN ou WHATSAPP_PHONE_NUMBER_ID ausentes nas variáveis de ambiente.');
-        return;
-    }
+/**
+ * Envia mensagem de texto de volta para o WhatsApp via Meta Cloud API
+ */
+async function enviarMensagemWhatsApp(to, text, phoneNumberId = PHONE_NUMBER_ID) {
+  const url = `https://graph.facebook.com/v21.0/${phoneNumberId}/messages`;
 
-    const res = await fetch(`https://graph.facebook.com/v21.0/${PHONE_NUMBER_ID}/messages`, {
-        method: 'POST',
-        headers: {
-            Authorization: `Bearer ${WHATSAPP_TOKEN}`,
-            'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-            messaging_product: 'whatsapp',
-            to: para,
-            type: 'text',
-            text: { body: texto },
-        }),
-    });
+  const response = await fetch(url, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${WHATSAPP_TOKEN}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      messaging_product: 'whatsapp',
+      to,
+      type: 'text',
+      text: { body: text },
+    }),
+  });
 
-    const data = await res.json();
-    console.log('📤 GRAPH API STATUS:', res.status, JSON.stringify(data));
+  const data = await response.json();
+  console.log('📤 GRAPH API STATUS:', response.status, JSON.stringify(data));
+  return data;
 }
 
-function extrairDadosResposta(texto, telefoneFallback) {
-    const linhas = texto
-        .split(/\n|,|;/)
-        .map((l) => l.trim())
-        .filter(Boolean);
+/**
+ * Busca instruções personalizadas da empresa no Firestore (coleção config_ia)
+ * Permite adaptar o comportamento do bot por cliente sem alterar o código-fonte.
+ */
+async function obterConfiguracaoIA(empresaId) {
+  try {
+    const docSnap = await db.collection('config_ia').doc(empresaId).get();
+    if (docSnap.exists) {
+      return docSnap.data();
+    }
+  } catch (err) {
+    console.warn('⚠️ Falha ao ler config_ia, usando prompt padrão:', err.message);
+  }
 
-    let nome = '';
-    let telefone = '';
-    let interesse = '';
+  return {
+    nomeEmpresa: 'Nexus Hub',
+    promptSistema:
+      'Você é um assistente comercial cordial e objetivo. Seu objetivo é atender o cliente, entender sua necessidade/interesse e coletar naturalmente o nome completo (caso ainda não saiba) e o que ele procura. Faça uma pergunta curta por vez. Nunca invente informações.',
+  };
+}
 
-    for (const linha of linhas) {
-        const lower = linha.toLowerCase();
-        if (lower.startsWith('nome:')) {
-            nome = linha.slice(5).trim();
-        } else if (lower.startsWith('telefone:') || lower.startsWith('tel:')) {
-            telefone = linha.replace(/^(telefone|tel):/i, '').trim();
-        } else if (
-            lower.startsWith('interesse:') ||
-            lower.startsWith('serviço:') ||
-            lower.startsWith('servico:') ||
-            lower.startsWith('produto:')
-        ) {
-            interesse = linha.replace(/^(interesse|serviço|servico|produto):/i, '').trim();
-        }
+/**
+ * Consulta a API do Gemini com Structured Output (JSON Schema)
+ * Retorna tanto a resposta humanizada quanto os dados extraídos limpos.
+ */
+async function processarComIA({ historico, mensagemAtual, dadosAtuais, nomePerfilWa, configIA }) {
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`;
+
+  const systemInstruction = `
+${configIA.promptSistema}
+
+REGRAS ESTRITAS DE EXTRAÇÃO DE DADOS (CRM):
+1. Analise o histórico da conversa e a última mensagem do cliente.
+2. Extraia apenas o que o cliente realmente informou:
+   - "nome": Nome da pessoa (se não informado explicitamente na conversa, pode usar "${nomePerfilWa || ''}" apenas se parecer um nome real de pessoa, nunca textos longos ou frases).
+   - "email": E-mail válido se informado, caso contrário "".
+   - "empresa": Nome da empresa do cliente se informado, caso contrário "".
+   - "cargo": Cargo profissional APENAS se o cliente disser explicitamente (ex: "sou gerente", "sou proprietário"). Caso contrário, deixe "" (string vazia). NUNCA coloque a mensagem do cliente no campo cargo.
+   - "interesse": Resumo claro e objetivo do produto, serviço ou dúvida do cliente.
+   - "leadCompleto": true se já temos pelo menos o nome do cliente E um interesse claro identificado; false se ainda falta entender o que ele deseja.
+3. "respostaWhatsApp": Escreva a resposta que será enviada ao cliente no WhatsApp. Seja natural, educado, breve (máximo 3 parágrafos curtos) e sem formatação markdown complexa.
+
+DADOS JÁ COLETADOS ANTERIORMENTE NESTA SESSÃO:
+${JSON.stringify(dadosAtuais || {})}
+`.trim();
+
+  const contents = [
+    ...historico.map((msg) => ({
+      role: msg.role === 'assistant' ? 'model' : 'user',
+      parts: [{ text: msg.text }],
+    })),
+    {
+      role: 'user',
+      parts: [{ text: mensagemAtual }],
+    },
+  ];
+
+  const payload = {
+    systemInstruction: {
+      parts: [{ text: systemInstruction }],
+    },
+    contents,
+    generationConfig: {
+      temperature: 0.3,
+      responseMimeType: 'application/json',
+      responseSchema: {
+        type: 'OBJECT',
+        properties: {
+          respostaWhatsApp: { type: 'STRING' },
+          nome: { type: 'STRING' },
+          email: { type: 'STRING' },
+          empresa: { type: 'STRING' },
+          cargo: { type: 'STRING' },
+          interesse: { type: 'STRING' },
+          leadCompleto: { type: 'BOOLEAN' },
+        },
+        required: [
+          'respostaWhatsApp',
+          'nome',
+          'email',
+          'empresa',
+          'cargo',
+          'interesse',
+          'leadCompleto',
+        ],
+      },
+    },
+  };
+
+  const response = await fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`Erro na API Gemini (${response.status}): ${errorText}`);
+  }
+
+  const result = await response.json();
+  const rawText = result?.candidates?.[0]?.content?.parts?.[0]?.text;
+
+  if (!rawText) {
+    throw new Error('Resposta vazia retornada pelo Gemini.');
+  }
+
+  return JSON.parse(rawText);
+}
+
+/**
+ * Cria ou atualiza o Contato (com deduplicação por telefone + empresaId)
+ * e registra um Negócio vinculado quando um novo atendimento é qualificado.
+ */
+async function salvarOuAtualizarLead({ empresaId, telefone, dadosExtraidos, criarNegocio }) {
+  const agora = admin.firestore.FieldValue.serverTimestamp();
+  const contatosRef = db.collection('contatos');
+
+  // Busca contato existente com mesmo telefone na mesma empresa
+  const snapshot = await contatosRef
+    .where('empresaId', '==', empresaId)
+    .where('telefone', '==', telefone)
+    .limit(1)
+    .get();
+
+  // Sanitização para garantir que nenhum texto longo entre em campos curtos
+  const nomeLimpo = (dadosExtraidos.nome || 'Lead WhatsApp').slice(0, 100).trim();
+  const cargoLimpo = (dadosExtraidos.cargo || '').slice(0, 80).trim();
+  const empresaCliente = (dadosExtraidos.empresa || '').slice(0, 100).trim();
+  const emailLimpo = (dadosExtraidos.email || '').slice(0, 120).trim();
+  const interesseLimpo = (dadosExtraidos.interesse || '').trim();
+
+  let contatoId;
+
+  if (!snapshot.empty) {
+    // Atualiza contato existente sem duplicar
+    const docExistente = snapshot.docs[0];
+    contatoId = docExistente.id;
+    const dadosAnteriores = docExistente.data();
+
+    const atualizacoes = {
+      atualizadoEm: agora,
+    };
+
+    if (nomeLimpo && nomeLimpo !== 'Lead WhatsApp') atualizacoes.nome = nomeLimpo;
+    if (cargoLimpo) atualizacoes.cargo = cargoLimpo;
+    if (empresaCliente) atualizacoes.empresa = empresaCliente;
+    if (emailLimpo) atualizacoes.email = emailLimpo;
+    if (interesseLimpo) {
+      const obsAnterior = dadosAnteriores.observacoes || '';
+      atualizacoes.observacoes = obsAnterior
+        ? `${obsAnterior}\n[Nova interação WhatsApp]: ${interesseLimpo}`
+        : `Interesse via WhatsApp: ${interesseLimpo}`;
     }
 
-    if (!nome && linhas.length >= 1) nome = linhas[0];
-    if (!telefone && linhas.length >= 2) telefone = linhas[1];
-    if (!interesse && linhas.length >= 3) interesse = linhas.slice(2).join(' - ');
-    if (!interesse && linhas.length === 2) interesse = linhas[1];
+    await contatosRef.doc(contatoId).update(atualizacoes);
+    console.log(`♻️ Contato atualizado (deduplicado): ${contatoId}`);
+  } else {
+    // Cria novo contato limpo
+    const novoContato = await contatosRef.add({
+      empresaId,
+      nome: nomeLimpo,
+      cargo: cargoLimpo, // Fica vazio ("") se não informado, nunca recebe a mensagem bruta
+      empresa: empresaCliente,
+      email: emailLimpo,
+      telefone,
+      origem: 'whatsapp',
+      status: 'Novo',
+      tipo: 'lead',
+      observacoes: interesseLimpo ? `Interesse via WhatsApp: ${interesseLimpo}` : '',
+      dataCriacao: agora,
+      atualizadoEm: agora,
+    });
+    contatoId = novoContato.id;
+    console.log(`✅ Novo contato criado: ${contatoId}`);
+  }
 
-    return {
-        nome: nome || 'Lead WhatsApp',
-        telefone: telefone || telefoneFallback,
-        interesse: interesse || texto.trim(),
-    };
+  // Cria negócio no funil caso ainda não tenha sido criado nesta sessão
+  if (criarNegocio && interesseLimpo) {
+    const novoNegocio = await db.collection('negocios').add({
+      empresaId,
+      contatoId,
+      contatoNome: nomeLimpo,
+      telefone,
+      titulo: `${nomeLimpo} - ${interesseLimpo.slice(0, 60)}`,
+      descricao: interesseLimpo,
+      etapa: 'Novo Lead',
+      valor: 0,
+      origem: 'whatsapp',
+      dataCriacao: agora,
+      atualizadoEm: agora,
+    });
+    console.log(`💼 Negócio criado: ${novoNegocio.id}`);
+    return { contatoId, negocioId: novoNegocio.id };
+  }
+
+  return { contatoId, negocioId: null };
 }
 
 export default async function handler(req, res) {
-    // 1. Verificação inicial do Webhook pela Meta (GET)
-    if (req.method === 'GET') {
-        const mode = req.query['hub.mode'];
-        const token = req.query['hub.verify_token'];
-        const challenge = req.query['hub.challenge'];
+  // 1. Verificação do Webhook pela Meta (GET)
+  if (req.method === 'GET') {
+    const mode = req.query['hub.mode'];
+    const token = req.query['hub.verify_token'];
+    const challenge = req.query['hub.challenge'];
 
-        if (mode === 'subscribe' && token === VERIFY_TOKEN) {
-            return res.status(200).send(challenge);
-        }
-        return res.status(403).end();
+    if (mode === 'subscribe' && token === VERIFY_TOKEN) {
+      console.log('✅ Webhook verificado com sucesso!');
+      return res.status(200).send(challenge);
     }
+    return res.status(403).send('Forbidden');
+  }
 
-    // 2. Recebimento de mensagens (POST)
-    if (req.method === 'POST') {
-        console.log('📩 WEBHOOK RECEBIDO:', JSON.stringify(req.body));
+  // 2. Recebimento de eventos da Meta (POST)
+  if (req.method === 'POST') {
+    try {
+      const body = req.body;
+      console.log('📩 WEBHOOK RECEBIDO:', JSON.stringify(body));
 
-        try {
-            if (!db) {
-                console.error('❌ Firestore não inicializado. Verifique FIREBASE_PROJECT_ID, FIREBASE_CLIENT_EMAIL e FIREBASE_PRIVATE_KEY na Vercel.');
-                return res.status(200).json({ ok: false, error: 'firestore_uninitialized' });
-            }
+      if (body.object !== 'whatsapp_business_account') {
+        return res.status(404).send('Not Found');
+      }
 
-            const entry = req.body?.entry?.[0];
-            const change = entry?.changes?.[0]?.value;
-            const mensagem = change?.messages?.[0];
+      const entry = body.entry?.[0];
+      const changes = entry?.changes?.[0];
+      const value = changes?.value;
 
-            if (!mensagem || mensagem.type !== 'text') {
-                return res.status(200).json({ ok: true });
-            }
+      // Ignora eventos de status (sent, delivered, read, failed) para não loopar
+      if (!value?.messages || value.messages.length === 0) {
+        return res.status(200).send('EVENT_RECEIVED');
+      }
 
-            const waId = mensagem.from;
-            const textoRecebido = mensagem.text?.body || '';
-            const nomePerfilWa = change?.contacts?.[0]?.profile?.name || '';
+      const message = value.messages[0];
+      const contactInfo = value.contacts?.[0];
+      const phoneNumberIdRecebido = value.metadata?.phone_number_id || PHONE_NUMBER_ID;
 
-            const sessaoRef = db.collection('whatsapp_sessoes').doc(waId);
-            const sessaoSnap = await sessaoRef.get();
-            const sessao = sessaoSnap.exists ? sessaoSnap.data() : null;
+      // Suporta mensagens de texto (pode ser expandido para áudio/imagem futuramente)
+      if (message.type !== 'text') {
+        await enviarMensagemWhatsApp(
+          message.from,
+          'Olá! No momento consigo processar apenas mensagens de texto. Como posso ajudar?',
+          phoneNumberIdRecebido
+        );
+        return res.status(200).send('NON_TEXT_HANDLED');
+      }
 
-            // Etapa 1: Primeiro contato -> Boas-vindas + Solicitação de dados
-            if (!sessao || sessao.etapa === 'concluida') {
-                await sessaoRef.set({
-                    waId,
-                    nomePerfilWa,
-                    etapa: 'aguardando_dados',
-                    atualizadoEm: FieldValue.serverTimestamp(),
-                });
+      const waId = message.from; // Ex: "557592849369"
+      const textoMensagem = message.text?.body?.trim() || '';
+      const nomePerfilWa = contactInfo?.profile?.name || '';
+      const empresaId = DEFAULT_EMPRESA_ID;
 
-                await enviarMensagemWhatsApp(
-                    waId,
-                    `Olá${nomePerfilWa ? `, ${nomePerfilWa}` : ''}! Seja bem-vindo(a) ao nosso atendimento.\n\n` +
-                    `Para agilizar seu atendimento, por favor envie em uma única mensagem:\n` +
-                    `1️⃣ *Seu Nome*\n` +
-                    `2️⃣ *Seu Telefone*\n` +
-                    `3️⃣ *Seu Interesse* (breve descrição do produto ou serviço desejado)`
-                );
+      // Carrega ou inicializa a sessão no Firestore
+      const sessaoRef = db.collection('whatsapp_sessoes').doc(waId);
+      const sessaoSnap = await sessaoRef.get();
+      const sessaoAtual = sessaoSnap.exists
+        ? sessaoSnap.data()
+        : {
+            waId,
+            empresaId,
+            nomePerfilWa,
+            historico: [],
+            dadosColetados: {},
+            negocioCriadoNaSessao: false,
+            etapa: 'em_atendimento_ia',
+          };
 
-                return res.status(200).json({ ok: true });
-            }
+      // Mantém apenas as últimas 10 mensagens no contexto da IA para economia de tokens
+      const historicoRecente = (sessaoAtual.historico || []).slice(-10);
+      const configIA = await obterConfiguracaoIA(empresaId);
 
-            // Etapa 2: Cliente enviou os dados -> Gera Lead no Nexus + Negócio em Prospecção
-            if (sessao.etapa === 'aguardando_dados') {
-                const dados = extrairDadosResposta(textoRecebido, waId);
+      // Processa a conversa com IA
+      const resultadoIA = await processarComIA({
+        historico: historicoRecente,
+        mensagemAtual: textoMensagem,
+        dadosAtuais: sessaoAtual.dadosColetados,
+        nomePerfilWa,
+        configIA,
+      });
 
-                const contatoRef = await db.collection('contatos').add({
-                    empresaId: EMPRESA_ID || '',
-                    nome: dados.nome,
-                    telefone: dados.telefone,
-                    email: '',
-                    empresa: '',
-                    cargo: dados.interesse,
-                    observacoes: `Interesse via WhatsApp: ${dados.interesse}`,
-                    tipo: 'lead',
-                    status: 'Novo',
-                    origem: 'whatsapp',
-                    dataCriacao: FieldValue.serverTimestamp(),
-                });
+      // Mescla dados anteriores com novos dados extraídos pela IA
+      const dadosConsolidados = {
+        nome: resultadoIA.nome || sessaoAtual.dadosColetados?.nome || nomePerfilWa,
+        email: resultadoIA.email || sessaoAtual.dadosColetados?.email || '',
+        empresa: resultadoIA.empresa || sessaoAtual.dadosColetados?.empresa || '',
+        cargo: resultadoIA.cargo || sessaoAtual.dadosColetados?.cargo || '',
+        interesse: resultadoIA.interesse || sessaoAtual.dadosColetados?.interesse || '',
+      };
 
-                await db.collection('negocios').add({
-                    empresaId: EMPRESA_ID || '',
-                    titulo: dados.nome,
-                    contato: dados.telefone,
-                    contatoId: contatoRef.id,
-                    descricao: dados.interesse,
-                    valor: 0,
-                    status: 'prospeccao',
-                    produtos: [],
-                    origem: 'whatsapp',
-                    dataCriacao: FieldValue.serverTimestamp(),
-                });
+      let negocioCriado = Boolean(sessaoAtual.negocioCriadoNaSessao);
 
-                await sessaoRef.set(
-                    {
-                        etapa: 'concluida',
-                        contatoId: contatoRef.id,
-                        dadosCapturados: dados,
-                        atualizadoEm: FieldValue.serverTimestamp(),
-                    },
-                    { merge: true }
-                );
+      // Se a IA identificou que já tem dados suficientes, salva/atualiza o lead no CRM
+      if (resultadoIA.leadCompleto) {
+        const resLead = await salvarOuAtualizarLead({
+          empresaId,
+          telefone: waId,
+          dadosExtraidos: dadosConsolidados,
+          criarNegocio: !negocioCriado,
+        });
 
-                await enviarMensagemWhatsApp(
-                    waId,
-                    `Recebemos sua mensagem! A qualquer momento um dos nossos colaboradores retornará o contato.\n\n` +
-                    `Muito obrigado pelo seu interesse e confiança! 🤝`
-                );
-            }
-
-            return res.status(200).json({ ok: true });
-        } catch (error) {
-            console.error('❌ Erro no webhook WhatsApp:', error);
-            return res.status(200).json({ ok: false });
+        if (resLead.negocioId) {
+          negocioCriado = true;
         }
-    }
+      }
 
-    return res.status(405).end();
+      // Atualiza histórico e estado da sessão
+      const novoHistorico = [
+        ...historicoRecente,
+        { role: 'user', text: textoMensagem, timestamp: new Date().toISOString() },
+        { role: 'assistant', text: resultadoIA.respostaWhatsApp, timestamp: new Date().toISOString() },
+      ];
+
+      await sessaoRef.set(
+        {
+          waId,
+          empresaId,
+          nomePerfilWa,
+          historico: novoHistorico,
+          dadosColetados: dadosConsolidados,
+          negocioCriadoNaSessao: negocioCriado,
+          etapa: resultadoIA.leadCompleto ? 'qualificado' : 'em_atendimento_ia',
+          atualizadoEm: admin.firestore.FieldValue.serverTimestamp(),
+        },
+        { merge: true }
+      );
+
+      // Envia a resposta gerada pela IA para o cliente no WhatsApp
+      await enviarMensagemWhatsApp(waId, resultadoIA.respostaWhatsApp, phoneNumberIdRecebido);
+
+      return res.status(200).send('OK');
+    } catch (error) {
+      console.error('❌ ERRO NO WEBHOOK WHATSAPP:', error);
+      // Retorna 200 para evitar que a Meta fique reenviando a mesma mensagem em loop
+      return res.status(200).send('ERROR_LOGGED');
+    }
+  }
+
+  return res.status(405).send('Method Not Allowed');
 }
