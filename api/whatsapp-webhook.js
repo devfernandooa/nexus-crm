@@ -91,48 +91,98 @@ DADOS JÁ COLETADOS ANTERIORMENTE NESTA SESSÃO:
 ${JSON.stringify(dadosAtuais || {})}
 `.trim();
 
-  // 1ª Tentativa: Groq (llama-3.3-70b-versatile) - ultrarrápido
+  // 1ª Tentativa: Groq com modelos ativos confirmados na conta
   if (GROQ_API_KEY) {
-    try {
-      const messages = [
-        { role: 'system', content: systemInstruction },
-        ...historico.map((msg) => ({
-          role: msg.role === 'assistant' ? 'assistant' : 'user',
-          content: msg.text,
-        })),
-        { role: 'user', content: mensagemAtual },
-      ];
+    const modelosGroq = ['openai/gpt-oss-20b', 'openai/gpt-oss-120b'];
+    const messages = [
+      { role: 'system', content: systemInstruction },
+      ...historico.map((msg) => ({
+        role: msg.role === 'assistant' ? 'assistant' : 'user',
+        content: msg.text,
+      })),
+      { role: 'user', content: mensagemAtual },
+    ];
 
-      const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${GROQ_API_KEY}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          model: 'llama-3.3-70b-versatile',
-          messages,
-          temperature: 0.3,
-          response_format: { type: 'json_object' },
-        }),
-        signal: AbortSignal.timeout(7000),
-      });
+    for (const modeloGroq of modelosGroq) {
+      try {
+        const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${GROQ_API_KEY}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            model: modeloGroq,
+            messages,
+            temperature: 0.3,
+            response_format: { type: 'json_object' },
+          }),
+          signal: AbortSignal.timeout(8000),
+        });
 
-      if (response.ok) {
-        const result = await response.json();
-        const rawText = result?.choices?.[0]?.message?.content;
-        if (rawText) {
-          console.log('🤖 Resposta gerada com sucesso via Groq (llama-3.3-70b-versatile)');
-          return JSON.parse(rawText);
+        if (response.ok) {
+          const result = await response.json();
+          const rawText = result?.choices?.[0]?.message?.content;
+          if (rawText) {
+            console.log(`🤖 Resposta gerada com sucesso via Groq (${modeloGroq})`);
+            return JSON.parse(rawText);
+          }
+        } else {
+          const errText = await response.text();
+          console.warn(`⚠️ Falha na Groq (${modeloGroq} - ${response.status}): ${errText}`);
         }
-      } else {
-        const errText = await response.text();
-        console.warn(`⚠️ Falha na Groq (${response.status}): ${errText} — tentando Gemini...`);
+      } catch (err) {
+        console.warn(`⚠️ Erro/Timeout na Groq (${modeloGroq}): ${err.message}`);
       }
-    } catch (err) {
-      console.warn(`⚠️ Erro/Timeout na Groq: ${err.message} — tentando Gemini...`);
     }
   }
+
+  // 2ª Tentativa (Backup): Gemini
+  if (GEMINI_API_KEY) {
+    const modelosGemini = ['gemini-3.5-flash-lite', 'gemini-3.8-flash'];
+    const contents = [
+      ...historico.map((msg) => ({
+        role: msg.role === 'assistant' ? 'model' : 'user',
+        parts: [{ text: msg.text }],
+      })),
+      { role: 'user', parts: [{ text: mensagemAtual }] },
+    ];
+
+    const payloadGemini = {
+      systemInstruction: { parts: [{ text: systemInstruction }] },
+      contents,
+      generationConfig: {
+        temperature: 0.3,
+        responseMimeType: 'application/json',
+      },
+    };
+
+    for (const modelo of modelosGemini) {
+      try {
+        const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelo}:generateContent?key=${GEMINI_API_KEY}`;
+        const response = await fetch(url, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payloadGemini),
+          signal: AbortSignal.timeout(10000),
+        });
+
+        if (response.ok) {
+          const result = await response.json();
+          const rawText = result?.candidates?.[0]?.content?.parts?.[0]?.text;
+          if (rawText) {
+            console.log(`🤖 Resposta gerada com sucesso via backup Gemini (${modelo})`);
+            return JSON.parse(rawText);
+          }
+        }
+      } catch (err) {
+        console.warn(`⚠️ Backup Gemini (${modelo}) indisponível: ${err.message}`);
+      }
+    }
+  }
+
+  throw new Error('Todos os provedores de IA (Groq e Gemini) falharam.');
+}
 
   // 2ª Tentativa (Backup): Gemini
   const modelosGemini = ['gemini-3.5-flash-lite', 'gemini-3.8-flash'];
