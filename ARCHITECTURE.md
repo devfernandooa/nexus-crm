@@ -74,3 +74,18 @@ O sistema utiliza a coleção `notificacoes` para manter os usuários informados
 2.  **Negócio Fechado:** Ao atualizar o status para "Ganho" ou "Perdido" (`negocioService.js`), insere notificação com `tipo: 'negocio_ganho'` ou `negocio_perdido`.
 3.  **Lembrete de Agenda:** Um `useEffect` no `Layout.jsx` verifica tarefas com vencimento próximo (ex: 24h) e cria notificações `tarefa_vencendo`.
 4.  **Exibição:** Ícone de sino no Header com contador de não lidas. Dropdown com as últimas 10 notificações.
+
+
+## Fluxo de Leads via WhatsApp e Notificações em Tempo Real
+
+### 1. Ingestão e Normalização (`api/whatsapp-webhook.js`)
+- Recebe eventos `POST` da API do WhatsApp e extrai `nome`, `telefone`, `interesse`, `empresa`, `email` e `respostaCurta` via Groq (`openai/gpt-oss-20b`) ou Gemini (`gemini-2.5-flash`), com fallback local.
+- Normaliza o telefone e persiste o lead na coleção `contatos` com os mesmos campos base do cadastro manual (`empresaId`, `nome`, `cargo`, `empresa`, `email`, `telefone`, `endereco`, `status: 'Novo'`, `observacoes: 'Interesse via WhatsApp: ...'`, `dataCriacao`, `atualizadoEm`), além de registrar oportunidade em `negocios` e histórico em `whatsapp_sessoes`.
+
+### 2. Visualização no CRM (`src/pages/Contatos.jsx`)
+- Escuta `contatos` filtrado por `dadosUsuario.empresaId`.
+- Renderiza **Observações** em coluna própria na tabela (removendo o prefixo `Interesse via WhatsApp:` na exibição, mantendo o texto completo em `title` e suportando busca em `observacoes`).
+
+### 3. Alertas em Tempo Real (`src/components/NotificacoesLeads.jsx` em `Layout.jsx`)
+- Mantém um listener `onSnapshot` em `contatos` por `empresaId`.
+- Na primeiraSnapshot (`primeiraCargaRef`), carrega apenas o histórico recente sem disparar alertas; em eventos `added` subsequentes, toca um acorde via Web Audio API, exibe um `toast` de aviso e atualiza o dropdown/contador do sino.

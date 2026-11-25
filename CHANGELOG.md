@@ -168,4 +168,13 @@ Todas as mudanças relevantes do projeto estão registradas neste arquivo.
 
 
 
-#41
+## [Unreleased] - 2026-11-25
+
+### Fixed
+- Corrigido `SyntaxError: Unexpected token '<<'` no `api/whatsapp-webhook.js` causado por marcadores residuais de conflito de merge no Git, restaurando a gravação no Firestore e o deploy na Vercel.
+- Alinhado o schema de documentos criados pelo webhook na coleção `contatos` aos campos esperados pelo painel (`empresaId`, `nome`, `cargo`, `empresa`, `email`, `telefone`, `endereco`, `status`, `observacoes`, `dataCriacao`, `atualizadoEm`), garantindo que leads criados via WhatsApp sejam exibidos na interface.
+- Corrigida divergência de `empresaId` entre o webhook (`DEFAULT_EMPRESA_ID`) e o tenant ativo no painel (`Agrotec Acessoria Agropecuaria S/A`), permitindo a visualização imediata dos leads nas abas **Todos** e **Leads**.
+
+### Added
+- Adicionada a coluna **Observações** na listagem de `Contatos.jsx` (e suporte na busca textual e visualização mobile) para exibir o interesse ou descrição do que o cliente deseja adquirir sem sobrecarregar o campo de cargo.
+- Criado o componente `NotificacoesLeads.jsx` integrado ao `Layout.jsx` via `onSnapshot` no Firestore, com alerta sonoro via Web Audio API, popup (`react-hot-toast`) e sino de notificações com contador de não lidas.

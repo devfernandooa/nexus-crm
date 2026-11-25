@@ -259,3 +259,18 @@
   - A importação modular (`firebase-admin/app` e `firebase-admin/auth`) com `readFileSync` evita erros ESM no Node v24, e o relógio do Windows precisa estar sincronizado para não gerar `invalid_grant: Invalid JWT`.
   - Manter `scripts/service-account.json` no `.gitignore` é essencial para segurança das credenciais administrativas.
 - **Próximo passo:** Criar a interface do Super Admin (seletor de `empresaId` e monitor de sessões) e concluir a validação end-to-end do webhook do WhatsApp na Meta Developers.
+
+
+# Project State — Nexus Hub (WhatsApp CRM)
+**Última atualização:** 2026-11-25  
+**Branches ativas:** `main` (produção / Vercel) e `dev` (desenvolvimento)
+
+## Estado Atual
+- **Webhook WhatsApp (`api/whatsapp-webhook.js`):** Operacional sem conflitos de merge, extraindo dados via Groq/Gemini (com fallback) e persistindo em `contatos`, `negocios` e `whatsapp_sessoes` usando `DEFAULT_EMPRESA_ID`.
+- **Listagem de Contatos/Leads (`src/pages/Contatos.jsx`):** Exibindo leads do tenant com coluna dedicada **Observações** (ex.: `ConfDay`, `BioBac Ararate`) e filtro de busca abrangendo `observacoes`.
+- **Notificações em Tempo Real (`src/components/NotificacoesLeads.jsx` + `Layout.jsx`):** Implementadas com `onSnapshot` em `contatos` filtrando por `empresaId`, ignorando a carga inicial (`primeiraCargaRef`) e disparando som (Web Audio API), toast clicável para `/app/contatos?tipo=leads` e badge no sino do cabeçalho.
+- **Multi-tenant WhatsApp:** Em planejamento/transição; atualmente opera com `DEFAULT_EMPRESA_ID` e credenciais configuradas no ambiente da Vercel, com evolução prevista para roteamento dinâmico por `phone_number_id` via `integracoes_whatsapp`.
+
+## Pendências / Próximos Passos
+- Validar em produção o disparo conjunto de som, popup e sino ao receber um novo lead via WhatsApp/Firestore.
+- Planejar e implementar o roteamento multi-empresa por `phone_number_id` na coleção `integracoes_whatsapp` para cada cliente do SaaS ter seu próprio número conectado.
