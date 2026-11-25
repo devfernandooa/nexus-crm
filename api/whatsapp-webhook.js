@@ -72,7 +72,7 @@ async function obterConfiguracaoIA(empresaId) {
  * Consulta a API do Gemini com Structured Output (JSON Schema) e fallback automático de modelos
  */
 async function processarComIA({ historico, mensagemAtual, dadosAtuais, nomePerfilWa, configIA }) {
-    const modelos = ['gemini-2.5-flash', 'gemini-2.5-flash-lite'];
+    const modelos = ['gemini-3.5-flash-lite', 'gemini-3.8-flash'];
 
     const systemInstruction = `
 ${configIA.promptSistema}
