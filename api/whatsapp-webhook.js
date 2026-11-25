@@ -187,7 +187,6 @@ async function gerarLeadNoCRM({ empresaId, dados, textoOriginal, remetenteWa }) 
       ...(empresaCliente && { empresa: empresaCliente }),
       ...(emailFinal && { email: emailFinal }),
       observacoes: `Interesse via WhatsApp: ${interesseFinal}`,
-      atualizadoEm: agora,
     });
     console.log(`♻️ Lead atualizado em contatos: ${contatoId} (${nomeFinal})`);
   } else {
@@ -198,17 +197,10 @@ async function gerarLeadNoCRM({ empresaId, dados, textoOriginal, remetenteWa }) 
       empresa: empresaCliente,
       email: emailFinal,
       telefone: telefoneFinal,
-<<<<<<< HEAD
-      origem: 'whatsapp',
-      status: 'Novo',
-      tipo: 'lead',
-=======
       endereco: '',
       status: 'Novo',
->>>>>>> dev
       observacoes: `Interesse via WhatsApp: ${interesseFinal}`,
       dataCriacao: agora,
-      atualizadoEm: agora,
     });
     contatoId = novoContato.id;
     console.log(`✅ Novo Lead criado em contatos: ${contatoId} (${nomeFinal})`);
@@ -216,16 +208,16 @@ async function gerarLeadNoCRM({ empresaId, dados, textoOriginal, remetenteWa }) 
 
   let negocioId = null;
   if (interesseFinal) {
-    const novoContato = await contatosRef.add({
+    const novoNegocio = await db.collection('negocios').add({
       empresaId,
-      nome: nomeFinal,
-      cargo: '',
-      empresa: empresaCliente,
-      email: emailFinal,
+      titulo: `${interesseFinal} - ${nomeFinal}`,
+      contatoId,
+      contatoNome: nomeFinal,
       telefone: telefoneFinal,
-      endereco: '',
-      status: 'Novo',
-      observacoes: `Interesse via WhatsApp: ${interesseFinal}`,
+      etapa: 'Novo Lead',
+      valor: 0,
+      origem: 'whatsapp',
+      descricao: `Mensagem original: "${textoOriginal}"`,
       dataCriacao: agora,
       atualizadoEm: agora,
     });
