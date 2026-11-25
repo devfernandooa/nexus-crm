@@ -20,7 +20,8 @@ const db = getFirestore(app);
 const VERIFY_TOKEN = process.env.WHATSAPP_VERIFY_TOKEN;
 const WHATSAPP_TOKEN = process.env.WHATSAPP_TOKEN;
 const PHONE_NUMBER_ID = process.env.PHONE_NUMBER_ID;
-const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
+const GROQ_API_KEY = process.env.GROQ_API_KEY;
+//const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
 const DEFAULT_EMPRESA_ID = process.env.DEFAULT_EMPRESA_ID || 'empresa_padrao';
 
 /**
@@ -72,96 +73,110 @@ async function obterConfiguracaoIA(empresaId) {
  * Consulta a API do Gemini com Structured Output (JSON Schema) e fallback automático de modelos
  */
 async function processarComIA({ historico, mensagemAtual, dadosAtuais, nomePerfilWa, configIA }) {
-    const modelos = ['gemini-3.5-flash-lite', 'gemini-3.8-flash'];
-
-    const systemInstruction = `
+  const systemInstruction = `
 ${configIA.promptSistema}
 
 REGRAS ESTRITAS DE EXTRAÇÃO DE DADOS (CRM):
 1. Analise o histórico da conversa e a última mensagem do cliente.
-2. Extraia apenas o que o cliente realmente informou:
-   - "nome": Nome da pessoa (se não informado explicitamente na conversa, pode usar "${nomePerfilWa || ''}" apenas se parecer um nome real de pessoa, nunca textos longos ou frases).
-   - "email": E-mail válido se informado, caso contrário "".
-   - "empresa": Nome da empresa do cliente se informado, caso contrário "".
-   - "cargo": Cargo profissional APENAS se o cliente disser explicitamente (ex: "sou gerente", "sou proprietário"). Caso contrário, deixe "" (string vazia). NUNCA coloque a mensagem do cliente no campo cargo.
-   - "interesse": Resumo claro e objetivo do produto, serviço ou dúvida do cliente.
-   - "leadCompleto": true se já temos pelo menos o nome do cliente E um interesse claro identificado; false se ainda falta entender o que ele deseja.
-3. "respostaWhatsApp": Escreva a resposta que será enviada ao cliente no WhatsApp. Seja natural, educado, breve (máximo 3 parágrafos curtos) e sem formatação markdown complexa.
+2. Retorne EXCLUSIVAMENTE um objeto JSON válido com exatamente estas 7 chaves:
+   - "respostaWhatsApp": (string) Resposta natural, educada e breve (máximo 3 parágrafos curtos, sem markdown complexo) para enviar ao cliente no WhatsApp.
+   - "nome": (string) Nome da pessoa (se não informado explicitamente na conversa, pode usar "${nomePerfilWa || ''}" apenas se parecer um nome real de pessoa, nunca textos longos ou frases).
+   - "email": (string) E-mail válido se informado, caso contrário "".
+   - "empresa": (string) Nome da empresa do cliente se informado, caso contrário "".
+   - "cargo": (string) Cargo profissional APENAS se o cliente disser explicitamente (ex: "sou gerente", "sou proprietário"). Caso contrário, deixe "". NUNCA coloque a mensagem do cliente no campo cargo.
+   - "interesse": (string) Resumo claro e objetivo do produto, serviço ou dúvida do cliente.
+   - "leadCompleto": (boolean) true se já temos pelo menos o nome do cliente E um interesse claro identificado; false se ainda falta entender o que ele deseja.
 
 DADOS JÁ COLETADOS ANTERIORMENTE NESTA SESSÃO:
 ${JSON.stringify(dadosAtuais || {})}
 `.trim();
 
-    const contents = [
+  // 1ª Tentativa: Groq (llama-3.3-70b-versatile) - ultrarrápido
+  if (GROQ_API_KEY) {
+    try {
+      const messages = [
+        { role: 'system', content: systemInstruction },
         ...historico.map((msg) => ({
-            role: msg.role === 'assistant' ? 'model' : 'user',
-            parts: [{ text: msg.text }],
+          role: msg.role === 'assistant' ? 'assistant' : 'user',
+          content: msg.text,
         })),
-        {
-            role: 'user',
-            parts: [{ text: mensagemAtual }],
+        { role: 'user', content: mensagemAtual },
+      ];
+
+      const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${GROQ_API_KEY}`,
+          'Content-Type': 'application/json',
         },
-    ];
+        body: JSON.stringify({
+          model: 'llama-3.3-70b-versatile',
+          messages,
+          temperature: 0.3,
+          response_format: { type: 'json_object' },
+        }),
+        signal: AbortSignal.timeout(7000),
+      });
 
-    const payload = {
-        systemInstruction: {
-            parts: [{ text: systemInstruction }],
-        },
-        contents,
-        generationConfig: {
-            temperature: 0.3,
-            responseMimeType: 'application/json',
-            responseSchema: {
-                type: 'OBJECT',
-                properties: {
-                    respostaWhatsApp: { type: 'STRING' },
-                    nome: { type: 'STRING' },
-                    email: { type: 'STRING' },
-                    empresa: { type: 'STRING' },
-                    cargo: { type: 'STRING' },
-                    interesse: { type: 'STRING' },
-                    leadCompleto: { type: 'BOOLEAN' },
-                },
-                required: [
-                    'respostaWhatsApp',
-                    'nome',
-                    'email',
-                    'empresa',
-                    'cargo',
-                    'interesse',
-                    'leadCompleto',
-                ],
-            },
-        },
-    };
-
-    let ultimoErro = '';
-
-    for (const modelo of modelos) {
-        const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelo}:generateContent?key=${GEMINI_API_KEY}`;
-
-        const response = await fetch(url, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(payload),
-            signal: AbortSignal.timeout(8000),
-        });
-
-        if (response.ok) {
-            const result = await response.json();
-            const rawText = result?.candidates?.[0]?.content?.parts?.[0]?.text;
-            if (rawText) {
-                console.log(`🤖 Resposta gerada com sucesso usando: ${modelo}`);
-                return JSON.parse(rawText);
-            }
+      if (response.ok) {
+        const result = await response.json();
+        const rawText = result?.choices?.[0]?.message?.content;
+        if (rawText) {
+          console.log('🤖 Resposta gerada com sucesso via Groq (llama-3.3-70b-versatile)');
+          return JSON.parse(rawText);
         }
-
-        const errorText = await response.text();
-        ultimoErro = `Erro na API Gemini (${modelo} - ${response.status}): ${errorText}`;
-        console.warn(`⚠️ ${ultimoErro} — tentando próximo modelo...`);
+      } else {
+        const errText = await response.text();
+        console.warn(`⚠️ Falha na Groq (${response.status}): ${errText} — tentando Gemini...`);
+      }
+    } catch (err) {
+      console.warn(`⚠️ Erro/Timeout na Groq: ${err.message} — tentando Gemini...`);
     }
+  }
 
-    throw new Error(ultimoErro);
+  // 2ª Tentativa (Backup): Gemini
+  const modelosGemini = ['gemini-3.5-flash-lite', 'gemini-3.8-flash'];
+  const contents = [
+    ...historico.map((msg) => ({
+      role: msg.role === 'assistant' ? 'model' : 'user',
+      parts: [{ text: msg.text }],
+    })),
+    { role: 'user', parts: [{ text: mensagemAtual }] },
+  ];
+
+  const payloadGemini = {
+    systemInstruction: { parts: [{ text: systemInstruction }] },
+    contents,
+    generationConfig: {
+      temperature: 0.3,
+      responseMimeType: 'application/json',
+    },
+  };
+
+  for (const modelo of modelosGemini) {
+    try {
+      const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelo}:generateContent?key=${GEMINI_API_KEY}`;
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payloadGemini),
+        signal: AbortSignal.timeout(7000),
+      });
+
+      if (response.ok) {
+        const result = await response.json();
+        const rawText = result?.candidates?.[0]?.content?.parts?.[0]?.text;
+        if (rawText) {
+          console.log(`🤖 Resposta gerada com sucesso via backup Gemini (${modelo})`);
+          return JSON.parse(rawText);
+        }
+      }
+    } catch (err) {
+      console.warn(`⚠️ Backup Gemini (${modelo}) indisponível: ${err.message}`);
+    }
+  }
+
+  throw new Error('Todos os provedores de IA (Groq e Gemini) falharam.');
 }
 
 /**
