@@ -198,9 +198,14 @@ async function gerarLeadNoCRM({ empresaId, dados, textoOriginal, remetenteWa }) 
       empresa: empresaCliente,
       email: emailFinal,
       telefone: telefoneFinal,
+<<<<<<< HEAD
       origem: 'whatsapp',
       status: 'Novo',
       tipo: 'lead',
+=======
+      endereco: '',
+      status: 'Novo',
+>>>>>>> dev
       observacoes: `Interesse via WhatsApp: ${interesseFinal}`,
       dataCriacao: agora,
       atualizadoEm: agora,
