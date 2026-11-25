@@ -72,7 +72,7 @@ async function obterConfiguracaoIA(empresaId) {
  * Retorna tanto a resposta humanizada quanto os dados extraídos limpos.
  */
 async function processarComIA({ historico, mensagemAtual, dadosAtuais, nomePerfilWa, configIA }) {
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GEMINI_API_KEY}`;
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent?key=${GEMINI_API_KEY}`;
 
   const systemInstruction = `
 ${configIA.promptSistema}
