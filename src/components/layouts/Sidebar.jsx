@@ -66,7 +66,7 @@ export default function Sidebar({ onClose }) {
           <div className="w-9 h-9 bg-emerald-600 dark:bg-emerald-500 rounded-lg flex items-center justify-center text-white dark:text-slate-950 font-extrabold text-lg shrink-0 shadow-2xs">
             N
           </div>
-          
+
           <span className="text-[20px] font-bold tracking-tight text-slate-900 dark:text-white whitespace-nowrap truncate">
             Nexus <span className="text-emerald-600 dark:text-emerald-400">Hub</span>
           </span>
@@ -151,9 +151,7 @@ export default function Sidebar({ onClose }) {
             </button>
             {contatosAberto && (
               <div className="pl-7 pr-1 mt-1 space-y-0.5 border-l border-slate-200 dark:border-slate-800 ml-4">
-                <NavLink to="/app/contatos" end className={subLinkClass} onClick={onClose}>
-                  Meus Contatos
-                </NavLink>
+
                 <NavLink to="/app/contatos?tipo=leads" className={subLinkClass} onClick={onClose}>
                   Leads
                 </NavLink>
