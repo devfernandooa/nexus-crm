@@ -1,395 +1,338 @@
-import { getApps, initializeApp, cert } from 'firebase-admin/app';
+import { initializeApp, cert, getApps } from 'firebase-admin/app';
 import { getFirestore, FieldValue } from 'firebase-admin/firestore';
 
-const apps = getApps();
-const app = apps.length
-  ? apps[0]
-  : initializeApp({
-      credential: cert({
-        projectId: process.env.FIREBASE_PROJECT_ID,
-        clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
-        privateKey: process.env.FIREBASE_PRIVATE_KEY?.replace(/\\n/g, '\n'),
-      }),
-    });
+// --- Inicialização Firebase Admin ---
+if (!getApps().length) {
+  const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT_KEY);
+  initializeApp({
+    credential: cert(serviceAccount),
+  });
+}
 
-const db = getFirestore(app);
+const db = getFirestore();
 
-// Configurações de ambiente
 const VERIFY_TOKEN = process.env.WHATSAPP_VERIFY_TOKEN;
 const WHATSAPP_TOKEN = process.env.WHATSAPP_TOKEN;
 const PHONE_NUMBER_ID = process.env.PHONE_NUMBER_ID;
 const GROQ_API_KEY = process.env.GROQ_API_KEY;
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
-const DEFAULT_EMPRESA_ID = process.env.DEFAULT_EMPRESA_ID || 'empresa_padrao';
+const DEFAULT_EMPRESA_ID = process.env.DEFAULT_EMPRESA_ID || 'sAYH5cVoqDn3m5LllObO';
 
-/**
- * Envia mensagem de texto de volta para o WhatsApp via Meta Cloud API
- */
-async function enviarMensagemWhatsApp(to, text, phoneNumberId = PHONE_NUMBER_ID) {
-  const url = `https://graph.facebook.com/v21.0/${phoneNumberId}/messages`;
-
-  const response = await fetch(url, {
-    method: 'POST',
-    headers: {
-      Authorization: `Bearer ${WHATSAPP_TOKEN}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      messaging_product: 'whatsapp',
-      to,
-      type: 'text',
-      text: { body: text },
-    }),
-  });
-
-  const data = await response.json();
-  console.log('📤 GRAPH API STATUS:', response.status, JSON.stringify(data));
-  return data;
+// --- Limpa telefone mantendo apenas dígitos ---
+function normalizarTelefone(tel) {
+  if (!tel) return '';
+  const digitos = String(tel).replace(/\D/g, '');
+  if (digitos.length === 10 || digitos.length === 11) {
+    return `55${digitos}`;
+  }
+  return digitos;
 }
 
-/**
- * Busca instruções personalizadas da empresa no Firestore (coleção config_ia)
- */
-async function obterConfiguracaoIA(empresaId) {
+// --- Busca produtos cadastrados para ajudar a identificar o interesse ---
+async function buscarProdutosEmpresa(empresaId) {
   try {
-    const docSnap = await db.collection('config_ia').doc(empresaId).get();
-    if (docSnap.exists) {
-      return docSnap.data();
-    }
+    const snap = await db
+      .collection('produtos')
+      .where('empresaId', '==', empresaId)
+      .limit(30)
+      .get();
+
+    return snap.docs.map((doc) => ({
+      id: doc.id,
+      nome: doc.data().nome || '',
+      preco: doc.data().preco || 0,
+    }));
   } catch (err) {
-    console.warn('⚠️ Falha ao ler config_ia, usando prompt padrão:', err.message);
+    console.warn('⚠️ Não foi possível listar produtos:', err.message);
+    return [];
+  }
+}
+
+// --- Extrai Nome, Telefone e Produto/Serviço/Interesse via IA (Groq -> Gemini -> Fallback) ---
+async function extrairDadosLead({ textoMensagem, nomePerfilWa, telefoneRemetente, produtos }) {
+  const listaProdutos =
+    produtos.length > 0
+      ? produtos.map((p) => `- ${p.nome} (R$ ${p.preco})`).join('\n')
+      : 'Nenhum produto específico listado';
+
+  const promptSistema = `Você é um extrator de dados de leads para um CRM.
+Analise a mensagem recebida e extraia estritamente em JSON válido:
+{
+  "nome": "Nome do cliente (se não estiver no texto, use '${nomePerfilWa || 'Lead WhatsApp'}')",
+  "telefone": "Apenas números com DDI/DDD se informado no texto, ou '${telefoneRemetente}'",
+  "interesse": "Produto, serviço ou assunto de interesse identificado (se houver produto compatível na lista, use o nome oficial dele)",
+  "empresa": "Nome da empresa do cliente, se mencionado, ou ''",
+  "email": "E-mail do cliente, se mencionado, ou ''",
+  "respostaCurta": "Mensagem curta confirmando o recebimento do interesse"
+}
+
+Produtos cadastrados no CRM:
+${listaProdutos}
+
+Responda APENAS com o JSON, sem markdown ou texto extra.`;
+
+  const promptUsuario = `Remetente WhatsApp: ${nomePerfilWa} (${telefoneRemetente})\nMensagem: "${textoMensagem}"`;
+
+  // 1. Tenta via Groq
+  if (GROQ_API_KEY) {
+    try {
+      const resp = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${GROQ_API_KEY}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          model: 'openai/gpt-oss-20b',
+          messages: [
+            { role: 'system', content: promptSistema },
+            { role: 'user', content: promptUsuario },
+          ],
+          temperature: 0.1,
+          response_format: { type: 'json_object' },
+        }),
+      });
+
+      if (resp.ok) {
+        const data = await resp.json();
+        const raw = data.choices?.[0]?.message?.content || '{}';
+        const parsed = JSON.parse(raw);
+        console.log('🤖 Dados extraídos via Groq:', parsed);
+        return parsed;
+      }
+    } catch (err) {
+      console.warn('⚠️ Falha na Groq, tentando Gemini:', err.message);
+    }
   }
 
+  // 2. Fallback via Gemini
+  if (GEMINI_API_KEY) {
+    try {
+      const resp = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            contents: [{ parts: [{ text: `${promptSistema}\n\n${promptUsuario}` }] }],
+            generationConfig: { responseMimeType: 'application/json', temperature: 0.1 },
+          }),
+        }
+      );
+
+      if (resp.ok) {
+        const data = await resp.json();
+        const raw = data.candidates?.[0]?.content?.parts?.[0]?.text || '{}';
+        const parsed = JSON.parse(raw);
+        console.log('🤖 Dados extraídos via Gemini:', parsed);
+        return parsed;
+      }
+    } catch (err) {
+      console.warn('⚠️ Falha no Gemini, usando fallback direto:', err.message);
+    }
+  }
+
+  // 3. Fallback garantido sem IA (nunca perde o lead)
   return {
-    nomeEmpresa: 'Nexus Hub',
-    promptSistema:
-      'Você é um assistente comercial cordial e objetivo. Seu objetivo é atender o cliente, entender sua necessidade/interesse e coletar naturalmente o nome completo (caso ainda não saiba) e o que ele procura. Faça uma pergunta curta por vez. Nunca invente informações.',
+    nome: nomePerfilWa || 'Lead WhatsApp',
+    telefone: telefoneRemetente,
+    interesse: textoMensagem,
+    empresa: '',
+    email: '',
+    respostaCurta: `Olá ${nomePerfilWa || ''}! Recebemos seu contato sobre "${textoMensagem}". Em breve nossa equipe retorna.`,
   };
 }
 
-/**
- * Processa a conversa com Groq (principal) e Gemini (fallback)
- */
-async function processarComIA({ historico, mensagemAtual, dadosAtuais, nomePerfilWa, configIA }) {
-  const systemInstruction = `
-${configIA.promptSistema}
+// --- Grava ou atualiza o Lead em "contatos" e cria card em "negocios" ---
+async function gerarLeadNoCRM({ empresaId, dados, textoOriginal, remetenteWa }) {
+  const agora = new Date().toISOString();
+  const telefoneFinal = normalizarTelefone(dados.telefone) || normalizarTelefone(remetenteWa);
+  const nomeFinal = (dados.nome || '').trim() || 'Lead WhatsApp';
+  const interesseFinal = (dados.interesse || textoOriginal || '').trim();
+  const emailFinal = (dados.email || '').trim();
+  const empresaCliente = (dados.empresa || '').trim();
 
-REGRAS ESTRITAS DE EXTRAÇÃO DE DADOS (CRM):
-1. Analise o histórico da conversa e a última mensagem do cliente.
-2. Retorne EXCLUSIVAMENTE um objeto JSON válido com exatamente estas 7 chaves:
-   - "respostaWhatsApp": (string) Resposta natural, educada e breve (máximo 3 parágrafos curtos, sem markdown complexo) para enviar ao cliente no WhatsApp.
-   - "nome": (string) Nome da pessoa (se não informado explicitamente na conversa, pode usar "${nomePerfilWa || ''}" apenas se parecer um nome real de pessoa, nunca textos longos ou frases).
-   - "email": (string) E-mail válido se informado, caso contrário "".
-   - "empresa": (string) Nome da empresa do cliente se informado, caso contrário "".
-   - "cargo": (string) Cargo profissional APENAS se o cliente disser explicitamente (ex: "sou gerente", "sou proprietário"). Caso contrário, deixe "". NUNCA coloque a mensagem do cliente no campo cargo.
-   - "interesse": (string) Resumo claro e objetivo do produto, serviço ou dúvida do cliente.
-   - "leadCompleto": (boolean) true se já temos pelo menos o nome do cliente E um interesse claro identificado; false se ainda falta entender o que ele deseja.
-
-DADOS JÁ COLETADOS ANTERIORMENTE NESTA SESSÃO:
-${JSON.stringify(dadosAtuais || {})}
-`.trim();
-
-  // 1ª Tentativa: Groq com modelos ativos confirmados na conta
-  if (GROQ_API_KEY) {
-    const modelosGroq = ['openai/gpt-oss-20b', 'openai/gpt-oss-120b'];
-    const messages = [
-      { role: 'system', content: systemInstruction },
-      ...historico.map((msg) => ({
-        role: msg.role === 'assistant' ? 'assistant' : 'user',
-        content: msg.text,
-      })),
-      { role: 'user', content: mensagemAtual },
-    ];
-
-    for (const modeloGroq of modelosGroq) {
-      try {
-        const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-          method: 'POST',
-          headers: {
-            Authorization: `Bearer ${GROQ_API_KEY}`,
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            model: modeloGroq,
-            messages,
-            temperature: 0.3,
-            response_format: { type: 'json_object' },
-          }),
-          signal: AbortSignal.timeout(8000),
-        });
-
-        if (response.ok) {
-          const result = await response.json();
-          const rawText = result?.choices?.[0]?.message?.content;
-          if (rawText) {
-            console.log(`🤖 Resposta gerada com sucesso via Groq (${modeloGroq})`);
-            return JSON.parse(rawText);
-          }
-        } else {
-          const errText = await response.text();
-          console.warn(`⚠️ Falha na Groq (${modeloGroq} - ${response.status}): ${errText}`);
-        }
-      } catch (err) {
-        console.warn(`⚠️ Erro/Timeout na Groq (${modeloGroq}): ${err.message}`);
-      }
-    }
-  }
-
-  // 2ª Tentativa (Backup): Gemini
-  if (GEMINI_API_KEY) {
-    const modelosGemini = ['gemini-3.5-flash-lite', 'gemini-3.8-flash'];
-    const contents = [
-      ...historico.map((msg) => ({
-        role: msg.role === 'assistant' ? 'model' : 'user',
-        parts: [{ text: msg.text }],
-      })),
-      { role: 'user', parts: [{ text: mensagemAtual }] },
-    ];
-
-    const payloadGemini = {
-      systemInstruction: { parts: [{ text: systemInstruction }] },
-      contents,
-      generationConfig: {
-        temperature: 0.3,
-        responseMimeType: 'application/json',
-      },
-    };
-
-    for (const modelo of modelosGemini) {
-      try {
-        const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelo}:generateContent?key=${GEMINI_API_KEY}`;
-        const response = await fetch(url, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(payloadGemini),
-          signal: AbortSignal.timeout(10000),
-        });
-
-        if (response.ok) {
-          const result = await response.json();
-          const rawText = result?.candidates?.[0]?.content?.parts?.[0]?.text;
-          if (rawText) {
-            console.log(`🤖 Resposta gerada com sucesso via backup Gemini (${modelo})`);
-            return JSON.parse(rawText);
-          }
-        }
-      } catch (err) {
-        console.warn(`⚠️ Backup Gemini (${modelo}) indisponível: ${err.message}`);
-      }
-    }
-  }
-
-  throw new Error('Todos os provedores de IA (Groq e Gemini) falharam.');
-}
-
-/**
- * Cria ou atualiza o Contato (com deduplicação por telefone + empresaId)
- * e registra um Negócio vinculado quando um novo atendimento é qualificado.
- */
-async function salvarOuAtualizarLead({ empresaId, telefone, dadosExtraidos, criarNegocio }) {
-  const agora = FieldValue.serverTimestamp();
   const contatosRef = db.collection('contatos');
-
-  const snapshot = await contatosRef
+  const existenteSnap = await contatosRef
     .where('empresaId', '==', empresaId)
-    .where('telefone', '==', telefone)
+    .where('telefone', '==', telefoneFinal)
     .limit(1)
     .get();
 
-  const nomeLimpo = (dadosExtraidos.nome || 'Lead WhatsApp').slice(0, 100).trim();
-  const cargoLimpo = (dadosExtraidos.cargo || '').slice(0, 80).trim();
-  const empresaCliente = (dadosExtraidos.empresa || '').slice(0, 100).trim();
-  const emailLimpo = (dadosExtraidos.email || '').slice(0, 120).trim();
-  const interesseLimpo = (dadosExtraidos.interesse || '').trim();
-
   let contatoId;
 
-  if (!snapshot.empty) {
-    const docExistente = snapshot.docs[0];
+  if (!existenteSnap.empty) {
+    const docExistente = existenteSnap.docs[0];
     contatoId = docExistente.id;
-    const dadosAnteriores = docExistente.data();
-
-    const atualizacoes = {
+    await docExistente.ref.update({
+      nome: nomeFinal,
+      ...(empresaCliente && { empresa: empresaCliente }),
+      ...(emailFinal && { email: emailFinal }),
+      observacoes: `Último interesse via WhatsApp: ${interesseFinal}`,
       atualizadoEm: agora,
-    };
-
-    if (nomeLimpo && nomeLimpo !== 'Lead WhatsApp') atualizacoes.nome = nomeLimpo;
-    if (cargoLimpo) atualizacoes.cargo = cargoLimpo;
-    if (empresaCliente) atualizacoes.empresa = empresaCliente;
-    if (emailLimpo) atualizacoes.email = emailLimpo;
-    if (interesseLimpo) {
-      const obsAnterior = dadosAnteriores.observacoes || '';
-      atualizacoes.observacoes = obsAnterior
-        ? `${obsAnterior}\n[Nova interação WhatsApp]: ${interesseLimpo}`
-        : `Interesse via WhatsApp: ${interesseLimpo}`;
-    }
-
-    await contatosRef.doc(contatoId).update(atualizacoes);
-    console.log(`♻️ Contato atualizado (deduplicado): ${contatoId}`);
+    });
+    console.log(`♻️ Lead atualizado em contatos: ${contatoId} (${nomeFinal})`);
   } else {
     const novoContato = await contatosRef.add({
       empresaId,
-      nome: nomeLimpo,
-      cargo: cargoLimpo,
+      nome: nomeFinal,
       empresa: empresaCliente,
-      email: emailLimpo,
-      telefone,
+      email: emailFinal,
+      telefone: telefoneFinal,
       origem: 'whatsapp',
       status: 'Novo',
       tipo: 'lead',
-      observacoes: interesseLimpo ? `Interesse via WhatsApp: ${interesseLimpo}` : '',
+      observacoes: `Interesse via WhatsApp: ${interesseFinal}`,
       dataCriacao: agora,
       atualizadoEm: agora,
     });
     contatoId = novoContato.id;
-    console.log(`✅ Novo contato criado: ${contatoId}`);
+    console.log(`✅ Novo Lead criado em contatos: ${contatoId} (${nomeFinal})`);
   }
 
-  if (criarNegocio && interesseLimpo) {
+  // Cria negócio no funil se houver interesse/produto identificado
+  let negocioId = null;
+  if (interesseFinal) {
     const novoNegocio = await db.collection('negocios').add({
       empresaId,
+      titulo: `${interesseFinal} - ${nomeFinal}`,
       contatoId,
-      contatoNome: nomeLimpo,
-      telefone,
-      titulo: `${nomeLimpo} - ${interesseLimpo.slice(0, 60)}`,
-      descricao: interesseLimpo,
+      contatoNome: nomeFinal,
+      telefone: telefoneFinal,
       etapa: 'Novo Lead',
       valor: 0,
       origem: 'whatsapp',
+      descricao: `Mensagem original: "${textoOriginal}"`,
       dataCriacao: agora,
       atualizadoEm: agora,
     });
-    console.log(`💼 Negócio criado: ${novoNegocio.id}`);
-    return { contatoId, negocioId: novoNegocio.id };
+    negocioId = novoNegocio.id;
+    console.log(`💼 Negócio criado em negocios: ${negocioId}`);
   }
 
-  return { contatoId, negocioId: null };
+  // Registra log na coleção whatsapp_sessoes para histórico
+  await db
+    .collection('whatsapp_sessoes')
+    .doc(telefoneFinal)
+    .set(
+      {
+        empresaId,
+        nome: nomeFinal,
+        telefone: telefoneFinal,
+        interesse: interesseFinal,
+        contatoId,
+        ultimoNegocioId: negocioId,
+        atualizadoEm: agora,
+        historico: FieldValue.arrayUnion({
+          role: 'user',
+          text: textoOriginal,
+          timestamp: agora,
+        }),
+      },
+      { merge: true }
+    );
+
+  return { contatoId, negocioId, nomeFinal, telefoneFinal, interesseFinal };
 }
 
+// --- Envio opcional de resposta (não bloqueia o fluxo se a conta Meta estiver restrita) ---
+async function tentarResponderWhatsApp(para, texto) {
+  if (!WHATSAPP_TOKEN || !PHONE_NUMBER_ID || !para || !texto) return;
+
+  try {
+    const resp = await fetch(`https://graph.facebook.com/v25.0/${PHONE_NUMBER_ID}/messages`, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${WHATSAPP_TOKEN}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        messaging_product: 'whatsapp',
+        to: para,
+        type: 'text',
+        text: { body: texto },
+      }),
+    });
+
+    if (!resp.ok) {
+      const erro = await resp.text();
+      console.warn(`⚠️ Envio WhatsApp não entregue (status ${resp.status}) - Lead já salvo no CRM:`, erro);
+    } else {
+      console.log('📤 Resposta enviada no WhatsApp com sucesso');
+    }
+  } catch (err) {
+    console.warn('⚠️ Falha de rede ao tentar responder WhatsApp:', err.message);
+  }
+}
+
+// --- Handler Principal Vercel ---
 export default async function handler(req, res) {
+  // Verificação do Webhook pela Meta (GET)
   if (req.method === 'GET') {
     const mode = req.query['hub.mode'];
     const token = req.query['hub.verify_token'];
     const challenge = req.query['hub.challenge'];
 
     if (mode === 'subscribe' && token === VERIFY_TOKEN) {
-      console.log('✅ Webhook verificado com sucesso!');
       return res.status(200).send(challenge);
     }
     return res.status(403).send('Forbidden');
   }
 
-  if (req.method === 'POST') {
-    try {
-      const body = req.body;
-      console.log('📩 WEBHOOK RECEBIDO:', JSON.stringify(body));
-
-      if (body.object !== 'whatsapp_business_account') {
-        return res.status(404).send('Not Found');
-      }
-
-      const entry = body.entry?.[0];
-      const changes = entry?.changes?.[0];
-      const value = changes?.value;
-
-      if (!value?.messages || value.messages.length === 0) {
-        return res.status(200).send('EVENT_RECEIVED');
-      }
-
-      const message = value.messages[0];
-      const contactInfo = value.contacts?.[0];
-      const phoneNumberIdRecebido = value.metadata?.phone_number_id || PHONE_NUMBER_ID;
-
-      if (message.type !== 'text') {
-        await enviarMensagemWhatsApp(
-          message.from,
-          'Olá! No momento consigo processar apenas mensagens de texto. Como posso ajudar?',
-          phoneNumberIdRecebido
-        );
-        return res.status(200).send('NON_TEXT_HANDLED');
-      }
-
-      const waId = message.from;
-      const textoMensagem = message.text?.body?.trim() || '';
-      const nomePerfilWa = contactInfo?.profile?.name || '';
-      const empresaId = DEFAULT_EMPRESA_ID;
-
-      const sessaoRef = db.collection('whatsapp_sessoes').doc(waId);
-      const sessaoSnap = await sessaoRef.get();
-      const sessaoAtual = sessaoSnap.exists
-        ? sessaoSnap.data()
-        : {
-            waId,
-            empresaId,
-            nomePerfilWa,
-            historico: [],
-            dadosColetados: {},
-            negocioCriadoNaSessao: false,
-            etapa: 'em_atendimento_ia',
-          };
-
-      const historicoRecente = (sessaoAtual.historico || []).slice(-10);
-      const configIA = await obterConfiguracaoIA(empresaId);
-
-      const resultadoIA = await processarComIA({
-        historico: historicoRecente,
-        mensagemAtual: textoMensagem,
-        dadosAtuais: sessaoAtual.dadosColetados,
-        nomePerfilWa,
-        configIA,
-      });
-
-      const dadosConsolidados = {
-        nome: resultadoIA.nome || sessaoAtual.dadosColetados?.nome || nomePerfilWa,
-        email: resultadoIA.email || sessaoAtual.dadosColetados?.email || '',
-        empresa: resultadoIA.empresa || sessaoAtual.dadosColetados?.empresa || '',
-        cargo: resultadoIA.cargo || sessaoAtual.dadosColetados?.cargo || '',
-        interesse: resultadoIA.interesse || sessaoAtual.dadosColetados?.interesse || '',
-      };
-
-      let negocioCriado = Boolean(sessaoAtual.negocioCriadoNaSessao);
-
-      if (resultadoIA.leadCompleto) {
-        const resLead = await salvarOuAtualizarLead({
-          empresaId,
-          telefone: waId,
-          dadosExtraidos: dadosConsolidados,
-          criarNegocio: !negocioCriado,
-        });
-
-        if (resLead.negocioId) {
-          negocioCriado = true;
-        }
-      }
-
-      const novoHistorico = [
-        ...historicoRecente,
-        { role: 'user', text: textoMensagem, timestamp: new Date().toISOString() },
-        { role: 'assistant', text: resultadoIA.respostaWhatsApp, timestamp: new Date().toISOString() },
-      ];
-
-      await sessaoRef.set(
-        {
-          waId,
-          empresaId,
-          nomePerfilWa,
-          historico: novoHistorico,
-          dadosColetados: dadosConsolidados,
-          negocioCriadoNaSessao: negocioCriado,
-          etapa: resultadoIA.leadCompleto ? 'qualificado' : 'em_atendimento_ia',
-          atualizadoEm: FieldValue.serverTimestamp(),
-        },
-        { merge: true }
-      );
-
-      await enviarMensagemWhatsApp(waId, resultadoIA.respostaWhatsApp, phoneNumberIdRecebido);
-
-      return res.status(200).send('OK');
-    } catch (error) {
-      console.error('❌ ERRO NO WEBHOOK WHATSAPP:', error);
-      return res.status(200).send('ERROR_LOGGED');
-    }
+  if (req.method !== 'POST') {
+    return res.status(405).json({ error: 'Method Not Allowed' });
   }
 
-  return res.status(405).send('Method Not Allowed');
+  try {
+    const body = req.body;
+    const value = body?.entry?.[0]?.changes?.[0]?.value;
+    const message = value?.messages?.[0];
+
+    // Ignora eventos de status (delivered, read, failed)
+    if (!message) {
+      return res.status(200).json({ status: 'ignored_event' });
+    }
+
+    const remetenteWa = message.from;
+    const nomePerfilWa = value?.contacts?.[0]?.profile?.name || '';
+    const textoMensagem =
+      message.text?.body ||
+      message.button?.text ||
+      message.interactive?.button_reply?.title ||
+      '';
+
+    if (!textoMensagem.trim()) {
+      return res.status(200).json({ status: 'empty_message' });
+    }
+
+    console.log(`📩 Mensagem recebida de ${nomePerfilWa} (${remetenteWa}): "${textoMensagem}"`);
+
+    const empresaId = DEFAULT_EMPRESA_ID;
+    const produtos = await buscarProdutosEmpresa(empresaId);
+
+    const dadosExtraidos = await extrairDadosLead({
+      textoMensagem,
+      nomePerfilWa,
+      telefoneRemetente: remetenteWa,
+      produtos,
+    });
+
+    const resultadoLead = await gerarLeadNoCRM({
+      empresaId,
+      dados: dadosExtraidos,
+      textoOriginal: textoMensagem,
+      remetenteWa,
+    });
+
+    // Tenta responder no WhatsApp sem travar ou falhar a requisição caso a Meta bloqueie
+    await tentarResponderWhatsApp(remetenteWa, dadosExtraidos.respostaCurta);
+
+    return res.status(200).json({
+      status: 'lead_gerado',
+      lead: resultadoLead,
+    });
+  } catch (error) {
+    console.error('❌ Erro ao processar webhook:', error);
+    return res.status(500).json({ error: error.message });
+  }
 }
