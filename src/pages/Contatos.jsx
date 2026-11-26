@@ -6,7 +6,110 @@ import Modal from '@/components/ui/Modal';
 import ConfirmModal from '@/components/ui/ConfirmModal';
 import PageHeader from '@/components/ui/PageHeader';
 import toast from 'react-hot-toast';
-import { Plus, Search, Users, Pencil, Trash2, X, Mail, Phone, Building2 } from 'lucide-react';
+import {
+  Plus,
+  Search,
+  Users,
+  Pencil,
+  Trash2,
+  X,
+  Mail,
+  Phone,
+  Building2,
+  ChevronLeft,
+  ChevronRight,
+} from 'lucide-react';
+
+const ITENS_POR_PAGINA = 10;
+
+function classificarContato(contato) {
+  const candidatos = [
+    contato?.tipo,
+    contato?.status,
+    contato?.categoria,
+    contato?.perfil,
+    contato?.estagio,
+    contato?.etapa,
+    contato?.fase,
+  ]
+    .filter(Boolean)
+    .map((v) => String(v).trim().toLowerCase());
+
+  const ehCliente = candidatos.some(
+    (val) =>
+      val === 'cliente' ||
+      val === 'clientes' ||
+      val === 'client' ||
+      val.startsWith('cliente ')
+  );
+
+  return ehCliente ? 'cliente' : 'lead';
+}
+
+function obterVisualStatusContato(contato) {
+  const categoria = classificarContato(contato);
+  const status = String(contato?.status || '').trim().toLowerCase();
+
+  // 1. Cliente: sem flag de lead ao lado do nome, pill verde na coluna Status
+  if (categoria === 'cliente') {
+    return {
+      ehCliente: true,
+      ehNovoLead: false,
+      mostrarFlagLead: false,
+      labelFlag: '',
+      classeFlag: '',
+      labelStatus: 'Cliente',
+      classeStatus:
+        'bg-emerald-100 text-emerald-800 border-emerald-200 dark:bg-emerald-500/20 dark:text-emerald-300 dark:border-emerald-500/30',
+    };
+  }
+
+  // 2. Em Atendimento: flag âmbar no mesmo local ao lado do nome
+  if (status === 'em atendimento' || status === 'em_atendimento') {
+    return {
+      ehCliente: false,
+      ehNovoLead: false,
+      mostrarFlagLead: true,
+      labelFlag: 'Em Atendimento',
+      classeFlag:
+        'bg-amber-50 text-amber-800 border-amber-200 dark:bg-amber-500/15 dark:text-amber-300 dark:border-amber-500/30',
+      labelStatus: 'Em Atendimento',
+      classeStatus: '',
+    };
+  }
+
+  // 3. Novo Lead: flag vermelha pulsante no mesmo local
+  const ehNovo =
+    status === '' ||
+    status === 'novo' ||
+    status === 'novo_lead' ||
+    status === 'novo lead';
+
+  if (ehNovo) {
+    return {
+      ehCliente: false,
+      ehNovoLead: true,
+      mostrarFlagLead: true,
+      labelFlag: 'Novo Lead',
+      classeFlag:
+        'bg-red-50 text-red-700 border-red-200 dark:bg-red-500/15 dark:text-red-300 dark:border-red-500/30',
+      labelStatus: 'Novo Lead',
+      classeStatus: '',
+    };
+  }
+
+  // 4. Outros status de lead em andamento
+  return {
+    ehCliente: false,
+    ehNovoLead: false,
+    mostrarFlagLead: true,
+    labelFlag: contato.status || 'Lead',
+    classeFlag:
+      'bg-amber-50 text-amber-800 border-amber-200 dark:bg-amber-500/15 dark:text-amber-300 dark:border-amber-500/30',
+    labelStatus: contato.status || 'Lead',
+    classeStatus: '',
+  };
+}
 
 export default function Contatos() {
   const { dadosUsuario } = useAuth();
@@ -18,6 +121,7 @@ export default function Contatos() {
   const [isConfirmOpen, setIsConfirmOpen] = useState(false);
   const [idParaDeletar, setIdParaDeletar] = useState(null);
   const [busca, setBusca] = useState('');
+  const [paginaAtual, setPaginaAtual] = useState(1);
 
   // Estado do Filtro (Todos, Leads, Clientes)
   const [filtro, setFiltro] = useState(searchParams.get('tipo') || 'todos');
@@ -37,10 +141,14 @@ export default function Contatos() {
   // Atualiza o filtro se o usuário mudar a URL pela Sidebar
   useEffect(() => {
     const tipo = searchParams.get('tipo') || 'todos';
-    // eslint-disable-next-line react-hooks/set-state-in-effect
     setFiltro(tipo);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    setPaginaAtual(1);
   }, [searchParams]);
+
+  // Volta para a página 1 ao trocar filtro ou termo de busca
+  useEffect(() => {
+    setPaginaAtual(1);
+  }, [filtro, busca]);
 
   useEffect(() => {
     if (!dadosUsuario?.empresaId) return;
@@ -52,8 +160,17 @@ export default function Contatos() {
   }, [dadosUsuario?.empresaId]);
 
   const contadores = useMemo(() => {
-    const leads = contatos.filter((c) => c.status !== 'Cliente').length;
-    const clientes = contatos.filter((c) => c.status === 'Cliente').length;
+    let clientes = 0;
+    let leads = 0;
+
+    for (const c of contatos) {
+      if (classificarContato(c) === 'cliente') {
+        clientes += 1;
+      } else {
+        leads += 1;
+      }
+    }
+
     return {
       todos: contatos.length,
       leads,
@@ -62,24 +179,44 @@ export default function Contatos() {
   }, [contatos]);
 
   // Lógica de Filtragem (Busca + Aba)
-  const contatosFiltrados = contatos.filter((c) => {
-    let passaNaAba = true;
-    if (filtro === 'leads') passaNaAba = c.status !== 'Cliente';
-    if (filtro === 'clientes') passaNaAba = c.status === 'Cliente';
-
+  const contatosFiltrados = useMemo(() => {
     const termo = busca.trim().toLowerCase();
-    if (!termo) return passaNaAba;
 
-    const passaNaBusca =
-      c.nome?.toLowerCase().includes(termo) ||
-      c.email?.toLowerCase().includes(termo) ||
-      c.empresa?.toLowerCase().includes(termo) ||
-      c.cargo?.toLowerCase().includes(termo) ||
-      c.telefone?.toLowerCase().includes(termo) ||
-      c.observacoes?.toLowerCase().includes(termo);
+    return contatos.filter((c) => {
+      const categoria = classificarContato(c);
 
-    return passaNaAba && passaNaBusca;
-  });
+      let passaNaAba = true;
+      if (filtro === 'leads') passaNaAba = categoria === 'lead';
+      if (filtro === 'clientes') passaNaAba = categoria === 'cliente';
+
+      if (!passaNaAba) return false;
+      if (!termo) return true;
+
+      return (
+        c.nome?.toLowerCase().includes(termo) ||
+        c.email?.toLowerCase().includes(termo) ||
+        c.empresa?.toLowerCase().includes(termo) ||
+        c.cargo?.toLowerCase().includes(termo) ||
+        c.telefone?.toLowerCase().includes(termo) ||
+        c.observacoes?.toLowerCase().includes(termo)
+      );
+    });
+  }, [contatos, filtro, busca]);
+
+  const totalPaginas = Math.max(1, Math.ceil(contatosFiltrados.length / ITENS_POR_PAGINA));
+  const paginaSegura = Math.min(paginaAtual, totalPaginas);
+
+  const contatosPaginados = useMemo(() => {
+    const inicio = (paginaSegura - 1) * ITENS_POR_PAGINA;
+    return contatosFiltrados.slice(inicio, inicio + ITENS_POR_PAGINA);
+  }, [contatosFiltrados, paginaSegura]);
+
+  const indiceInicioExibido =
+    contatosFiltrados.length === 0 ? 0 : (paginaSegura - 1) * ITENS_POR_PAGINA + 1;
+  const indiceFimExibido = Math.min(
+    paginaSegura * ITENS_POR_PAGINA,
+    contatosFiltrados.length
+  );
 
   function abrirModalCriar() {
     setContatoEditando(null);
@@ -96,10 +233,10 @@ export default function Contatos() {
 
   function handleEditar(contato) {
     setContatoEditando(contato.id);
-    setNome(contato.nome);
-    setEmail(contato.email);
+    setNome(contato.nome || '');
+    setEmail(contato.email || '');
     setTelefone(contato.telefone || '');
-    setStatus(contato.status || 'Novo');
+    setStatus(classificarContato(contato) === 'cliente' ? 'Cliente' : contato.status || 'Novo');
     setCargo(contato.cargo || '');
     setEmpresa(contato.empresa || '');
     setEndereco(contato.endereco || '');
@@ -125,7 +262,17 @@ export default function Contatos() {
   async function handleSubmit(e) {
     e.preventDefault();
     setSalvando(true);
-    const dados = { nome, email, telefone, status, cargo, empresa, endereco, observacoes };
+    const dados = {
+      nome,
+      email,
+      telefone,
+      status,
+      ...(status === 'Cliente' ? { tipo: 'cliente' } : { tipo: 'lead' }),
+      cargo,
+      empresa,
+      endereco,
+      observacoes,
+    };
 
     let resultado;
     if (contatoEditando) {
@@ -143,18 +290,6 @@ export default function Contatos() {
     setSalvando(false);
   }
 
-  const getStatusBadgeClass = (contatoStatus) => {
-    switch (contatoStatus) {
-      case 'Cliente':
-        return 'bg-emerald-100 text-emerald-800 border border-emerald-200/80 dark:bg-emerald-500/20 dark:text-emerald-300 dark:border-emerald-500/30';
-      case 'Em Atendimento':
-        return 'bg-amber-100 text-amber-800 border border-amber-200/80 dark:bg-amber-500/20 dark:text-amber-300 dark:border-amber-500/30';
-      default:
-        return 'bg-slate-100 text-slate-700 border border-slate-200/80 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700';
-    }
-  };
-
-  // Classes reutilizáveis
   const inputClass =
     'w-full px-3 py-2 text-sm border border-slate-300 dark:border-slate-700 rounded-lg bg-white dark:bg-slate-900/80 text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-all';
   const labelClass = 'block text-xs font-semibold !text-slate-700 dark:!text-slate-300 mb-1';
@@ -182,10 +317,11 @@ export default function Contatos() {
           <button
             type="button"
             onClick={() => setFiltro('todos')}
-            className={`flex-1 md:flex-none px-3.5 py-1.5 rounded-lg text-xs sm:text-sm font-semibold transition-all inline-flex items-center justify-center gap-1.5 ${filtro === 'todos'
-              ? 'bg-emerald-50 text-emerald-700 border border-emerald-200/80 dark:bg-emerald-500/15 dark:text-emerald-300 dark:border-emerald-500/30 shadow-2xs'
-              : 'border border-transparent !text-slate-600 dark:!text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-50 dark:hover:bg-slate-800/60'
-              }`}
+            className={`flex-1 md:flex-none px-3.5 py-1.5 rounded-lg text-xs sm:text-sm font-semibold transition-all inline-flex items-center justify-center gap-1.5 ${
+              filtro === 'todos'
+                ? 'bg-emerald-50 text-emerald-700 border border-emerald-200/80 dark:bg-emerald-500/15 dark:text-emerald-300 dark:border-emerald-500/30 shadow-2xs'
+                : 'border border-transparent !text-slate-600 dark:!text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-50 dark:hover:bg-slate-800/60'
+            }`}
           >
             <span>Todos</span>
             <span className="text-[11px] opacity-75 tabular-nums">({contadores.todos})</span>
@@ -194,10 +330,11 @@ export default function Contatos() {
           <button
             type="button"
             onClick={() => setFiltro('leads')}
-            className={`flex-1 md:flex-none px-3.5 py-1.5 rounded-lg text-xs sm:text-sm font-semibold transition-all inline-flex items-center justify-center gap-1.5 ${filtro === 'leads'
-              ? 'bg-emerald-50 text-emerald-700 border border-emerald-200/80 dark:bg-emerald-500/15 dark:text-emerald-300 dark:border-emerald-500/30 shadow-2xs'
-              : 'border border-transparent !text-slate-600 dark:!text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-50 dark:hover:bg-slate-800/60'
-              }`}
+            className={`flex-1 md:flex-none px-3.5 py-1.5 rounded-lg text-xs sm:text-sm font-semibold transition-all inline-flex items-center justify-center gap-1.5 ${
+              filtro === 'leads'
+                ? 'bg-emerald-50 text-emerald-700 border border-emerald-200/80 dark:bg-emerald-500/15 dark:text-emerald-300 dark:border-emerald-500/30 shadow-2xs'
+                : 'border border-transparent !text-slate-600 dark:!text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-50 dark:hover:bg-slate-800/60'
+            }`}
           >
             <span>Leads</span>
             <span className="text-[11px] opacity-75 tabular-nums">({contadores.leads})</span>
@@ -206,10 +343,11 @@ export default function Contatos() {
           <button
             type="button"
             onClick={() => setFiltro('clientes')}
-            className={`flex-1 md:flex-none px-3.5 py-1.5 rounded-lg text-xs sm:text-sm font-semibold transition-all inline-flex items-center justify-center gap-1.5 ${filtro === 'clientes'
-              ? 'bg-emerald-50 text-emerald-700 border border-emerald-200/80 dark:bg-emerald-500/15 dark:text-emerald-300 dark:border-emerald-500/30 shadow-2xs'
-              : 'border border-transparent !text-slate-600 dark:!text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-50 dark:hover:bg-slate-800/60'
-              }`}
+            className={`flex-1 md:flex-none px-3.5 py-1.5 rounded-lg text-xs sm:text-sm font-semibold transition-all inline-flex items-center justify-center gap-1.5 ${
+              filtro === 'clientes'
+                ? 'bg-emerald-50 text-emerald-700 border border-emerald-200/80 dark:bg-emerald-500/15 dark:text-emerald-300 dark:border-emerald-500/30 shadow-2xs'
+                : 'border border-transparent !text-slate-600 dark:!text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-50 dark:hover:bg-slate-800/60'
+            }`}
           >
             <span>Clientes</span>
             <span className="text-[11px] opacity-75 tabular-nums">({contadores.clientes})</span>
@@ -301,147 +439,232 @@ export default function Contatos() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 dark:divide-slate-800/80">
-                  {contatosFiltrados.map((contato) => (
-                    <tr
-                      key={contato.id}
-                      className="hover:bg-emerald-50/35 dark:hover:bg-slate-800/40 transition-colors group"
-                    >
-                      <td className="px-5 py-3">
-                        <div className="flex items-center gap-3">
-                          <div className="w-8 h-8 rounded-full bg-emerald-50 dark:bg-emerald-500/15 border border-emerald-200/70 dark:border-emerald-500/25 text-emerald-700 dark:text-emerald-300 font-bold text-xs flex items-center justify-center shrink-0">
-                            {contato.nome?.charAt(0).toUpperCase() || '?'}
-                          </div>
-                          <div className="min-w-0">
-                            <p className="text-sm font-semibold !text-slate-900 dark:!text-white truncate">
-                              {contato.nome}
-                            </p>
-                            <p className="text-xs !text-slate-500 dark:!text-slate-400 truncate">
-                              {contato.cargo || 'Sem cargo'}
-                            </p>
-                          </div>
-                        </div>
-                      </td>
-
-                      <td className="px-5 py-3 text-sm !text-slate-600 dark:!text-slate-300">
-                        {contato.empresa || '-'}
-                      </td>
-
-                      <td className="px-5 py-3 text-sm !text-slate-600 dark:!text-slate-300">
-                        {contato.email}
-                      </td>
-
-                      <td className="px-5 py-3 text-sm !text-slate-600 dark:!text-slate-300 tabular-nums">
-                        {contato.telefone || '-'}
-                      </td>
-                      <td
-                        className="px-5 py-3 text-sm !text-slate-600 dark:!text-slate-300 max-w-xs"
-                        title={contato.observacoes || ''}
+                  {contatosPaginados.map((contato) => {
+                    const visual = obterVisualStatusContato(contato);
+                    return (
+                      <tr
+                        key={contato.id}
+                        className="hover:bg-emerald-50/35 dark:hover:bg-slate-800/40 transition-colors group"
                       >
-                        <p className="line-clamp-2">
-                          {contato.observacoes
-                            ? contato.observacoes.replace(/^Interesse via WhatsApp:\s*/i, '')
-                            : '-'}
-                        </p>
-                      </td>
-                      <td className="px-5 py-3">
-                        <span
-                          className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-semibold ${getStatusBadgeClass(
-                            contato.status
-                          )}`}
-                        >
-                          {contato.status || 'Novo'}
-                        </span>
-                      </td>
+                        <td className="px-5 py-3">
+                          <div className="flex items-center gap-3">
+                            <div className="w-8 h-8 rounded-full bg-emerald-50 dark:bg-emerald-500/15 border border-emerald-200/70 dark:border-emerald-500/25 text-emerald-700 dark:text-emerald-300 font-bold text-xs flex items-center justify-center shrink-0">
+                              {contato.nome?.charAt(0).toUpperCase() || '?'}
+                            </div>
+                            <div className="min-w-0">
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <p className="text-sm font-semibold !text-slate-900 dark:!text-white truncate">
+                                  {contato.nome}
+                                </p>
+                                {visual.mostrarFlagLead && (
+                                  <span
+                                    className={`inline-flex items-center gap-1.5 text-[10px] font-bold px-2 py-0.5 rounded-full border shrink-0 ${visual.classeFlag}`}
+                                  >
+                                    {visual.ehNovoLead && (
+                                      <span className="relative flex h-2 w-2">
+                                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-500 opacity-75" />
+                                        <span className="relative inline-flex rounded-full h-2 w-2 bg-red-600" />
+                                      </span>
+                                    )}
+                                    {visual.labelFlag}
+                                  </span>
+                                )}
+                              </div>
+                              <p className="text-xs !text-slate-500 dark:!text-slate-400 truncate">
+                                {contato.cargo || 'Sem cargo'}
+                              </p>
+                            </div>
+                          </div>
+                        </td>
 
-                      <td className="px-5 py-3 text-right">
-                        <div className="inline-flex items-center justify-end gap-1">
-                          <button
-                            type="button"
-                            onClick={() => handleEditar(contato)}
-                            title="Editar contato"
-                            className="p-1.5 text-slate-400 hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors rounded-lg hover:bg-emerald-50 dark:hover:bg-emerald-500/10"
-                          >
-                            <Pencil size={15} />
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => handleDeletar(contato.id)}
-                            title="Excluir contato"
-                            className="p-1.5 text-slate-400 hover:text-red-600 dark:hover:text-red-400 transition-colors rounded-lg hover:bg-red-50 dark:hover:bg-red-500/10"
-                          >
-                            <Trash2 size={15} />
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
+                        <td className="px-5 py-3 text-sm !text-slate-600 dark:!text-slate-300">
+                          {contato.empresa || '-'}
+                        </td>
+
+                        <td className="px-5 py-3 text-sm !text-slate-600 dark:!text-slate-300">
+                          {contato.email || '-'}
+                        </td>
+
+                        <td className="px-5 py-3 text-sm !text-slate-600 dark:!text-slate-300 tabular-nums">
+                          {contato.telefone || '-'}
+                        </td>
+
+                        <td
+                          className="px-5 py-3 text-sm !text-slate-600 dark:!text-slate-300 max-w-xs"
+                          title={contato.observacoes || ''}
+                        >
+                          <p className="line-clamp-2">
+                            {contato.observacoes
+                              ? contato.observacoes.replace(/^Interesse via WhatsApp:\s*/i, '')
+                              : '-'}
+                          </p>
+                        </td>
+
+                        <td className="px-5 py-3">
+                          {visual.ehCliente && (
+                            <span
+                              className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-semibold border ${visual.classeStatus}`}
+                            >
+                              {visual.labelStatus}
+                            </span>
+                          )}
+                        </td>
+
+                        <td className="px-5 py-3 text-right">
+                          <div className="inline-flex items-center justify-end gap-1">
+                            <button
+                              type="button"
+                              onClick={() => handleEditar(contato)}
+                              title="Editar contato"
+                              className="p-1.5 text-slate-400 hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors rounded-lg hover:bg-emerald-50 dark:hover:bg-emerald-500/10"
+                            >
+                              <Pencil size={15} />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleDeletar(contato.id)}
+                              title="Excluir contato"
+                              className="p-1.5 text-slate-400 hover:text-red-600 dark:hover:text-red-400 transition-colors rounded-lg hover:bg-red-50 dark:hover:bg-red-500/10"
+                            >
+                              <Trash2 size={15} />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
 
             {/* VISÃO MOBILE */}
             <div className="md:hidden flex flex-col divide-y divide-slate-100 dark:divide-slate-800/80">
-              {contatosFiltrados.map((contato) => (
-                <div key={contato.id} className="p-4 flex flex-col gap-2">
-                  <div className="flex justify-between items-start gap-2">
-                    <div className="flex items-center gap-2.5 min-w-0">
-                      <div className="w-9 h-9 rounded-full bg-emerald-50 dark:bg-emerald-500/15 border border-emerald-200/70 dark:border-emerald-500/25 text-emerald-700 dark:text-emerald-300 font-bold text-xs flex items-center justify-center shrink-0">
-                        {contato.nome?.charAt(0).toUpperCase() || '?'}
+              {contatosPaginados.map((contato) => {
+                const visual = obterVisualStatusContato(contato);
+                return (
+                  <div key={contato.id} className="p-4 flex flex-col gap-2">
+                    <div className="flex justify-between items-start gap-2">
+                      <div className="flex items-center gap-2.5 min-w-0">
+                        <div className="w-9 h-9 rounded-full bg-emerald-50 dark:bg-emerald-500/15 border border-emerald-200/70 dark:border-emerald-500/25 text-emerald-700 dark:text-emerald-300 font-bold text-xs flex items-center justify-center shrink-0">
+                          {contato.nome?.charAt(0).toUpperCase() || '?'}
+                        </div>
+                        <div className="min-w-0">
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            <h3 className="font-bold text-sm !text-slate-900 dark:!text-white truncate">
+                              {contato.nome}
+                            </h3>
+                            {visual.mostrarFlagLead && (
+                              <span
+                                className={`inline-flex items-center gap-1 text-[10px] font-bold px-1.5 py-0.5 rounded-full border shrink-0 ${visual.classeFlag}`}
+                              >
+                                {visual.ehNovoLead && (
+                                  <span className="relative flex h-1.5 w-1.5">
+                                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-500 opacity-75" />
+                                    <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-red-600" />
+                                  </span>
+                                )}
+                                {visual.labelFlag}
+                              </span>
+                            )}
+                          </div>
+                          <p className="text-xs !text-slate-500 dark:!text-slate-400 truncate flex items-center gap-1">
+                            <Building2 size={11} className="shrink-0" />
+                            <span>
+                              {contato.cargo ? `${contato.cargo} • ` : ''}
+                              {contato.empresa || 'Sem empresa'}
+                            </span>
+                          </p>
+                        </div>
                       </div>
-                      <div className="min-w-0">
-                        <h3 className="font-bold text-sm !text-slate-900 dark:!text-white truncate">
-                          {contato.nome}
-                        </h3>
-                        <p className="text-xs !text-slate-500 dark:!text-slate-400 truncate flex items-center gap-1">
-                          <Building2 size={11} className="shrink-0" />
-                          <span>
-                            {contato.cargo ? `${contato.cargo} • ` : ''}
-                            {contato.empresa || 'Sem empresa'}
-                          </span>
-                        </p>
-                      </div>
+
+                      {visual.ehCliente && (
+                        <span
+                          className={`text-[10px] font-semibold px-2.5 py-0.5 rounded-full border shrink-0 ${visual.classeStatus}`}
+                        >
+                          {visual.labelStatus}
+                        </span>
+                      )}
                     </div>
 
-                    <span
-                      className={`text-[10px] font-semibold px-2.5 py-0.5 rounded-full shrink-0 ${getStatusBadgeClass(
-                        contato.status
-                      )}`}
-                    >
-                      {contato.status || 'Novo'}
-                    </span>
-                  </div>
-
-                  <div className="space-y-1 pt-1 text-xs !text-slate-600 dark:!text-slate-300">
-                    <p className="flex items-center gap-1.5 truncate">
-                      <Mail size={12} className="text-slate-400 shrink-0" />
-                      <span className="truncate">{contato.email}</span>
-                    </p>
-                    {contato.telefone && (
-                      <p className="flex items-center gap-1.5 tabular-nums">
-                        <Phone size={12} className="text-slate-400 shrink-0" />
-                        <span>{contato.telefone}</span>
+                    <div className="space-y-1 pt-1 text-xs !text-slate-600 dark:!text-slate-300">
+                      <p className="flex items-center gap-1.5 truncate">
+                        <Mail size={12} className="text-slate-400 shrink-0" />
+                        <span className="truncate">{contato.email || '-'}</span>
                       </p>
-                    )}
-                  </div>
+                      {contato.telefone && (
+                        <p className="flex items-center gap-1.5 tabular-nums">
+                          <Phone size={12} className="text-slate-400 shrink-0" />
+                          <span>{contato.telefone}</span>
+                        </p>
+                      )}
+                    </div>
 
-                  <div className="flex gap-2.5 mt-1 pt-2.5 border-t border-slate-100 dark:border-slate-800">
-                    <button
-                      type="button"
-                      onClick={() => handleEditar(contato)}
-                      className="flex items-center justify-center gap-1.5 px-3 py-1.5 text-xs text-emerald-700 dark:text-emerald-300 font-semibold bg-emerald-50 dark:bg-emerald-500/15 border border-emerald-200/70 dark:border-emerald-500/25 rounded-lg w-1/2 transition-colors"
-                    >
-                      <Pencil size={13} /> Editar
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => handleDeletar(contato.id)}
-                      className="flex items-center justify-center gap-1.5 px-3 py-1.5 text-xs text-red-700 dark:text-red-300 font-semibold bg-red-50 dark:bg-red-500/15 border border-red-200/70 dark:border-red-500/25 rounded-lg w-1/2 transition-colors"
-                    >
-                      <Trash2 size={13} /> Excluir
-                    </button>
+                    <div className="flex gap-2.5 mt-1 pt-2.5 border-t border-slate-100 dark:border-slate-800">
+                      <button
+                        type="button"
+                        onClick={() => handleEditar(contato)}
+                        className="flex items-center justify-center gap-1.5 px-3 py-1.5 text-xs text-emerald-700 dark:text-emerald-300 font-semibold bg-emerald-50 dark:bg-emerald-500/15 border border-emerald-200/70 dark:border-emerald-500/25 rounded-lg w-1/2 transition-colors"
+                      >
+                        <Pencil size={13} /> Editar
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleDeletar(contato.id)}
+                        className="flex items-center justify-center gap-1.5 px-3 py-1.5 text-xs text-red-700 dark:text-red-300 font-semibold bg-red-50 dark:bg-red-500/15 border border-red-200/70 dark:border-red-500/25 rounded-lg w-1/2 transition-colors"
+                      >
+                        <Trash2 size={13} /> Excluir
+                      </button>
+                    </div>
                   </div>
+                );
+              })}
+            </div>
+
+            {/* PAGINAÇÃO */}
+            <div className="px-4 sm:px-5 py-3 bg-slate-50/70 dark:bg-slate-900/50 border-t border-slate-200/80 dark:border-slate-800 flex flex-col sm:flex-row items-center justify-between gap-3">
+              <p className="text-xs !text-slate-500 dark:!text-slate-400 tabular-nums">
+                Mostrando <span className="font-semibold text-slate-700 dark:text-slate-200">{indiceInicioExibido}</span>–
+                <span className="font-semibold text-slate-700 dark:text-slate-200">{indiceFimExibido}</span> de{' '}
+                <span className="font-semibold text-slate-700 dark:text-slate-200">{contatosFiltrados.length}</span>{' '}
+                contato{contatosFiltrados.length === 1 ? '' : 's'}
+              </p>
+
+              <div className="flex items-center gap-1.5">
+                <button
+                  type="button"
+                  onClick={() => setPaginaAtual((p) => Math.max(1, p - 1))}
+                  disabled={paginaSegura <= 1}
+                  className="inline-flex items-center gap-1 px-2.5 py-1.5 text-xs font-semibold rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 disabled:opacity-45 disabled:pointer-events-none transition-colors"
+                >
+                  <ChevronLeft size={14} /> Anterior
+                </button>
+
+                <div className="flex items-center gap-1">
+                  {Array.from({ length: totalPaginas }, (_, idx) => idx + 1).map((numPag) => (
+                    <button
+                      key={numPag}
+                      type="button"
+                      onClick={() => setPaginaAtual(numPag)}
+                      className={`min-w-[30px] h-[30px] px-2 text-xs font-semibold rounded-lg border transition-colors tabular-nums ${
+                        numPag === paginaSegura
+                          ? 'bg-emerald-600 text-white border-emerald-600 dark:bg-emerald-500 dark:text-slate-950 dark:border-emerald-500'
+                          : 'bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800'
+                      }`}
+                    >
+                      {numPag}
+                    </button>
+                  ))}
                 </div>
-              ))}
+
+                <button
+                  type="button"
+                  onClick={() => setPaginaAtual((p) => Math.min(totalPaginas, p + 1))}
+                  disabled={paginaSegura >= totalPaginas}
+                  className="inline-flex items-center gap-1 px-2.5 py-1.5 text-xs font-semibold rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 disabled:opacity-45 disabled:pointer-events-none transition-colors"
+                >
+                  Próxima <ChevronRight size={14} />
+                </button>
+              </div>
             </div>
           </>
         )}
