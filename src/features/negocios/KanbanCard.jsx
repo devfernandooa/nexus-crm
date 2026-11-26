@@ -17,7 +17,7 @@ export default function KanbanCard({
         e.preventDefault();
         onMoveStage(dir);
     };
-
+    const nomeResponsavel = negocio.responsavelNome || negocio.vendedorNome || '';
     return (
         <div
             onClick={() => onOpenDetails()}
@@ -70,6 +70,7 @@ export default function KanbanCard({
                     >
                         {negocio.contato}
                     </p>
+
                 )}
 
                 {negocio.produtos?.length > 0 && (
@@ -79,6 +80,11 @@ export default function KanbanCard({
                             {negocio.produtos.length} {negocio.produtos.length === 1 ? 'item' : 'itens'}
                         </span>
                     </div>
+                )}
+                {nomeResponsavel && (
+                    <p className="text-[11px] font-medium text-emerald-700 dark:text-emerald-400 truncate mt-0.5">
+                        Resp.: {nomeResponsavel}
+                    </p>
                 )}
             </div>
 

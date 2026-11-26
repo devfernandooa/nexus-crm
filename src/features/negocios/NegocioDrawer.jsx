@@ -60,7 +60,23 @@ export default function NegocioDrawer({ negocio, isOpen, onClose, onEdit }) {
                                 </div>
                             </div>
                         </div>
-
+                        {/* Responsável pelo Atendimento */}
+                        <div className="space-y-2">
+                            <h3 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Responsável</h3>
+                            <div className="flex items-center gap-3 p-3 bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700/50 shadow-sm">
+                                <div className="p-2 bg-slate-100 dark:bg-slate-700/60 border border-slate-200/80 dark:border-slate-600/50 rounded-lg">
+                                    <User size={16} className="text-slate-700 dark:text-slate-200" />
+                                </div>
+                                <div>
+                                    <p className="text-sm font-semibold text-slate-900 dark:text-white">
+                                        {negocio.responsavelNome || negocio.vendedorNome || 'Não atribuído'}
+                                    </p>
+                                    <p className="text-[10px] text-slate-500 font-medium uppercase tracking-wide mt-0.5">
+                                        Vendedor / Responsável
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
                         {/* Produtos e Serviços (ENRIQUECIDO) */}
                         {negocio.produtos && negocio.produtos.length > 0 && (
                             <div className="space-y-2">

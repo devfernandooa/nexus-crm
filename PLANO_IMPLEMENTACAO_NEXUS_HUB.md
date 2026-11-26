@@ -32,10 +32,10 @@
   - Ao clicar em **Assumir Atendimento**, o lead passa para `status: 'Em Atendimento'` e recebe `vendedorResponsavelId` e `vendedorResponsavelNome`.
   - O Admin visualiza na listagem/detalhes qual vendedor está responsável pelo atendimento.
 - Checklist:
-  - `[ ]` Botão/ação **Assumir Atendimento** implementado.
-  - `[ ]` Atualização de status para `Em Atendimento` e registro do vendedor responsável.
-  - `[ ]` Exibição do vendedor responsável para perfil `ADMIN`.
-  - `[ ]` Testado, documentado e commitado.
+  - `[x]` Botão/ação **Assumir Atendimento** implementado.
+  - `[x]` Atualização de status para `Em Atendimento` e registro do vendedor responsável.
+  - `[x]` Exibição do vendedor responsável para perfil `ADMIN`.
+  - `[x]` Testado, documentado e commitado.
 - Observações / Correções:
   - _Preencher durante a execução da Parte 2._
 
@@ -49,11 +49,11 @@
   - Ao finalizar como `Ganho`, o contato é atualizado para `tipo: 'cliente'` e `status: 'Cliente'` e o histórico de compras é atualizado.
   - Se não fechar (`Perdido`), o negócio é encerrado como perdido sem promover a cliente.
 - Checklist:
-  - `[ ]` Criação/vinculação automática ou manual de negócio ao assumir lead.
-  - `[ ]` Estrutura de `pedidos` dentro do negócio funcionando.
-  - `[ ]` Vendedor responsável visível ao Admin na gestão de negócios.
-  - `[ ]` Promoção automática para `Cliente` ao marcar negócio como `Ganho`.
-  - `[ ]` Testado, documentado e commitado.
+  - `[x]` Criação/vinculação automática ou manual de negócio ao assumir lead.
+  - `[x]` Estrutura de `pedidos` dentro do negócio funcionando.
+  - `[x]` Vendedor responsável visível ao Admin na gestão de negócios.
+  - `[x]` Promoção automática para `Cliente` ao marcar negócio como `Ganho`.
+  - `[x]` Testado, documentado e commitado.
 - Observações / Correções:
   - _Preencher durante a execução da Parte 3._
 

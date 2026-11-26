@@ -281,7 +281,8 @@ export default function Negocios() {
           String(col.titulo).toLowerCase() === String(status || '').trim().toLowerCase()
       );
 
-      const statusNormalizado = colunaCorrespondente?.id || (colunas?.[0]?.id ?? status) || 'prospeccao';
+      const statusNormalizado =
+        colunaCorrespondente?.id || (colunas?.[0]?.id ?? status) || 'prospeccao';
 
       const nomeContatoFinal = String(contato || '').trim() || String(titulo || '').trim();
       const telefoneFinal = String(telefone || '').trim();
@@ -305,17 +306,32 @@ export default function Negocios() {
           ? resultadoContato
           : resultadoContato?.contatoId || contatoCorrespondente?.id || null;
 
+      const responsavelIdFinal = isAdmin ? responsavelId || uidAtual : uidAtual;
+      const responsavelSelecionado = vendedores.find(
+        (v) => v.id === responsavelIdFinal || v.uid === responsavelIdFinal
+      );
+      const responsavelNomeFinal =
+        responsavelSelecionado?.nome ||
+        responsavelSelecionado?.displayName ||
+        dadosUsuario?.nome ||
+        dadosUsuario?.displayName ||
+        dadosUsuario?.email ||
+        'Vendedor';
+
       const dados = {
         titulo,
         valor: Number(valor),
         status: statusNormalizado,
+        tipoNegocio: jaExiste ? 'recompra' : 'primeiro_negocio',
         contato: nomeContatoFinal,
         telefone: telefoneFinal,
         email: emailFinal,
         observacoes: observacoesFinal,
         contatoExistente: jaExiste,
         produtos: produtosSelecionados,
-        responsavelId: isAdmin ? responsavelId || uidAtual : uidAtual,
+        pedidos: produtosSelecionados,
+        responsavelId: responsavelIdFinal,
+        responsavelNome: responsavelNomeFinal,
         ...(contatoId ? { contatoId } : {}),
       };
 
@@ -368,8 +384,8 @@ export default function Negocios() {
                 type="button"
                 onClick={() => setViewMode('kanban')}
                 className={`flex items-center gap-1.5 px-3 py-1.5 text-xs sm:text-sm font-semibold rounded-md transition-all ${viewMode === 'kanban'
-                    ? 'bg-emerald-50 dark:bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border border-emerald-200/80 dark:border-emerald-500/30 shadow-2xs'
-                    : 'border border-transparent text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+                  ? 'bg-emerald-50 dark:bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border border-emerald-200/80 dark:border-emerald-500/30 shadow-2xs'
+                  : 'border border-transparent text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
                   }`}
               >
                 <LayoutGrid size={15} /> Kanban
@@ -378,8 +394,8 @@ export default function Negocios() {
                 type="button"
                 onClick={() => setViewMode('lista')}
                 className={`flex items-center gap-1.5 px-3 py-1.5 text-xs sm:text-sm font-semibold rounded-md transition-all ${viewMode === 'lista'
-                    ? 'bg-emerald-50 dark:bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border border-emerald-200/80 dark:border-emerald-500/30 shadow-2xs'
-                    : 'border border-transparent text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+                  ? 'bg-emerald-50 dark:bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border border-emerald-200/80 dark:border-emerald-500/30 shadow-2xs'
+                  : 'border border-transparent text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
                   }`}
               >
                 <List size={15} /> Lista
