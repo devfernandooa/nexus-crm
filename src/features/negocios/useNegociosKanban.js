@@ -16,38 +16,58 @@ export function useNegociosKanban(empresaId, userRole, userId) {
     const [loadingFunil, setLoadingFunil] = useState(true);
 
     // Carregar Funil Dinâmico
-    useEffect(() => {
-        if (!empresaId) return;
-        const carregarFunil = async () => {
-            try {
-                const res = await buscarConfiguracoesEmpresa(empresaId);
-                const etapasBrutas = res.dados?.etapasFunil || [];
+ // Carregar Funil Dinâmico
+useEffect(() => {
+    if (!empresaId) {
+        setLoadingFunil(false);
+        return;
+    }
+    setLoadingFunil(true);
+    const carregarFunil = async () => {
+        try {
+            const res = await buscarConfiguracoesEmpresa(empresaId);
+            const etapasBrutas = res.dados?.etapasFunil || [];
 
-                const etapasFormatadas = migrarFunilAntigo(etapasBrutas);
+            const etapasFormatadas = migrarFunilAntigo(etapasBrutas);
 
-                const colunas = etapasFormatadas.map((etapa, index) => {
-                    const corValida = etapa.cor && CORES_FUNIL[etapa.cor]
-                        ? etapa.cor
-                        : obterCorPadraoId(etapa, index);
+            const colunas = etapasFormatadas.map((etapa, index) => {
+                const corValida = etapa.cor && CORES_FUNIL[etapa.cor]
+                    ? etapa.cor
+                    : obterCorPadraoId(etapa, index);
 
-                    return {
-                        id: etapa.id,
-                        titulo: etapa.nome,
-                        tipo: etapa.tipo,
-                        cor: corValida
-                    };
-                });
+                return {
+                    id: etapa.id,
+                    titulo: etapa.nome,
+                    tipo: etapa.tipo,
+                    cor: corValida
+                };
+            });
 
-                setColunasDinamicas(colunas);
-            } catch (error) {
-                console.error("Erro ao carregar funil:", error);
-            } finally {
-                setLoadingFunil(false);
-            }
-        };
-        carregarFunil();
-    }, [empresaId]);
+            setColunasDinamicas(colunas);
+        } catch (error) {
+            console.error("Erro ao carregar funil:", error);
+        } finally {
+            setLoadingFunil(false);
+        }
+    };
+    carregarFunil();
+}, [empresaId]);
 
+// Carregar Negócios
+useEffect(() => {
+    if (!empresaId || !userRole || !userId) {
+        setLoading(false);
+        return;
+    }
+
+    setLoading(true);
+    const unsubscribe = escutarNegocios(empresaId, userRole, userId, (lista) => {
+        setNegocios(lista);
+        setLoading(false);
+    });
+
+    return () => unsubscribe();
+}, [empresaId, userRole, userId]);
     // Carregar Negócios
     useEffect(() => {
         if (!empresaId || !userRole || !userId) return;

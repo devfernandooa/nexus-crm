@@ -26,3 +26,4 @@ scripts/*.json
 .env
 .env.local
 .vercel
+serviceAccountKey.json
