@@ -124,8 +124,10 @@ function extrairNomeVendedor(negocio, mapaUsuarios, fallbackNome) {
 export default function Relatorios() {
   const { dadosUsuario } = useAuth();
   const { negocios: negociosKanban, colunas, loading: loadingKanban } = useNegociosKanban(
-    dadosUsuario?.empresaId
-  );
+  dadosUsuario?.empresaId,
+  dadosUsuario?.role,
+  dadosUsuario?.uid || dadosUsuario?.id
+);
 
   const [totalContatos, setTotalContatos] = useState(0);
   const [produtosCatalogo, setProdutosCatalogo] = useState([]);
@@ -546,7 +548,7 @@ export default function Relatorios() {
   }
 
   const containerClass =
-    'w-full max-md:h-[100dvh] max-md:max-h-[100dvh] max-md:overflow-y-auto max-md:overscroll-y-contain md:min-h-full md:h-auto md:overflow-visible overflow-x-hidden touch-pan-y flex flex-col px-4 sm:px-6 lg:px-7 py-3.5 sm:py-4 pb-32 md:pb-8 bg-slate-50/60 dark:bg-slate-950 transition-colors text-left space-y-3.5';
+  'w-full min-h-full flex flex-col px-4 sm:px-6 lg:px-7 py-3.5 sm:py-4 pb-32 md:pb-12 bg-slate-50/60 dark:bg-slate-950 transition-colors text-left space-y-3.5 overflow-x-hidden';
 
   if (loadingKanban || loadingExtra) {
     return (
