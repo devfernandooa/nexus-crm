@@ -201,7 +201,7 @@ export default function Sidebar({ onClose }) {
             </>
           )}
 
-          <NavLink to="/app/ajuda" className={linkClass} onClick={onClose}>
+          <NavLink to="/app/central-de-ajuda" className={linkClass} onClick={onClose}>
             <UserCircle size={18} className="shrink-0 opacity-85 group-hover:opacity-100" />
             <span className="ml-3 truncate">Central de Ajuda</span>
           </NavLink>
