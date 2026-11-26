@@ -16,6 +16,7 @@ import Relatorios from './pages/Relatorios';
 import Tarefas from './pages/Tarefas';
 import Equipe from './pages/Equipe';
 import Produtos from './pages/Produtos';
+import RotaAdmin from '@/components/RotaAdmin';
 
 
 
@@ -47,6 +48,8 @@ export default function App() {
               <Route path="tarefas" element={<Tarefas />} />
               <Route path="equipe" element={<Equipe />} />
               <Route path="produtos" element={<Produtos />} />
+              <Route path="/app/equipe" element={<RotaAdmin><Equipe /></RotaAdmin>} />
+              <Route path="/app/configuracoes" element={<RotaAdmin><Configuracoes /></RotaAdmin>} />
             </Route>
           </Routes>
         </BrowserRouter>

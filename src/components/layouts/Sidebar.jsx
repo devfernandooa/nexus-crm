@@ -21,6 +21,9 @@ export default function Sidebar({ onClose }) {
   const [nomePerfil, setNomePerfil] = useState('');
   const [salvandoPerfil, setSalvandoPerfil] = useState(false);
 
+  // NOVO: Verifica se o usuário é admin para mostrar menus restritos
+  const isAdmin = dadosUsuario?.role === 'admin';
+
   function abrirModalPerfil() {
     setNomePerfil(dadosUsuario?.nome || '');
     setIsPerfilModalOpen(true);
@@ -151,7 +154,6 @@ export default function Sidebar({ onClose }) {
             </button>
             {contatosAberto && (
               <div className="pl-7 pr-1 mt-1 space-y-0.5 border-l border-slate-200 dark:border-slate-800 ml-4">
-
                 <NavLink to="/app/contatos?tipo=leads" className={subLinkClass} onClick={onClose}>
                   Leads
                 </NavLink>
@@ -162,7 +164,6 @@ export default function Sidebar({ onClose }) {
             )}
           </div>
 
-          {/* Negócios direto (sem submenu) */}
           <NavLink to="/app/negocios" className={linkClass} onClick={onClose}>
             <Briefcase size={18} className="shrink-0 opacity-85 group-hover:opacity-100" />
             <span className="ml-3 truncate">Negócios</span>
@@ -178,24 +179,27 @@ export default function Sidebar({ onClose }) {
             <span className="ml-3 truncate">Produtos / Serviços</span>
           </NavLink>
 
-
-
-          {/* Separador */}
+          {/* Separador de Sistema */}
           <div className="pt-3 pb-1.5 border-t border-slate-200/80 dark:border-slate-800/90 mt-3">
             <p className="px-3 text-[11px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider">
               Sistema
             </p>
           </div>
 
-          <NavLink to="/app/equipe" className={linkClass} onClick={onClose}>
-            <Users size={18} className="shrink-0 opacity-85 group-hover:opacity-100" />
-            <span className="ml-3 truncate">Gestão de Equipe</span>
-          </NavLink>
+          {/* ITENS RESTRITOS A ADMIN - NOVO */}
+          {isAdmin && (
+            <>
+              <NavLink to="/app/equipe" className={linkClass} onClick={onClose}>
+                <Users size={18} className="shrink-0 opacity-85 group-hover:opacity-100" />
+                <span className="ml-3 truncate">Gestão de Equipe</span>
+              </NavLink>
 
-          <NavLink to="/app/configuracoes" className={linkClass} onClick={onClose}>
-            <Settings size={18} className="shrink-0 opacity-85 group-hover:opacity-100" />
-            <span className="ml-3 truncate">Configurações</span>
-          </NavLink>
+              <NavLink to="/app/configuracoes" className={linkClass} onClick={onClose}>
+                <Settings size={18} className="shrink-0 opacity-85 group-hover:opacity-100" />
+                <span className="ml-3 truncate">Configurações</span>
+              </NavLink>
+            </>
+          )}
 
           <NavLink to="/app/ajuda" className={linkClass} onClick={onClose}>
             <UserCircle size={18} className="shrink-0 opacity-85 group-hover:opacity-100" />
@@ -206,7 +210,6 @@ export default function Sidebar({ onClose }) {
           <span>Inatividade</span>
           <span className="font-semibold text-emerald-700 dark:text-emerald-400">30 min</span>
         </div>
-        {/* Rodapé da Sidebar */}
         <div className="px-3 py-2.5 border-t border-slate-200/80 dark:border-slate-800/90 bg-slate-50/40 dark:bg-slate-900/30">
           <p className="text-[12px] text-slate-500 dark:text-slate-400 font-medium tracking-wide text-center">
             Versão 1.0 • Pro
@@ -214,7 +217,7 @@ export default function Sidebar({ onClose }) {
         </div>
       </aside>
 
-      {/* Modal de Confirmação de Logout */}
+      {/* Modais */}
       <ConfirmModal
         isOpen={isLogoutConfirmOpen}
         onClose={() => setIsLogoutConfirmOpen(false)}
@@ -224,7 +227,6 @@ export default function Sidebar({ onClose }) {
         confirmText="Sim, sair"
       />
 
-      {/* Modal de Edição de Perfil */}
       <Modal
         isOpen={isPerfilModalOpen}
         onClose={() => setIsPerfilModalOpen(false)}
