@@ -202,7 +202,10 @@ export default function Sidebar({ onClose }) {
             <span className="ml-3 truncate">Central de Ajuda</span>
           </NavLink>
         </nav>
-
+        <div className="px-3 py-2 text-[11px] text-slate-400 dark:text-slate-500 flex items-center justify-between border-t border-slate-100 dark:border-slate-800/70">
+          <span>Inatividade</span>
+          <span className="font-semibold text-emerald-700 dark:text-emerald-400">30 min</span>
+        </div>
         {/* Rodapé da Sidebar */}
         <div className="px-3 py-2.5 border-t border-slate-200/80 dark:border-slate-800/90 bg-slate-50/40 dark:bg-slate-900/30">
           <p className="text-[12px] text-slate-500 dark:text-slate-400 font-medium tracking-wide text-center">
