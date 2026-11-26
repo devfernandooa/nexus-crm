@@ -178,3 +178,14 @@ Todas as mudanças relevantes do projeto estão registradas neste arquivo.
 ### Added
 - Adicionada a coluna **Observações** na listagem de `Contatos.jsx` (e suporte na busca textual e visualização mobile) para exibir o interesse ou descrição do que o cliente deseja adquirir sem sobrecarregar o campo de cargo.
 - Criado o componente `NotificacoesLeads.jsx` integrado ao `Layout.jsx` via `onSnapshot` no Firestore, com alerta sonoro via Web Audio API, popup (`react-hot-toast`) e sino de notificações com contador de não lidas.
+
+
+## [Unreleased] - 2026-11-26
+
+### Adicionado
+- **Central de Ajuda (`CentralDeAjuda.jsx`):** Criação da página inicial da Central de Ajuda com barra de busca instantânea, filtros por categoria/módulo e seção expansível (acordeão) de Perguntas Frequentes (FAQ), integrada ao `App.jsx` e ao menu lateral (`Sidebar`).
+- **Documentação Técnica:** Especificação do plano de expansão da Central de Ajuda (artigos detalhados por módulo, abertura de chamados e Central de Controle de Chamados).
+
+### Corrigido
+- **Relatórios (`Relatorios.jsx` e `useNegociosKanban.js`):** Correção do estado de carregamento infinito (skeleton) e exibição de negócios ao repassar `role` e `uid || id` para o hook `useNegociosKanban` e tratar estados sem parâmetros iniciais.
+- **Responsividade e Scroll (`Relatorios.jsx`):** Ajuste do contêiner principal para garantir rolagem vertical completa tanto em telas de notebook (15,6" / 1080p) quanto em dispositivos móveis.

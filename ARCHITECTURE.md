@@ -89,3 +89,20 @@ O sistema utiliza a coleção `notificacoes` para manter os usuários informados
 ### 3. Alertas em Tempo Real (`src/components/NotificacoesLeads.jsx` em `Layout.jsx`)
 - Mantém um listener `onSnapshot` em `contatos` por `empresaId`.
 - Na primeiraSnapshot (`primeiraCargaRef`), carrega apenas o histórico recente sem disparar alertas; em eventos `added` subsequentes, toca um acorde via Web Audio API, exibe um `toast` de aviso e atualiza o dropdown/contador do sino.
+
+## Módulo de Suporte: Central de Ajuda e Controle de Chamados
+
+### Estrutura de Pastas (Atual e Planejada)
+```text
+src/
+├── data/
+│   └── artigosAjuda.js              # [Planejado] Base de conhecimento estruturada por módulo do CRM
+├── services/
+│   └── chamadoService.js            # [Planejado] CRUD, listeners em tempo real e histórico de mensagens
+├── features/
+│   └── ajuda/
+│       ├── DetalheArtigoModal.jsx   # [Planejado] Leitura detalhada de guias passo a passo por módulo
+│       ├── ModalAbrirChamado.jsx    # [Planejado] Formulário modal de abertura de ticket com metadados
+│       └── ControleChamados.jsx     # [Planejado] Painel de triagem, filtros, KPIs e thread de atendimento
+└── pages/
+    └── CentralDeAjuda.jsx           # [Implementado] Página inicial (busca, categorias e FAQ)
