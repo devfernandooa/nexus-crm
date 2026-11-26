@@ -17,6 +17,7 @@ import Tarefas from './pages/Tarefas';
 import Equipe from './pages/Equipe';
 import Produtos from './pages/Produtos';
 import RotaAdmin from '@/components/RotaAdmin';
+import CentralDeAjuda from '@/pages/CentralDeAjuda';
 
 
 
@@ -50,6 +51,7 @@ export default function App() {
               <Route path="produtos" element={<Produtos />} />
               <Route path="/app/equipe" element={<RotaAdmin><Equipe /></RotaAdmin>} />
               <Route path="/app/configuracoes" element={<RotaAdmin><Configuracoes /></RotaAdmin>} />
+              <Route path="central-de-ajuda" element={<CentralDeAjuda />} />
             </Route>
           </Routes>
         </BrowserRouter>
