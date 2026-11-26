@@ -67,85 +67,97 @@ export default function NotificacoesLeads() {
       where('empresaId', '==', dadosUsuario.empresaId)
     );
 
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      if (primeiraCargaRef.current) {
-        const iniciais = snapshot.docs
-          .map((doc) => ({ id: doc.id, ...doc.data() }))
-          .sort((a, b) => {
-            const tA = a.dataCriacao?.seconds || 0;
-            const tB = b.dataCriacao?.seconds || 0;
-            return tB - tA;
-          })
-          .slice(0, 5)
-          .map((c) => ({
-            id: c.id,
-            nome: c.nome || 'Novo Lead',
-            telefone: c.telefone || '',
-            interesse: (c.observacoes || '').replace(/^Interesse via WhatsApp:\s*/i, ''),
-            hora: c.dataCriacao?.toDate
-              ? c.dataCriacao.toDate().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
-              : '',
-            lida: true,
-          }));
+    const unsubscribe = onSnapshot(
+      q,
+      (snapshot) => {
+        if (primeiraCargaRef.current) {
+          const iniciais = snapshot.docs
+            .map((doc) => ({ id: doc.id, ...doc.data() }))
+            .sort((a, b) => {
+              const tA = a.dataCriacao?.seconds || 0;
+              const tB = b.dataCriacao?.seconds || 0;
+              return tB - tA;
+            })
+            .slice(0, 5)
+            .map((c) => ({
+              id: c.id,
+              nome: c.nome || 'Novo Lead',
+              telefone: c.telefone || '',
+              interesse: (c.observacoes || '').replace(/^Interesse via WhatsApp:\s*/i, ''),
+              hora: c.dataCriacao?.toDate
+                ? c.dataCriacao.toDate().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
+                : '',
+              lida: true,
+            }));
 
-        setNotificacoes(iniciais);
-        primeiraCargaRef.current = false;
-        return;
-      }
-
-      snapshot.docChanges().forEach((change) => {
-        if (change.type === 'added') {
-          const lead = { id: change.doc.id, ...change.doc.data() };
-          const interesseLimpo = (lead.observacoes || '').replace(/^Interesse via WhatsApp:\s*/i, '');
-
-          const novaNotif = {
-            id: lead.id,
-            nome: lead.nome || 'Novo Lead',
-            telefone: lead.telefone || '',
-            interesse: interesseLimpo,
-            hora: new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }),
-            lida: false,
-          };
-
-          setNotificacoes((prev) => [novaNotif, ...prev.slice(0, 14)]);
-          tocarSomNotificacao();
-
-          toast.custom(
-            (t) => (
-              <div
-                onClick={() => {
-                  toast.dismiss(t.id);
-                  marcarComoLida(lead.id);
-                  navigate('/app/contatos?tipo=leads');
-                }}
-                className={`${
-                  t.visible ? 'animate-enter' : 'animate-leave'
-                } max-w-sm w-full bg-white dark:bg-[#0b192c] shadow-lg rounded-xl pointer-events-auto flex ring-1 ring-emerald-500/40 border border-emerald-200 dark:border-emerald-500/30 cursor-pointer hover:bg-emerald-50/40 dark:hover:bg-slate-800/80 transition-all p-3.5 gap-3`}
-              >
-                <div className="w-10 h-10 rounded-full bg-emerald-100 dark:bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shrink-0">
-                  <UserPlus size={20} />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center justify-between gap-2">
-                    <p className="text-xs font-bold uppercase tracking-wider text-emerald-600 dark:text-emerald-400">
-                      Novo Lead Recebido!
-                    </p>
-                    <span className="text-[11px] text-slate-400">{novaNotif.hora}</span>
-                  </div>
-                  <p className="text-sm font-bold text-slate-900 dark:text-white truncate mt-0.5">
-                    {novaNotif.nome}
-                  </p>
-                  <p className="text-xs text-slate-500 dark:text-slate-400 truncate">
-                    {novaNotif.interesse || novaNotif.telefone || 'Clique para ver detalhes'}
-                  </p>
-                </div>
-              </div>
-            ),
-            { duration: 6000, position: 'top-right' }
-          );
+          setNotificacoes(iniciais);
+          primeiraCargaRef.current = false;
+          return;
         }
-      });
-    });
+
+        snapshot.docChanges().forEach((change) => {
+          if (change.type === 'added') {
+            const lead = { id: change.doc.id, ...change.doc.data() };
+            const ehLead =
+              !lead.tipo ||
+              String(lead.tipo).toLowerCase() === 'lead' ||
+              String(lead.status || '').toLowerCase() === 'lead';
+
+            if (!ehLead) return;
+
+            const interesseLimpo = (lead.observacoes || '').replace(/^Interesse via WhatsApp:\s*/i, '');
+
+            const novaNotif = {
+              id: lead.id,
+              nome: lead.nome || 'Novo Lead',
+              telefone: lead.telefone || '',
+              interesse: interesseLimpo,
+              hora: new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }),
+              lida: false,
+            };
+
+            setNotificacoes((prev) => [novaNotif, ...prev.slice(0, 14)]);
+            tocarSomNotificacao();
+
+            toast.custom(
+              (t) => (
+                <div
+                  onClick={() => {
+                    toast.dismiss(t.id);
+                    marcarComoLida(lead.id);
+                    navigate('/app/contatos?tipo=leads');
+                  }}
+                  className={`${t.visible ? 'animate-enter' : 'animate-leave'
+                    } max-w-sm w-full bg-white dark:bg-[#0b192c] shadow-lg rounded-xl pointer-events-auto flex ring-1 ring-emerald-500/40 border border-emerald-200 dark:border-emerald-500/30 cursor-pointer hover:bg-emerald-50/40 dark:hover:bg-slate-800/80 transition-all p-3.5 gap-3`}
+                >
+                  <div className="w-10 h-10 rounded-full bg-emerald-100 dark:bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shrink-0">
+                    <UserPlus size={20} />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center justify-between gap-2">
+                      <p className="text-xs font-bold uppercase tracking-wider text-emerald-600 dark:text-emerald-400">
+                        Novo Lead Recebido!
+                      </p>
+                      <span className="text-[11px] text-slate-400">{novaNotif.hora}</span>
+                    </div>
+                    <p className="text-sm font-bold text-slate-900 dark:text-white truncate mt-0.5">
+                      {novaNotif.nome}
+                    </p>
+                    <p className="text-xs text-slate-500 dark:text-slate-400 truncate">
+                      {novaNotif.interesse || novaNotif.telefone || 'Clique para ver detalhes'}
+                    </p>
+                  </div>
+                </div>
+              ),
+              { duration: 6000, position: 'top-right' }
+            );
+          }
+        });
+      },
+      (error) => {
+        console.error('Erro no listener de notificações de leads:', error);
+      }
+    );
 
     return () => unsubscribe();
   }, [dadosUsuario?.empresaId, navigate]);
@@ -216,9 +228,8 @@ export default function NotificacoesLeads() {
                     setAberto(false);
                     navigate('/app/contatos?tipo=leads');
                   }}
-                  className={`w-full text-left px-4 py-3 flex items-start gap-3 hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors ${
-                    !item.lida ? 'bg-emerald-50/40 dark:bg-emerald-500/10' : ''
-                  }`}
+                  className={`w-full text-left px-4 py-3 flex items-start gap-3 hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors ${!item.lida ? 'bg-emerald-50/40 dark:bg-emerald-500/10' : ''
+                    }`}
                 >
                   <div className="w-8 h-8 rounded-full bg-emerald-100 dark:bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 flex items-center justify-center shrink-0 mt-0.5">
                     <MessageSquare size={15} />

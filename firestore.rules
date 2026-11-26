@@ -12,14 +12,19 @@ service cloud.firestore {
       return isAuthenticated() && request.auth.token.superAdmin == true;
     }
 
-    // Função para buscar o empresaId do usuário logado
-    function getEmpresaId() {
-      return get(/databases/$(database)/documents/usuarios/$(request.auth.uid)).data.empresaId;
+    // Função para buscar o documento do usuário logado
+    function getUserDoc() {
+      return get(/databases/$(database)/documents/usuarios/$(request.auth.uid)).data;
     }
 
-    // Função para buscar o role do usuário logado
+    // Função para buscar o empresaId do usuário logado
+    function getEmpresaId() {
+      return getUserDoc().empresaId;
+    }
+
+    // Função para buscar o role do usuário logado (normalizado em minúsculo)
     function getRole() {
-      return get(/databases/$(database)/documents/usuarios/$(request.auth.uid)).data.role;
+      return getUserDoc().role.lower();
     }
 
     // --- REGRAS PARA EMPRESAS ---
@@ -31,43 +36,129 @@ service cloud.firestore {
 
     // --- REGRAS PARA USUÁRIOS ---
     match /usuarios/{userId} {
-      allow read: if isSuperAdmin() || (isAuthenticated() && (request.auth.uid == userId || getRole() == 'admin'));
-      allow update: if isSuperAdmin() || (isAuthenticated() && (request.auth.uid == userId || getRole() == 'admin'));
+      allow read: if isSuperAdmin() || (
+        isAuthenticated() && (
+          request.auth.uid == userId ||
+          (getRole() == 'admin' && getEmpresaId() == resource.data.empresaId)
+        )
+      );
+      allow update: if isSuperAdmin() || (
+        isAuthenticated() && (
+          request.auth.uid == userId ||
+          (getRole() == 'admin' && getEmpresaId() == resource.data.empresaId)
+        )
+      );
       allow create: if isSuperAdmin() || (isAuthenticated() && request.auth.uid == userId);
-      allow delete: if isSuperAdmin() || (isAuthenticated() && getRole() == 'admin');
+      allow delete: if isSuperAdmin() || (
+        isAuthenticated() && getRole() == 'admin' && getEmpresaId() == resource.data.empresaId
+      );
     }
 
     // --- REGRAS PARA CONVITES ---
     match /convites/{conviteId} {
-      allow read: if true; // O cadastro precisa ler o convite antes de estar logado
+      allow read: if true;
       allow write: if isSuperAdmin() || (isAuthenticated() && getRole() == 'admin');
     }
 
     // --- REGRAS PARA DADOS OPERACIONAIS ---
+
+    // CONTATOS: Usuários autenticados da mesma empresa (admin, vendedor, leitor)
     match /contatos/{docId} {
-      allow create: if isSuperAdmin() || (isAuthenticated() && getEmpresaId() == request.resource.data.empresaId);
-      allow read, update, delete: if isSuperAdmin() || (isAuthenticated() && getEmpresaId() == resource.data.empresaId);
-    }
-    match /negocios/{docId} {
-      allow create: if isSuperAdmin() || (isAuthenticated() && getEmpresaId() == request.resource.data.empresaId);
-      allow read, update, delete: if isSuperAdmin() || (isAuthenticated() && getEmpresaId() == resource.data.empresaId);
-    }
-    match /tarefas/{docId} {
-      allow create: if isSuperAdmin() || (isAuthenticated() && getEmpresaId() == request.resource.data.empresaId);
-      allow read, update, delete: if isSuperAdmin() || (isAuthenticated() && getEmpresaId() == resource.data.empresaId);
-    }
-    match /produtos/{docId} {
-      allow create: if isSuperAdmin() || (isAuthenticated() && getEmpresaId() == request.resource.data.empresaId);
-      allow read, update, delete: if isSuperAdmin() || (isAuthenticated() && getEmpresaId() == resource.data.empresaId);
+      allow read: if isSuperAdmin() || (isAuthenticated() && getEmpresaId() == resource.data.empresaId);
+      allow create: if isSuperAdmin() || (
+        isAuthenticated() &&
+        getEmpresaId() == request.resource.data.empresaId &&
+        getRole() in ['admin', 'vendedor']
+      );
+      allow update, delete: if isSuperAdmin() || (
+        isAuthenticated() &&
+        getEmpresaId() == resource.data.empresaId &&
+        getRole() in ['admin', 'vendedor']
+      );
     }
 
-    // --- COLEÇÕES TÉCNICAS / WHATSAPP (se usar no Firestore) ---
+    // NEGÓCIOS
+    match /negocios/{docId} {
+      // 1. Leitura: SuperAdmin, Admin e Leitor veem da empresa; Vendedor vê apenas os que é responsável
+      allow read: if isSuperAdmin() || (
+        isAuthenticated() &&
+        getEmpresaId() == resource.data.empresaId && (
+          getRole() in ['admin', 'leitor'] ||
+          (getRole() == 'vendedor' && resource.data.responsavelId == request.auth.uid)
+        )
+      );
+
+      // 2. Criação: Admin cria para a empresa; Vendedor cria atribuindo a si mesmo
+      allow create: if isSuperAdmin() || (
+        isAuthenticated() &&
+        getEmpresaId() == request.resource.data.empresaId && (
+          getRole() == 'admin' ||
+          (getRole() == 'vendedor' && request.resource.data.responsavelId == request.auth.uid)
+        )
+      );
+
+      // 3. Edição: Admin edita na empresa; Vendedor edita apenas os seus negócios
+      allow update: if isSuperAdmin() || (
+        isAuthenticated() &&
+        getEmpresaId() == resource.data.empresaId &&
+        getEmpresaId() == request.resource.data.empresaId && (
+          getRole() == 'admin' ||
+          (
+            getRole() == 'vendedor' &&
+            resource.data.responsavelId == request.auth.uid &&
+            request.resource.data.responsavelId == request.auth.uid
+          )
+        )
+      );
+
+      // 4. Exclusão: Admin exclui na empresa; Vendedor exclui apenas os seus negócios
+      allow delete: if isSuperAdmin() || (
+        isAuthenticated() &&
+        getEmpresaId() == resource.data.empresaId && (
+          getRole() == 'admin' ||
+          (getRole() == 'vendedor' && resource.data.responsavelId == request.auth.uid)
+        )
+      );
+    }
+
+    // TAREFAS
+    match /tarefas/{docId} {
+      allow create: if isSuperAdmin() || (
+        isAuthenticated() &&
+        getEmpresaId() == request.resource.data.empresaId &&
+        getRole() in ['admin', 'vendedor']
+      );
+      allow read: if isSuperAdmin() || (isAuthenticated() && getEmpresaId() == resource.data.empresaId);
+      allow update, delete: if isSuperAdmin() || (
+        isAuthenticated() &&
+        getEmpresaId() == resource.data.empresaId &&
+        getRole() in ['admin', 'vendedor']
+      );
+    }
+
+    // PRODUTOS
+    match /produtos/{docId} {
+      allow create: if isSuperAdmin() || (
+        isAuthenticated() &&
+        getEmpresaId() == request.resource.data.empresaId &&
+        getRole() in ['admin', 'vendedor']
+      );
+      allow read: if isSuperAdmin() || (isAuthenticated() && getEmpresaId() == resource.data.empresaId);
+      allow update, delete: if isSuperAdmin() || (
+        isAuthenticated() &&
+        getEmpresaId() == resource.data.empresaId &&
+        getRole() in ['admin', 'vendedor']
+      );
+    }
+
+    // --- COLEÇÕES TÉCNICAS / WHATSAPP ---
     match /whatsapp_sessoes/{docId} {
       allow read, write: if isSuperAdmin();
     }
 
     match /audit_logs/{docId} {
-      allow read, create: if isSuperAdmin();
+      allow create: if isSuperAdmin();
+      allow read: if isSuperAdmin();
     }
   }
 }

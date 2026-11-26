@@ -27,10 +27,8 @@ import {
   User,
 } from 'lucide-react';
 import { DragDropContext } from '@hello-pangea/dnd';
-
 import ListView from '@/features/negocios/ListView';
 import ModalConfigurarFunil from '@/features/negocios/ModalConfigurarFunil';
-
 import { garantirContatoVinculado } from '@/services/negocioContatoService';
 
 function useIsMobile() {
@@ -46,15 +44,31 @@ function useIsMobile() {
 const normalizarTelefone = (tel = '') => String(tel).replace(/\D/g, '');
 
 export default function Negocios() {
-  const { dadosUsuario } = useAuth();
+  const { dadosUsuario, user } = useAuth();
   const isMobile = useIsMobile();
 
+  const roleAtual = String(dadosUsuario?.role || '').trim().toLowerCase();
+  const uidAtual = user?.uid || dadosUsuario?.uid || '';
+  const isAdmin = roleAtual === 'admin';
+  const isLeitor = roleAtual === 'leitor';
+
+  const [vendedores, setVendedores] = useState([]);
+
   const {
-    negocios, loading, colunas, kpiData,
-    handleDragEnd, handleMoverBotao, handleDeletar,
-    isConfirmOpen, setIsConfirmOpen, confirmarDelecao,
-    negocioDetalhes, handleOpenDetails, handleCloseDetails
-  } = useNegociosKanban(dadosUsuario?.empresaId);
+    negocios,
+    loading,
+    colunas,
+    kpiData,
+    handleDragEnd,
+    handleMoverBotao,
+    handleDeletar,
+    isConfirmOpen,
+    setIsConfirmOpen,
+    confirmarDelecao,
+    negocioDetalhes,
+    handleOpenDetails,
+    handleCloseDetails,
+  } = useNegociosKanban(dadosUsuario?.empresaId, roleAtual, uidAtual);
 
   const [produtosDisponiveis, setProdutosDisponiveis] = useState([]);
   const [contatosCadastrados, setContatosCadastrados] = useState([]);
@@ -65,7 +79,8 @@ export default function Negocios() {
   const [valor, setValor] = useState('');
   const [status, setStatus] = useState('Aberto');
 
-  // Estados de contato do negócio
+  const [responsavelId, setResponsavelId] = useState('');
+
   const [contatoSelecionadoId, setContatoSelecionadoId] = useState('');
   const [contato, setContato] = useState('');
   const [telefone, setTelefone] = useState('');
@@ -120,19 +135,47 @@ export default function Negocios() {
     return () => unsub();
   }, [dadosUsuario?.empresaId]);
 
+  // Apenas ADMIN busca a lista de usuários/vendedores da empresa
   useEffect(() => {
-    if (!dadosUsuario?.empresaId) return;
-    const q = query(
-      collection(db, 'contatos'),
-      where('empresaId', '==', dadosUsuario.empresaId)
+    if (!dadosUsuario?.empresaId || !isAdmin) {
+      setVendedores([]);
+      return;
+    }
+
+    const q = query(collection(db, 'usuarios'), where('empresaId', '==', dadosUsuario.empresaId));
+    const unsub = onSnapshot(
+      q,
+      (snapshot) => {
+        const users = snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
+        setVendedores(
+          users.filter((u) => ['vendedor', 'admin'].includes(String(u.role || '').trim().toLowerCase()))
+        );
+      },
+      (error) => {
+        console.error('Erro ao escutar usuários em Negocios:', error);
+      }
     );
 
-    const unsub = onSnapshot(q, (snapshot) => {
-      const lista = snapshot.docs
-        .map((doc) => ({ id: doc.id, ...doc.data() }))
-        .sort((a, b) => String(a.nome || '').localeCompare(String(b.nome || ''), 'pt-BR'));
-      setContatosCadastrados(lista);
-    });
+    return () => unsub();
+  }, [dadosUsuario?.empresaId, isAdmin]);
+
+  // Contatos da empresa com tratamento de erro
+  useEffect(() => {
+    if (!dadosUsuario?.empresaId) return;
+
+    const q = query(collection(db, 'contatos'), where('empresaId', '==', dadosUsuario.empresaId));
+    const unsub = onSnapshot(
+      q,
+      (snapshot) => {
+        const lista = snapshot.docs
+          .map((doc) => ({ id: doc.id, ...doc.data() }))
+          .sort((a, b) => String(a.nome || '').localeCompare(String(b.nome || ''), 'pt-BR'));
+        setContatosCadastrados(lista);
+      },
+      (error) => {
+        console.error('Erro ao escutar contatos em Negocios:', error);
+      }
+    );
 
     return () => unsub();
   }, [dadosUsuario?.empresaId]);
@@ -187,10 +230,12 @@ export default function Negocios() {
     new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(v || 0);
 
   const abrirModalCriarComStatus = (stageId = 'Aberto') => {
+    if (isLeitor) return;
     setNegocioEditando(null);
     setTitulo('');
     setValor('');
     setStatus(stageId);
+    setResponsavelId(uidAtual);
     setContatoSelecionadoId('');
     setContato('');
     setTelefone('');
@@ -203,10 +248,12 @@ export default function Negocios() {
   const abrirModalCriar = () => abrirModalCriarComStatus('Aberto');
 
   const handleEditar = (n) => {
+    if (isLeitor) return;
     setNegocioEditando(n.id);
     setTitulo(n.titulo || '');
     setValor(n.valor ?? '');
     setStatus(n.status || 'Aberto');
+    setResponsavelId(n.responsavelId || uidAtual);
     setContatoSelecionadoId(n.contatoId || '');
     setContato(n.contato || '');
     setTelefone(n.telefone || '');
@@ -218,6 +265,7 @@ export default function Negocios() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (isLeitor) return;
     setSalvando(true);
 
     try {
@@ -233,10 +281,7 @@ export default function Negocios() {
           String(col.titulo).toLowerCase() === String(status || '').trim().toLowerCase()
       );
 
-      const statusNormalizado =
-        colunaCorrespondente?.id ||
-        (colunas?.[0]?.id ?? status) ||
-        'prospeccao';
+      const statusNormalizado = colunaCorrespondente?.id || (colunas?.[0]?.id ?? status) || 'prospeccao';
 
       const nomeContatoFinal = String(contato || '').trim() || String(titulo || '').trim();
       const telefoneFinal = String(telefone || '').trim();
@@ -270,6 +315,7 @@ export default function Negocios() {
         observacoes: observacoesFinal,
         contatoExistente: jaExiste,
         produtos: produtosSelecionados,
+        responsavelId: isAdmin ? responsavelId || uidAtual : uidAtual,
         ...(contatoId ? { contatoId } : {}),
       };
 
@@ -299,7 +345,6 @@ export default function Negocios() {
 
   return (
     <div className="w-full h-full flex flex-col overflow-hidden bg-slate-50/70 dark:bg-slate-950 text-left transition-colors">
-
       {/* 1. ÁREA FIXA SUPERIOR */}
       <div className="shrink-0 px-4 sm:px-6 lg:px-7 py-3.5 sm:py-4 bg-white dark:bg-[#0b192c] border-b border-slate-200/80 dark:border-slate-800/90 z-10 space-y-3.5">
         <div className="flex flex-wrap items-center justify-between gap-3">
@@ -323,8 +368,8 @@ export default function Negocios() {
                 type="button"
                 onClick={() => setViewMode('kanban')}
                 className={`flex items-center gap-1.5 px-3 py-1.5 text-xs sm:text-sm font-semibold rounded-md transition-all ${viewMode === 'kanban'
-                  ? 'bg-emerald-50 dark:bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border border-emerald-200/80 dark:border-emerald-500/30 shadow-2xs'
-                  : 'border border-transparent text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+                    ? 'bg-emerald-50 dark:bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border border-emerald-200/80 dark:border-emerald-500/30 shadow-2xs'
+                    : 'border border-transparent text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
                   }`}
               >
                 <LayoutGrid size={15} /> Kanban
@@ -333,30 +378,34 @@ export default function Negocios() {
                 type="button"
                 onClick={() => setViewMode('lista')}
                 className={`flex items-center gap-1.5 px-3 py-1.5 text-xs sm:text-sm font-semibold rounded-md transition-all ${viewMode === 'lista'
-                  ? 'bg-emerald-50 dark:bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border border-emerald-200/80 dark:border-emerald-500/30 shadow-2xs'
-                  : 'border border-transparent text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+                    ? 'bg-emerald-50 dark:bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border border-emerald-200/80 dark:border-emerald-500/30 shadow-2xs'
+                    : 'border border-transparent text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
                   }`}
               >
                 <List size={15} /> Lista
               </button>
             </div>
 
-            <button
-              type="button"
-              onClick={abrirModalCriar}
-              className="bg-emerald-600 hover:bg-emerald-500 dark:bg-emerald-500 dark:hover:bg-emerald-400 text-white dark:text-slate-950 px-4 py-2 rounded-lg font-semibold flex items-center gap-1.5 shadow-2xs text-xs sm:text-sm transition-colors"
-            >
-              <Plus size={16} /> Novo Negócio
-            </button>
+            {!isLeitor && (
+              <button
+                type="button"
+                onClick={abrirModalCriar}
+                className="bg-emerald-600 hover:bg-emerald-500 dark:bg-emerald-500 dark:hover:bg-emerald-400 text-white dark:text-slate-950 px-4 py-2 rounded-lg font-semibold flex items-center gap-1.5 shadow-2xs text-xs sm:text-sm transition-colors"
+              >
+                <Plus size={16} /> Novo Negócio
+              </button>
+            )}
 
-            <button
-              type="button"
-              onClick={() => setIsFunilModalOpen(true)}
-              className="bg-white dark:bg-slate-900 hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200 px-3.5 py-2 rounded-lg font-semibold flex items-center gap-1.5 border border-slate-200 dark:border-slate-700 text-xs sm:text-sm transition-colors shadow-2xs"
-              title="Configurar etapas do funil"
-            >
-              <Settings size={15} /> Etapas
-            </button>
+            {isAdmin && (
+              <button
+                type="button"
+                onClick={() => setIsFunilModalOpen(true)}
+                className="bg-white dark:bg-slate-900 hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200 px-3.5 py-2 rounded-lg font-semibold flex items-center gap-1.5 border border-slate-200 dark:border-slate-700 text-xs sm:text-sm transition-colors shadow-2xs"
+                title="Configurar etapas do funil"
+              >
+                <Settings size={15} /> Etapas
+              </button>
+            )}
           </div>
         </div>
 
@@ -396,7 +445,7 @@ export default function Negocios() {
             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-emerald-600 dark:border-emerald-400" />
           </div>
         ) : viewMode === 'kanban' ? (
-          <DragDropContext onDragEnd={handleDragEnd}>
+          <DragDropContext onDragEnd={isLeitor ? () => { } : handleDragEnd}>
             <div className="flex flex-col md:flex-row w-full min-h-full items-stretch">
               {colunas.map((coluna, index) => (
                 <KanbanColumn
@@ -405,10 +454,10 @@ export default function Negocios() {
                   negocios={coluna.cards}
                   isMobile={isMobile}
                   onOpenDetails={handleOpenDetails}
-                  onMoveStage={handleMoverBotao}
-                  onEdit={handleEditar}
-                  onDelete={handleDeletar}
-                  onQuickCreate={abrirModalCriarComStatus}
+                  onMoveStage={isLeitor ? undefined : handleMoverBotao}
+                  onEdit={isLeitor ? undefined : handleEditar}
+                  onDelete={isLeitor ? undefined : handleDeletar}
+                  onQuickCreate={isLeitor ? undefined : abrirModalCriarComStatus}
                   columnIndex={index}
                 />
               ))}
@@ -417,8 +466,8 @@ export default function Negocios() {
         ) : (
           <ListView
             negocios={sortedNegocios}
-            onEdit={handleEditar}
-            onDelete={handleDeletar}
+            onEdit={isLeitor ? undefined : handleEditar}
+            onDelete={isLeitor ? undefined : handleDeletar}
             onOpenDetails={handleOpenDetails}
             sortConfig={sortConfig}
             onSort={handleSort}
@@ -430,7 +479,7 @@ export default function Negocios() {
         negocio={negocioDetalhes}
         isOpen={!!negocioDetalhes}
         onClose={handleCloseDetails}
-        onEdit={handleEditar}
+        onEdit={isLeitor ? undefined : handleEditar}
       />
 
       <Modal
@@ -508,6 +557,26 @@ export default function Negocios() {
               </select>
             </div>
           </div>
+
+          {/* Seleção de Responsável (Apenas Admin) */}
+          {isAdmin && (
+            <div className="border-t border-slate-100 dark:border-slate-800 pt-4">
+              <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">
+                Vendedor Responsável
+              </label>
+              <select
+                value={responsavelId}
+                onChange={(e) => setResponsavelId(e.target.value)}
+                className={modalInputClass}
+              >
+                {vendedores.map((v) => (
+                  <option key={v.id} value={v.id}>
+                    {v.nome} ({v.role})
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
 
           {/* Informações do Contato / Cliente */}
           <div className="border-t border-slate-100 dark:border-slate-800 pt-4 space-y-3">

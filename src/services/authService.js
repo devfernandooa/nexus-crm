@@ -1,4 +1,4 @@
-import { auth, db } from '@/firebase-config'; // Corrigido o caminho do import
+import { auth, db } from '@/firebase-config';
 import {
     createUserWithEmailAndPassword,
     EmailAuthProvider,
@@ -11,63 +11,72 @@ import toast from 'react-hot-toast';
 
 export async function criarContaComEmpresa(nomeEmpresa, nomeResponsavel, segmento, email, senha) {
     try {
-        // 1. Verifica se existe um convite pendente para este e-mail
-        const convitesRef = collection(db, 'convites');
-        const q = query(convitesRef, where('email', '==', email));
-        const snapshotConvite = await getDocs(q);
-
-        // 2. Cria o usuário no Auth
+        // 1. Cria o usuário no Auth PRIMEIRO
         const userCredential = await createUserWithEmailAndPassword(auth, email, senha);
         const user = userCredential.user;
 
-        if (!snapshotConvite.empty) {
-            // --- FLUXO DE CONVITE ---
-            const convite = snapshotConvite.docs[0];
-            const dadosConvite = convite.data();
+        try {
+            // 2. Verifica se existe um convite pendente
+            const convitesRef = collection(db, 'convites');
+            const q = query(convitesRef, where('email', '==', email));
+            const snapshotConvite = await getDocs(q);
 
-            // Vincula o usuário à empresa do convite
-            const usuarioRef = doc(db, 'usuarios', user.uid);
-            await setDoc(usuarioRef, {
-                email: user.email,
-                nome: nomeResponsavel,
-                nomeEmpresa: nomeEmpresa,
-                empresaId: dadosConvite.empresaId,
-                role: dadosConvite.role,
-                dataCriacao: new Date(),
-            });
+            if (!snapshotConvite.empty) {
+                // --- FLUXO DE CONVITE ---
+                const convite = snapshotConvite.docs[0];
+                const dadosConvite = convite.data();
 
-            // Apaga o convite (já foi usado)
-            await deleteDoc(convite.ref);
+                // 3. Salva o documento do usuário
+                const usuarioRef = doc(db, 'usuarios', user.uid);
+                await setDoc(usuarioRef, {
+                    email: user.email,
+                    nome: nomeResponsavel,
+                    empresaId: dadosConvite.empresaId,
+                    role: dadosConvite.role,
+                    dataCriacao: new Date(),
+                });
 
-            return { sucesso: true };
+                // 4. Apaga o convite
+                await deleteDoc(convite.ref);
 
-        } else {
-            // --- FLUXO NORMAL (Criar nova empresa) ---
-            const empresaRef = doc(collection(db, 'empresas'));
-            const empresaId = empresaRef.id;
+                return { sucesso: true };
+            } else {
+                // --- FLUXO NORMAL (Criar nova empresa) ---
+                const empresaRef = doc(collection(db, 'empresas'));
+                const empresaId = empresaRef.id;
 
-            await setDoc(empresaRef, {
-                nome: nomeEmpresa,
-                responsavel: nomeResponsavel,
-                segmento: segmento,
-                dataCriacao: new Date(),
-            });
+                await setDoc(empresaRef, {
+                    nome: nomeEmpresa,
+                    responsavel: nomeResponsavel,
+                    segmento: segmento,
+                    dataCriacao: new Date(),
+                });
 
-            const usuarioRef = doc(db, 'usuarios', user.uid);
-            await setDoc(usuarioRef, {
-                email: user.email,
-                nome: nomeResponsavel,
-                nomeEmpresa: nomeEmpresa,
-                empresaId: empresaId,
-                role: 'admin',
-                dataCriacao: new Date(),
-            });
+                const usuarioRef = doc(db, 'usuarios', user.uid);
+                await setDoc(usuarioRef, {
+                    email: user.email,
+                    nome: nomeResponsavel,
+                    empresaId: empresaId,
+                    role: 'admin',
+                    dataCriacao: new Date(),
+                });
 
-            return { sucesso: true };
+                return { sucesso: true };
+            }
+        } catch (innerError) {
+            // SE QUALQUER COISA FALHAR NO FIRESTORE, DELETA O USUÁRIO DO AUTH
+            console.error('Erro no Firestore, revertendo criação de usuário:', innerError);
+            try {
+                await user.delete(); // Reverte a criação do usuário
+            } catch (deleteError) {
+                console.error('Erro ao reverter usuário do Auth:', deleteError);
+            }
+            throw innerError; // Repassa o erro
         }
+
     } catch (error) {
         console.error('Erro ao criar conta:', error);
-        return { sucesso: false, erro: error.code };
+        return { sucesso: false, erro: error.code || error.message };
     }
 }
 
@@ -91,7 +100,7 @@ export async function alterarSenha(senhaAtual, novaSenha) {
         // 2. Atualiza a senha
         await updatePassword(user, novaSenha);
 
-        // 3. Faz o logout para "limpar" a sessão suja
+        // 3. Faz o logout para "limpar" a sessão
         await signOut(auth);
 
         toast.success('Senha alterada com sucesso! Faça login novamente.');

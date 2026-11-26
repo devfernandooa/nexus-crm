@@ -5,7 +5,8 @@ import { migrarFunilAntigo } from '@/utils/funilUtils';
 import { CORES_FUNIL, obterCorPadraoId } from '@/constants/funilCores';
 import toast from 'react-hot-toast';
 
-export function useNegociosKanban(empresaId) {
+// ATUALIZADO: Agora recebe userRole e userId
+export function useNegociosKanban(empresaId, userRole, userId) {
     const [negocios, setNegocios] = useState([]);
     const [loading, setLoading] = useState(true);
     const [negocioDetalhes, setNegocioDetalhes] = useState(null);
@@ -32,7 +33,7 @@ export function useNegociosKanban(empresaId) {
                     return {
                         id: etapa.id,
                         titulo: etapa.nome,
-                        tipo: etapa.tipo, // 'aberto', 'ganho' ou 'perdido'
+                        tipo: etapa.tipo,
                         cor: corValida
                     };
                 });
@@ -49,10 +50,16 @@ export function useNegociosKanban(empresaId) {
 
     // Carregar Negócios
     useEffect(() => {
-        if (!empresaId) return;
-        const unsubscribe = escutarNegocios(empresaId, (lista) => { setNegocios(lista); setLoading(false); });
+        if (!empresaId || !userRole || !userId) return;
+
+        //  Passa o role e userId para o service
+        const unsubscribe = escutarNegocios(empresaId, userRole, userId, (lista) => {
+            setNegocios(lista);
+            setLoading(false);
+        });
+
         return () => unsubscribe();
-    }, [empresaId]);
+    }, [empresaId, userRole, userId]);
 
     // Migração Automática de status por nome para slug
     useEffect(() => {
