@@ -95,11 +95,15 @@ export default async function handler(req, res) {
     const username = message.from?.username ? `@${message.from.username}` : '';
     const empresaId =
       process.env.DEFAULT_EMPRESA_ID || process.env.NEXUS_EMPRESA_ID;
+    const nomeEmpresa =
+      process.env.NOME_EMPRESA ||
+      process.env.AGROTEC_NOME ||
+      'Agrotec Agropecuários';
 
     if (texto === '/start') {
       await enviarMensagemTelegram(
         chatId,
-        `Olá, ${nome}! Bem-vindo ao atendimento do Nexus Hub. Como podemos ajudar hoje?`
+        `Olá, ${nome}! Bem-vindo ao atendimento da ${nomeEmpresa}. Como podemos ajudar hoje?`
       );
       return res.status(200).json({ ok: true });
     }
