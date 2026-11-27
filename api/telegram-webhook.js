@@ -8,7 +8,7 @@ function initFirebaseAdmin() {
       throw new Error('FIREBASE_SERVICE_ACCOUNT_JSON não configurado.');
     }
 
-    const limpo = rawJson.trim().replace(/^'|'$/g, '');
+    const limpo = rawJson.trim().replace(/^['"]|['"]$/g, '');
     const serviceAccount = JSON.parse(limpo);
 
     if (typeof serviceAccount.private_key === 'string') {
@@ -120,6 +120,8 @@ async function interpretarMensagemComIA({
     };
   }
 
+  const jaTeveConversa = Array.isArray(historico) && historico.length > 0;
+
   const systemPrompt = `
 Você é o assistente virtual da Agrotec (produtos e serviços agropecuários: sementes, fertilizantes, nutrição animal, defensivos/adjuvantes, irrigação, análise de solo e assistência técnica).
 Responda sempre em português do Brasil, de forma cordial, objetiva e natural, sem parecer robô.
@@ -127,14 +129,15 @@ Responda sempre em português do Brasil, de forma cordial, objetiva e natural, s
 Contexto atual do usuário no CRM:
 - Já é contato/cliente cadastrado? ${contatoExistente ? `SIM (Nome: ${contatoExistente.nome || 'Cliente'}, Tipo: ${contatoExistente.tipo || 'lead'}, Telefone: ${contatoExistente.telefone || 'não informado'})` : 'NÃO (Novo lead)'}
 - Possui compra/negócio anterior? ${jaComprouAntes ? 'SIM' : 'NÃO'}
+- Já houve troca de mensagens nesta conversa? ${jaTeveConversa ? 'SIM (NÃO repita a saudação inicial nem diga novamente que localizou o cadastro)' : 'NÃO'}
 
 Regras de atendimento:
 1. Se NÃO é contato cadastrado:
    - Colete de forma leve e natural: **Nome**, **Telefone** (com DDD) e **Interesse** (produto ou serviço agropecuário desejado).
    - Não peça os 3 de uma vez de forma dura; acolha e pergunte o que estiver faltando.
 2. Se JÁ é contato cadastrado:
-   - Cumprimente pelo nome, informe que já localizou o cadastro dele na Agrotec e pergunte se precisa de **suporte/atendimento** ou deseja fazer um **novo pedido / recompra**.
-   - Se o usuário pedir um produto/serviço ou recompra, extraia os itens em "itensPedido" com produto, quantidade (padrão 1) e valorUnitario estimado se mencionado (ou 0 se não mencionado).
+   - Apenas na PRIMEIRA mensagem da conversa (quando não houve troca anterior), cumprimente pelo nome e informe que localizou o cadastro na Agrotec. Nas mensagens seguintes, vá direto ao ponto sem repetir apresentação.
+   - Se o usuário pedir um produto/serviço, informar variedade (ex.: Mombaça, Marandu) ou quantidade (ex.: 10 sacos de fertilizante NPK 04-14-08), preencha "itensPedido" com cada item identificado (produto, quantidade, valorUnitario estimado ou 0) e use intencao "novo_pedido_recompra", confirmando o registro do pedido/cotação de forma direta.
 
 Responda EXCLUSIVAMENTE em JSON válido com este formato:
 {
@@ -175,7 +178,7 @@ Responda EXCLUSIVAMENTE em JSON válido com este formato:
         systemInstruction: { parts: [{ text: systemPrompt }] },
         contents,
         generationConfig: {
-          temperature: 0.4,
+          temperature: 0.3,
           responseMimeType: 'application/json',
         },
       }),
@@ -241,7 +244,6 @@ export default async function handler(req, res) {
       interesse: sessaoAtual.rascunhoLead?.interesse || '',
     };
 
-    // Tenta identificar telefone digitado direto na mensagem
     const telEncontradoMsg = normalizarTelefone(textoUsuario);
     if (telEncontradoMsg.length >= 8 && !rascunhoLead.telefone) {
       rascunhoLead.telefone = textoUsuario;
@@ -282,7 +284,6 @@ export default async function handler(req, res) {
 
     let contatoIdFinal = contato?.id || null;
 
-    // 1. Se não existe contato ainda e já temos Nome + Telefone + Interesse -> cria Lead e Negócio
     if (!contato && rascunhoLead.nome && rascunhoLead.telefone && rascunhoLead.interesse) {
       const novoContatoRef = await db.collection('contatos').add({
         empresaId: EMPRESA_PADRAO,
@@ -331,15 +332,15 @@ export default async function handler(req, res) {
       });
     }
 
-    // 2. Se houver itens de pedido / recompra extraídos -> registra pedido e alerta em solicitacoes_compra
     const itensPedido = Array.isArray(iaResult.itensPedido) ? iaResult.itensPedido : [];
     if (contatoIdFinal && itensPedido.length > 0) {
       const pedidosFormatados = itensPedido.map((item, idx) => {
         const quantidade = Number(item.quantidade) || 1;
         const valorUnitario = Number(item.valorUnitario) || 0;
+        const nomeProduto = String(item.produto || 'Item Agro').trim() || 'Item Agro';
         return {
           id: `tg_${Date.now()}_${idx}`,
-          produto: item.produto || 'Item Agro',
+          produto: nomeProduto,
           quantidade,
           valorUnitario,
           subtotal: quantidade * valorUnitario,
@@ -354,6 +355,9 @@ export default async function handler(req, res) {
       );
       const tipoNegocio = jaComprouAntes ? 'recompra' : 'primeiro_negocio';
       const nomeContato = contato?.nome || rascunhoLead.nome || nomeTelegram;
+      const resumoProdutos = pedidosFormatados
+        .map((p) => `${p.quantidade}x ${p.produto}`)
+        .join(', ');
 
       const negocioRef = await db.collection('negocios').add({
         empresaId: EMPRESA_PADRAO,
@@ -367,6 +371,7 @@ export default async function handler(req, res) {
         origem: 'telegram',
         observacoes: `Solicitado via Telegram (${chatId})`,
         pedidos: pedidosFormatados,
+        produtos: pedidosFormatados.map((p) => p.produto),
         valor: subtotalNovo,
         valorTotal: subtotalNovo,
         dataCriacao: FieldValue.serverTimestamp(),
@@ -378,6 +383,8 @@ export default async function handler(req, res) {
         contatoId: contatoIdFinal,
         negocioId: negocioRef.id,
         contatoNome: nomeContato,
+        clienteNome: nomeContato,
+        produto: resumoProdutos,
         telefone: contato?.telefone || rascunhoLead.telefone || '',
         tipoSolicitacao: tipoNegocio,
         origem: 'telegram',
