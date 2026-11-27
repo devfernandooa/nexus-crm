@@ -11,23 +11,38 @@ export default function Login() {
     const [senha, setSenha] = useState('');
     const [showPassword, setShowPassword] = useState(false);
     const [erro, setErro] = useState('');
+    const [infoAtalho, setInfoAtalho] = useState('');
     const [loading, setLoading] = useState(false);
     const navigate = useNavigate();
     const [isModalRecuperarOpen, setIsModalRecuperarOpen] = useState(false);
 
-
     async function handleSubmit(e) {
         e.preventDefault();
         setErro('');
+        setInfoAtalho('');
         setLoading(true);
         try {
-            await signInWithEmailAndPassword(auth, email, senha);
+            await signInWithEmailAndPassword(auth, email.trim(), senha);
             navigate('/app');
-        } catch {
-            setErro('E-mail ou senha incorretos.');
+        } catch (err) {
+            const code = err?.code || '';
+            if (code === 'auth/too-many-requests') {
+                setErro('Muitas tentativas. Aguarde alguns instantes e tente novamente.');
+            } else {
+                setErro('E-mail ou senha incorretos.');
+            }
         } finally {
             setLoading(false);
         }
+    }
+
+    function handleAtalhoSocial(provedor) {
+        setErro('');
+        if (provedor === 'whatsapp') {
+            window.open('https://wa.me/5575999999999?text=Ol%C3%A1%2C%20preciso%20de%20suporte%20no%20Nexus%20Hub', '_blank', 'noopener,noreferrer');
+            return;
+        }
+        setInfoAtalho(`Login com ${provedor} será habilitado em breve. Use seu e-mail e senha.`);
     }
 
     return (
@@ -37,24 +52,25 @@ export default function Login() {
             linkText="Cadastre-se"
             linkTo="/cadastro"
         >
-            <div className="mb-8 text-left">
-                <h3 className="text-3xl font-bold text-slate-900 dark:text-white mb-1.5">Login</h3>
-                <p className="text-slate-500 dark:text-slate-400 text-sm">
+            <div className="mb-6 sm:mb-8 text-left min-w-0">
+                <h3 className="text-2xl sm:text-3xl font-bold text-slate-900 dark:text-white mb-1.5">
+                    Login
+                </h3>
+                <p className="text-slate-500 dark:text-slate-400 text-xs sm:text-sm">
                     Use seu usuário e senha para acessar o workspace.
                 </p>
             </div>
 
-            {/* Botões Sociais / Atalhos Visuais */}
-            {/* Botões de Acesso Rápido / Canais com Ícones Reais */}
-            <div className="flex gap-3 mb-6">
-                {/* Google */}
+            {/* Botões de Acesso Rápido / Canais */}
+            <div className="grid grid-cols-3 gap-2.5 sm:gap-3 mb-5 sm:mb-6">
                 <button
                     type="button"
+                    onClick={() => handleAtalhoSocial('Google')}
                     aria-label="Continuar com Google"
                     title="Google"
-                    className="flex-1 flex justify-center items-center py-2.5 bg-slate-100/80 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800 rounded-lg hover:bg-emerald-50 hover:border-emerald-300 dark:hover:bg-emerald-500/10 dark:hover:border-emerald-500/40 transition-colors"
+                    className="min-h-[44px] flex justify-center items-center py-2.5 px-2 bg-slate-100/80 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800 rounded-lg hover:bg-emerald-50 hover:border-emerald-300 dark:hover:bg-emerald-500/10 dark:hover:border-emerald-500/40 transition-colors"
                 >
-                    <svg className="w-4 h-4" viewBox="0 0 24 24" aria-hidden="true">
+                    <svg className="w-4 h-4 shrink-0" viewBox="0 0 24 24" aria-hidden="true">
                         <path
                             fill="#4285F4"
                             d="M23.49 12.27c0-.79-.07-1.54-.19-2.27H12v4.51h6.47c-.29 1.5-1.14 2.77-2.4 3.62v3.01h3.88c2.27-2.09 3.54-5.17 3.54-8.87z"
@@ -74,14 +90,14 @@ export default function Login() {
                     </svg>
                 </button>
 
-                {/* GitHub */}
                 <button
                     type="button"
+                    onClick={() => handleAtalhoSocial('GitHub')}
                     aria-label="Continuar com GitHub"
                     title="GitHub"
-                    className="flex-1 flex justify-center items-center py-2.5 bg-slate-100/80 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800 rounded-lg hover:bg-emerald-50 hover:border-emerald-300 dark:hover:bg-emerald-500/10 dark:hover:border-emerald-500/40 transition-colors text-slate-800 dark:text-white"
+                    className="min-h-[44px] flex justify-center items-center py-2.5 px-2 bg-slate-100/80 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800 rounded-lg hover:bg-emerald-50 hover:border-emerald-300 dark:hover:bg-emerald-500/10 dark:hover:border-emerald-500/40 transition-colors text-slate-800 dark:text-white"
                 >
-                    <svg className="w-4 h-4 fill-current" viewBox="0 0 24 24" aria-hidden="true">
+                    <svg className="w-4 h-4 fill-current shrink-0" viewBox="0 0 24 24" aria-hidden="true">
                         <path
                             fillRule="evenodd"
                             clipRule="evenodd"
@@ -90,19 +106,26 @@ export default function Login() {
                     </svg>
                 </button>
 
-                {/* WhatsApp */}
                 <button
                     type="button"
+                    onClick={() => handleAtalhoSocial('whatsapp')}
                     aria-label="Suporte via WhatsApp"
                     title="WhatsApp"
-                    className="flex-1 flex justify-center items-center py-2.5 bg-slate-100/80 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800 rounded-lg hover:bg-emerald-50 hover:border-emerald-300 dark:hover:bg-emerald-500/10 dark:hover:border-emerald-500/40 transition-colors text-emerald-600 dark:text-emerald-400"
+                    className="min-h-[44px] flex justify-center items-center py-2.5 px-2 bg-slate-100/80 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800 rounded-lg hover:bg-emerald-50 hover:border-emerald-300 dark:hover:bg-emerald-500/10 dark:hover:border-emerald-500/40 transition-colors text-emerald-600 dark:text-emerald-400"
                 >
-                    <svg className="w-4 h-4 fill-current" viewBox="0 0 24 24" aria-hidden="true">
+                    <svg className="w-4 h-4 fill-current shrink-0" viewBox="0 0 24 24" aria-hidden="true">
                         <path d="M20.52 3.48A11.82 11.82 0 0012.06 0C5.49 0 .14 5.34.14 11.9c0 2.1.55 4.15 1.6 5.96L0 24l6.3-1.65a11.9 11.9 0 005.76 1.47h.01c6.57 0 11.92-5.34 11.92-11.9 0-3.18-1.24-6.17-3.47-8.44zm-8.45 18.33h-.01a9.88 9.88 0 01-5.04-1.38l-.36-.21-3.74.98 1-3.64-.24-.37a9.85 9.85 0 01-1.51-5.25c0-5.45 4.44-9.89 9.9-9.89 2.64 0 5.12 1.03 6.99 2.9a9.82 9.82 0 012.9 6.99c0 5.45-4.44 9.89-9.89 9.89zm5.42-7.4c-.3-.15-1.76-.87-2.03-.97-.27-.1-.47-.15-.67.15-.2.3-.77.97-.94 1.17-.17.2-.35.22-.65.07-.3-.15-1.26-.46-2.4-1.48-.89-.79-1.49-1.77-1.66-2.07-.17-.3-.02-.46.13-.61.13-.13.3-.35.45-.52.15-.17.2-.3.3-.5.1-.2.05-.37-.02-.52-.07-.15-.67-1.61-.92-2.21-.24-.58-.49-.5-.67-.51h-.57c-.2 0-.52.07-.79.37-.27.3-1.04 1.02-1.04 2.48s1.07 2.87 1.22 3.07c.15.2 2.1 3.2 5.08 4.49.71.31 1.26.49 1.69.63.71.23 1.36.2 1.87.12.57-.09 1.76-.72 2.01-1.41.25-.7.25-1.3.17-1.42-.07-.12-.27-.2-.57-.35z" />
                     </svg>
                 </button>
             </div>
-            <div className="relative flex items-center justify-center mb-6">
+
+            {infoAtalho && (
+                <p className="text-slate-600 dark:text-slate-300 text-xs mb-4 break-words">
+                    {infoAtalho}
+                </p>
+            )}
+
+            <div className="relative flex items-center justify-center mb-5 sm:mb-6">
                 <div className="absolute inset-0 flex items-center">
                     <div className="w-full border-t border-slate-200 dark:border-slate-800" />
                 </div>
@@ -111,21 +134,22 @@ export default function Login() {
                 </span>
             </div>
 
-            <form onSubmit={handleSubmit} className="space-y-5 text-left">
+            <form onSubmit={handleSubmit} className="space-y-4 sm:space-y-5 text-left">
                 <div>
-                    <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">
+                    <label className="block text-xs sm:text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">
                         E-mail
                     </label>
                     <div className="relative">
                         <Mail
-                            className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 dark:text-slate-500"
+                            className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 dark:text-slate-500 pointer-events-none"
                             size={18}
                         />
                         <input
                             type="email"
+                            autoComplete="email"
                             value={email}
                             onChange={(e) => setEmail(e.target.value)}
-                            className="w-full bg-slate-50/70 dark:bg-slate-900/65 border border-slate-300 dark:border-slate-700/90 rounded-lg py-2.5 pl-10 pr-4 text-sm text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 focus:bg-white dark:focus:bg-slate-900 transition-all"
+                            className="min-h-[44px] w-full bg-slate-50/70 dark:bg-slate-900/65 border border-slate-300 dark:border-slate-700/90 rounded-lg py-2.5 pl-10 pr-4 text-sm text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 focus:bg-white dark:focus:bg-slate-900 transition-all"
                             placeholder="seu@email.com"
                             required
                         />
@@ -133,19 +157,20 @@ export default function Login() {
                 </div>
 
                 <div>
-                    <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">
+                    <label className="block text-xs sm:text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">
                         Senha
                     </label>
                     <div className="relative">
                         <Lock
-                            className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 dark:text-slate-500"
+                            className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 dark:text-slate-500 pointer-events-none"
                             size={16}
                         />
                         <input
                             type={showPassword ? 'text' : 'password'}
+                            autoComplete="current-password"
                             value={senha}
                             onChange={(e) => setSenha(e.target.value)}
-                            className="w-full bg-slate-50/70 dark:bg-slate-900/65 border border-slate-300 dark:border-slate-700/90 rounded-lg py-2.5 pl-10 pr-10 text-sm text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 focus:bg-white dark:focus:bg-slate-900 transition-all"
+                            className="min-h-[44px] w-full bg-slate-50/70 dark:bg-slate-900/65 border border-slate-300 dark:border-slate-700/90 rounded-lg py-2.5 pl-10 pr-11 text-sm text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 focus:bg-white dark:focus:bg-slate-900 transition-all"
                             placeholder="••••••••"
                             required
                         />
@@ -153,7 +178,7 @@ export default function Login() {
                             type="button"
                             onClick={() => setShowPassword(!showPassword)}
                             aria-label={showPassword ? 'Ocultar senha' : 'Mostrar senha'}
-                            className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-emerald-600 dark:text-slate-500 dark:hover:text-emerald-400 transition-colors"
+                            className="min-w-[36px] min-h-[36px] flex items-center justify-center absolute right-1.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-emerald-600 dark:text-slate-500 dark:hover:text-emerald-400 transition-colors rounded-md"
                         >
                             {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
                         </button>
@@ -164,30 +189,31 @@ export default function Login() {
                     <button
                         type="button"
                         onClick={() => setIsModalRecuperarOpen(true)}
-                        className="text-sm text-emerald-600 hover:text-emerald-700 dark:text-emerald-400 dark:hover:text-emerald-300"
+                        className="py-1 text-xs sm:text-sm text-emerald-600 hover:text-emerald-700 dark:text-emerald-400 dark:hover:text-emerald-300"
                     >
                         Esqueceu sua senha?
                     </button>
                 </div>
 
                 {erro && (
-                    <p className="text-red-500 dark:text-red-400 text-sm font-medium">{erro}</p>
+                    <p className="text-red-500 dark:text-red-400 text-xs sm:text-sm font-medium break-words">
+                        {erro}
+                    </p>
                 )}
 
                 <button
                     type="submit"
                     disabled={loading}
-                    className="w-full bg-emerald-600 hover:bg-emerald-500 dark:bg-emerald-500 dark:hover:bg-emerald-400 text-white dark:text-slate-950 text-sm font-semibold py-2.5 rounded-lg transition-all duration-200 shadow-2xs disabled:opacity-60"
+                    className="min-h-[44px] w-full bg-emerald-600 hover:bg-emerald-500 dark:bg-emerald-500 dark:hover:bg-emerald-400 text-white dark:text-slate-950 text-sm font-semibold py-2.5 rounded-lg transition-all duration-200 shadow-2xs disabled:opacity-60"
                 >
                     {loading ? 'Entrando...' : 'ENTRAR'}
                 </button>
             </form>
+
             <ModalRecuperarSenha
                 isOpen={isModalRecuperarOpen}
                 onClose={() => setIsModalRecuperarOpen(false)}
             />
         </AuthLayout>
-
-
     );
 }
