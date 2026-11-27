@@ -1,37 +1,69 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { useNavigate } from 'react-router-dom';
-import { buscarContatosRecentes, escutarDadosDashboard } from '@/services/dashboardService';
+import {
+  buscarContatosRecentes,
+  escutarDadosDashboard,
+  atualizarMetaMensalEmpresa,
+} from '@/services/dashboardService';
 import PageHeader from '@/components/ui/PageHeader';
 import {
-  Users, Briefcase, DollarSign, TrendingUp, Plus, ArrowRight,
-  Calendar, LayoutDashboard, Mail, Phone, Target, ArrowUpRight, Layers
+  Users,
+  Briefcase,
+  DollarSign,
+  TrendingUp,
+  TrendingDown,
+  Minus,
+  Plus,
+  ArrowRight,
+  Calendar,
+  LayoutDashboard,
+  Mail,
+  Phone,
+  Target,
+  ArrowUpRight,
+  Layers,
+  Pencil,
+  Check,
+  X,
+  BarChart3,
 } from 'lucide-react';
+import toast from 'react-hot-toast';
 
-// --- COMPONENTES AUXILIARES ---
+const KpiCard = ({ title, value, icon, comparativo, colorClass, bgClass }) => {
+  const status = comparativo?.status || 'neutro';
+  const trendText = comparativo?.rotulo || '0% vs. mês anterior';
 
-const KpiCard = ({ title, value, icon, trend, colorClass, bgClass }) => (
-  <div className="bg-white dark:bg-[#0b192c] p-3.5 sm:p-4 rounded-xl border border-slate-200/90 dark:border-slate-800 shadow-2xs flex flex-col justify-between transition-all duration-200 hover:border-emerald-400/60 dark:hover:border-emerald-500/40">
-    <div className="flex justify-between items-start gap-2 mb-1.5">
-      <p className="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider leading-snug">
-        {title}
-      </p>
-      <div className={`p-1.5 rounded-lg shrink-0 ${bgClass} ${colorClass}`}>
-        {icon}
+  const trendStyle =
+    status === 'positivo'
+      ? 'text-emerald-600 dark:text-emerald-400'
+      : status === 'negativo'
+        ? 'text-rose-600 dark:text-rose-400'
+        : 'text-slate-500 dark:text-slate-400';
+
+  const TrendIcon =
+    status === 'positivo' ? TrendingUp : status === 'negativo' ? TrendingDown : Minus;
+
+  return (
+    <div className="bg-white dark:bg-[#0b192c] p-3.5 sm:p-4 rounded-xl border border-slate-200/90 dark:border-slate-800 shadow-2xs flex flex-col justify-between transition-all duration-200 hover:border-emerald-400/60 dark:hover:border-emerald-500/40 min-w-0">
+      <div className="flex justify-between items-start gap-2 mb-1.5">
+        <p className="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider leading-snug">
+          {title}
+        </p>
+        <div className={`p-1.5 rounded-lg shrink-0 ${bgClass} ${colorClass}`}>{icon}</div>
+      </div>
+      <div className="min-w-0">
+        <p className="text-xl sm:text-2xl font-bold text-slate-900 dark:text-white tabular-nums tracking-tight truncate">
+          {value}
+        </p>
+        <p className={`text-[11px] flex items-center gap-1 mt-1 font-medium truncate ${trendStyle}`}>
+          <TrendIcon size={12} className="shrink-0" />
+          <span>{trendText}</span>
+        </p>
       </div>
     </div>
-    <div>
-      <p className="text-xl sm:text-2xl font-bold text-slate-900 dark:text-white tabular-nums tracking-tight">
-        {value}
-      </p>
-      {trend && (
-        <p className="text-[11px] text-emerald-600 dark:text-emerald-400 flex items-center gap-1 mt-1 font-medium">
-          <TrendingUp size={11} /> {trend}
-        </p>
-      )}
-    </div>
-  </div>
-);
+  );
+};
 
 const ContatoRecenteItem = ({ contato, onClick }) => {
   const getStatusColor = (status) => {
@@ -48,9 +80,9 @@ const ContatoRecenteItem = ({ contato, onClick }) => {
   return (
     <div
       onClick={onClick}
-      className="px-4 py-3 flex items-center justify-between hover:bg-emerald-50/40 dark:hover:bg-slate-800/40 transition-colors gap-4 group cursor-pointer"
+      className="px-3.5 sm:px-4 py-3 flex items-center justify-between hover:bg-emerald-50/40 dark:hover:bg-slate-800/40 transition-colors gap-2.5 sm:gap-4 group cursor-pointer"
     >
-      <div className="flex items-center gap-3 flex-1 min-w-0">
+      <div className="flex items-center gap-2.5 sm:gap-3 flex-1 min-w-0">
         <div className="w-9 h-9 rounded-full bg-emerald-50 dark:bg-emerald-500/15 flex items-center justify-center text-emerald-700 dark:text-emerald-300 font-bold text-sm shrink-0 border border-emerald-200/70 dark:border-emerald-500/25">
           {contato.nome?.charAt(0).toUpperCase() || '?'}
         </div>
@@ -64,9 +96,9 @@ const ContatoRecenteItem = ({ contato, onClick }) => {
         </div>
       </div>
 
-      <div className="w-28 sm:w-32 flex justify-center shrink-0">
+      <div className="w-24 sm:w-32 flex justify-center shrink-0">
         <span
-          className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${getStatusColor(
+          className={`inline-flex items-center px-2 sm:px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider truncate ${getStatusColor(
             contato.status
           )}`}
         >
@@ -88,38 +120,50 @@ const ContatoRecenteItem = ({ contato, onClick }) => {
   );
 };
 
-// --- COMPONENTE PRINCIPAL ---
-
 export default function Dashboard() {
   const { dadosUsuario, dadosEmpresa } = useAuth();
   const navigate = useNavigate();
+
+  const isAdmin = String(dadosUsuario?.role || '').toLowerCase() === 'admin';
 
   const [dados, setDados] = useState({
     totalContatos: 0,
     negociosAbertos: 0,
     negociosGanhos: 0,
     receitaGanha: 0,
+    receitaGanhaMesAtual: 0,
     tarefasPendentes: 0,
-    totalUsuarios: 0,
+    totalUsuarios: 1,
+    metaMensal: 10000,
+    receitaMetaAlcance: 0,
+    percentualMetaReal: 0,
+    percentualMetaBarra: 0,
+    comparativos: {
+      contatos: { rotulo: '0% vs. mês anterior', status: 'neutro' },
+      negociosAbertos: { rotulo: '0% vs. mês anterior', status: 'neutro' },
+      tarefasPendentes: { rotulo: '0% vs. mês anterior', status: 'neutro' },
+      receitaGanha: { rotulo: '0% vs. mês anterior', status: 'neutro' },
+    },
   });
   const [contatosRecentes, setContatosRecentes] = useState([]);
   const [loading, setLoading] = useState(true);
 
+  const [editandoMeta, setEditandoMeta] = useState(false);
+  const [valorMetaInput, setValorMetaInput] = useState('');
+  const [salvandoMeta, setSalvandoMeta] = useState(false);
+
   useEffect(() => {
     if (!dadosUsuario?.empresaId) return;
 
-    // 1. Carrega os contatos recentes
     buscarContatosRecentes(dadosUsuario.empresaId).then((contatos) => {
       setContatosRecentes(contatos);
     });
 
-    // 2. Conecta o Radar em tempo real
     const unsubscribe = escutarDadosDashboard(dadosUsuario.empresaId, (novosDados) => {
       setDados(novosDados);
       setLoading(false);
     });
 
-    // 3. Timeout de segurança (libera a tela após 2s caso o Firebase oscile)
     const timeout = setTimeout(() => {
       setLoading(false);
     }, 2000);
@@ -131,7 +175,34 @@ export default function Dashboard() {
   }, [dadosUsuario?.empresaId]);
 
   const formatarMoeda = (valor) =>
-    new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(valor || 0);
+    new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(
+      Number.isFinite(Number(valor)) ? Number(valor) : 0
+    );
+
+  function iniciarEdicaoMeta() {
+    if (!isAdmin) return;
+    setValorMetaInput(String(dados.metaMensal || 10000));
+    setEditandoMeta(true);
+  }
+
+  async function handleSalvarMeta(e) {
+    e?.preventDefault();
+    if (!isAdmin || !dadosUsuario?.empresaId) return;
+
+    setSalvandoMeta(true);
+    const res = await atualizarMetaMensalEmpresa(dadosUsuario.empresaId, valorMetaInput);
+    setSalvandoMeta(false);
+
+    if (res.sucesso) {
+      toast.success('Meta mensal atualizada!');
+      setEditandoMeta(false);
+    } else {
+      toast.error(res.erro || 'Não foi possível atualizar a meta.');
+    }
+  }
+
+  const nomeEmpresaExibido = dadosEmpresa?.nome || dadosUsuario?.nomeEmpresa || '-';
+  const percentualFormatado = `${Number(dados.percentualMetaReal || 0).toFixed(0)}%`;
 
   if (loading) {
     return (
@@ -148,13 +219,20 @@ export default function Dashboard() {
   }
 
   return (
-    <div className="w-full min-h-full flex flex-col px-4 sm:px-6 lg:px-7 py-4 sm:py-5 space-y-4 text-left bg-slate-50/60 dark:bg-slate-950 transition-colors">
+    <div className="w-full min-h-full flex flex-col px-4 sm:px-6 lg:px-7 py-4 sm:py-5 space-y-4 text-left bg-slate-50/60 dark:bg-slate-950 transition-colors overflow-x-hidden">
       <PageHeader
         icon={<LayoutDashboard size={18} />}
         title="Dashboard"
         subtitle={`Bem-vindo de volta, ${dadosUsuario?.nome?.split(' ')[0] || 'Usuário'}!`}
         action={
-          <div className="flex items-center gap-2 w-full sm:w-auto mr-1">
+          <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto mr-1">
+            <button
+              type="button"
+              onClick={() => navigate('/app/relatorios')}
+              className="flex-1 sm:flex-none bg-white dark:bg-[#0b192c] border border-emerald-200 dark:border-emerald-800/70 text-emerald-700 dark:text-emerald-300 px-3.5 py-2 rounded-lg font-semibold flex items-center justify-center gap-1.5 transition-colors hover:bg-emerald-50 dark:hover:bg-emerald-500/10 shadow-2xs text-xs sm:text-sm"
+            >
+              <BarChart3 size={15} /> Gráficos e Filtros
+            </button>
             <button
               type="button"
               onClick={() => navigate('/app/tarefas')}
@@ -173,13 +251,13 @@ export default function Dashboard() {
         }
       />
 
-      {/* KPIs Compactos */}
+      {/* KPIs Compactos com Comparativos Reais */}
       <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3.5">
         <KpiCard
           title="Total de Contatos"
           value={dados.totalContatos}
           icon={<Users size={15} />}
-          trend="+0% vs. mês anterior"
+          comparativo={dados.comparativos?.contatos}
           bgClass="bg-emerald-50 dark:bg-emerald-500/15"
           colorClass="text-emerald-600 dark:text-emerald-400"
         />
@@ -187,7 +265,7 @@ export default function Dashboard() {
           title="Negócios Abertos"
           value={dados.negociosAbertos}
           icon={<Briefcase size={15} />}
-          trend="+0% vs. mês anterior"
+          comparativo={dados.comparativos?.negociosAbertos}
           bgClass="bg-teal-50 dark:bg-teal-500/15"
           colorClass="text-teal-700 dark:text-teal-300"
         />
@@ -195,7 +273,7 @@ export default function Dashboard() {
           title="Tarefas Pendentes"
           value={dados.tarefasPendentes}
           icon={<Calendar size={15} />}
-          trend={null}
+          comparativo={dados.comparativos?.tarefasPendentes}
           bgClass="bg-amber-50 dark:bg-amber-500/15"
           colorClass="text-amber-600 dark:text-amber-400"
         />
@@ -203,7 +281,7 @@ export default function Dashboard() {
           title="Receita Ganha"
           value={formatarMoeda(dados.receitaGanha)}
           icon={<DollarSign size={15} />}
-          trend="+0% vs. mês anterior"
+          comparativo={dados.comparativos?.receitaGanha}
           bgClass="bg-emerald-50 dark:bg-emerald-500/15"
           colorClass="text-emerald-600 dark:text-emerald-400"
         />
@@ -212,7 +290,7 @@ export default function Dashboard() {
       {/* Layout Principal */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 items-start flex-1">
         {/* Coluna Esquerda */}
-        <div className="lg:col-span-8 flex flex-col gap-4">
+        <div className="lg:col-span-8 flex flex-col gap-4 min-w-0">
           <div className="bg-white dark:bg-[#0b192c] rounded-xl border border-slate-200/90 dark:border-slate-800 shadow-2xs overflow-hidden flex flex-col">
             <div className="px-4 py-3.5 border-b border-slate-200/80 dark:border-slate-800 flex justify-between items-center">
               <h2 className="font-bold text-sm sm:text-base text-slate-900 dark:text-white">
@@ -249,11 +327,11 @@ export default function Dashboard() {
                 </div>
               ) : (
                 <>
-                  <div className="flex items-center gap-4 px-4 py-2 bg-slate-50/70 dark:bg-slate-900/60 border-b border-slate-100 dark:border-slate-800">
+                  <div className="flex items-center gap-2.5 sm:gap-4 px-3.5 sm:px-4 py-2 bg-slate-50/70 dark:bg-slate-900/60 border-b border-slate-100 dark:border-slate-800">
                     <div className="flex-1 text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
                       Nome / Cargo
                     </div>
-                    <div className="w-28 sm:w-32 text-center text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                    <div className="w-24 sm:w-32 text-center text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
                       Status
                     </div>
                     <div className="w-48 text-right text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 hidden md:block">
@@ -276,20 +354,29 @@ export default function Dashboard() {
 
           {/* Pulso Comercial */}
           <div className="bg-white dark:bg-[#0b192c] rounded-xl border border-slate-200/90 dark:border-slate-800 shadow-2xs p-4">
-            <div className="flex items-center justify-between gap-2 mb-3">
+            <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
               <div className="flex items-center gap-2">
                 <Layers size={16} className="text-emerald-600 dark:text-emerald-400" />
                 <h3 className="font-bold text-sm text-slate-900 dark:text-white">
                   Pulso Comercial
                 </h3>
               </div>
-              <button
-                type="button"
-                onClick={() => navigate('/app/negocios')}
-                className="text-xs font-semibold text-emerald-600 dark:text-emerald-400 hover:underline flex items-center gap-1"
-              >
-                Abrir funil <ArrowRight size={13} />
-              </button>
+              <div className="flex items-center gap-3">
+                <button
+                  type="button"
+                  onClick={() => navigate('/app/relatorios')}
+                  className="text-xs font-semibold text-teal-700 dark:text-teal-300 hover:underline flex items-center gap-1"
+                >
+                  Gráficos de vendas <BarChart3 size={13} />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => navigate('/app/negocios')}
+                  className="text-xs font-semibold text-emerald-600 dark:text-emerald-400 hover:underline flex items-center gap-1"
+                >
+                  Abrir funil <ArrowRight size={13} />
+                </button>
+              </div>
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
@@ -311,7 +398,7 @@ export default function Dashboard() {
               </div>
               <div className="p-3 rounded-lg bg-slate-50 dark:bg-slate-900/70 border border-slate-200/70 dark:border-slate-800">
                 <p className="text-[11px] font-semibold text-slate-500 dark:text-slate-400">
-                  Receita Confirmada
+                  Receita Confirmada (Total)
                 </p>
                 <p className="text-base font-bold text-slate-900 dark:text-white tabular-nums mt-0.5">
                   {formatarMoeda(dados.receitaGanha)}
@@ -322,26 +409,72 @@ export default function Dashboard() {
         </div>
 
         {/* Coluna da Direita */}
-        <div className="lg:col-span-4 flex flex-col gap-4">
-          {/* Meta Mensal */}
+        <div className="lg:col-span-4 flex flex-col gap-4 min-w-0">
+          {/* Meta Mensal Ajustável por Admin */}
           <div className="bg-white dark:bg-[#0b192c] rounded-xl border border-slate-200/90 dark:border-slate-800 shadow-2xs p-4">
-            <div className="flex justify-between items-center mb-3">
+            <div className="flex justify-between items-center gap-2 mb-3">
               <h2 className="font-bold text-sm text-slate-900 dark:text-white flex items-center gap-2">
                 <Target size={16} className="text-emerald-600 dark:text-emerald-400" /> Meta Mensal
               </h2>
-              <span className="text-xs font-bold bg-emerald-100 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-300 px-2 py-0.5 rounded-md">
-                75%
-              </span>
+              <div className="flex items-center gap-1.5">
+                {isAdmin && !editandoMeta && (
+                  <button
+                    type="button"
+                    onClick={iniciarEdicaoMeta}
+                    title="Ajustar meta mensal (Admin)"
+                    aria-label="Ajustar meta mensal"
+                    className="p-1 rounded-md text-slate-500 hover:text-emerald-700 dark:text-slate-400 dark:hover:text-emerald-300 hover:bg-emerald-50 dark:hover:bg-emerald-500/10 transition-colors"
+                  >
+                    <Pencil size={13} />
+                  </button>
+                )}
+                <span className="text-xs font-bold bg-emerald-100 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-300 px-2 py-0.5 rounded-md tabular-nums">
+                  {percentualFormatado}
+                </span>
+              </div>
             </div>
-            <div className="w-full bg-slate-100 dark:bg-slate-800 rounded-full h-2.5 mb-2 overflow-hidden">
-              <div
-                className="bg-emerald-600 dark:bg-emerald-500 h-2.5 rounded-full transition-all duration-300"
-                style={{ width: '75%' }}
-              />
-            </div>
-            <p className="text-xs text-slate-500 dark:text-slate-400 flex justify-between tabular-nums">
-              <span>R$ 7.500,00 alcançados</span>
-              <span>Meta: R$ 10.000,00</span>
+
+            {editandoMeta && isAdmin ? (
+              <form onSubmit={handleSalvarMeta} className="mb-3 flex items-center gap-1.5">
+                <input
+                  type="number"
+                  step="0.01"
+                  min="1"
+                  value={valorMetaInput}
+                  onChange={(e) => setValorMetaInput(e.target.value)}
+                  placeholder="Ex: 15000"
+                  className="flex-1 min-w-0 bg-slate-50 dark:bg-slate-900 border border-emerald-400 dark:border-emerald-500/70 rounded-lg px-2.5 py-1.5 text-xs sm:text-sm text-slate-900 dark:text-white tabular-nums focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                  autoFocus
+                />
+                <button
+                  type="submit"
+                  disabled={salvandoMeta}
+                  title="Salvar meta"
+                  className="p-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white disabled:opacity-60 transition-colors"
+                >
+                  <Check size={14} />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setEditandoMeta(false)}
+                  title="Cancelar"
+                  className="p-2 rounded-lg bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 transition-colors"
+                >
+                  <X size={14} />
+                </button>
+              </form>
+            ) : (
+              <div className="w-full bg-slate-100 dark:bg-slate-800 rounded-full h-2.5 mb-2 overflow-hidden">
+                <div
+                  className="bg-emerald-600 dark:bg-emerald-500 h-2.5 rounded-full transition-all duration-300"
+                  style={{ width: `${dados.percentualMetaBarra || 0}%` }}
+                />
+              </div>
+            )}
+
+            <p className="text-xs text-slate-500 dark:text-slate-400 flex justify-between gap-2 tabular-nums">
+              <span className="truncate">{formatarMoeda(dados.receitaMetaAlcance)} alcançados</span>
+              <span className="shrink-0">Meta: {formatarMoeda(dados.metaMensal)}</span>
             </p>
           </div>
 
@@ -351,12 +484,15 @@ export default function Dashboard() {
               Resumo da Empresa
             </h2>
             <div className="space-y-2.5">
-              <div className="flex justify-between items-center text-xs sm:text-sm">
-                <span className="text-slate-500 dark:text-slate-400 flex items-center gap-2">
+              <div className="flex justify-between items-center gap-2 text-xs sm:text-sm">
+                <span className="text-slate-500 dark:text-slate-400 flex items-center gap-2 shrink-0">
                   <Briefcase size={14} /> Empresa
                 </span>
-                <span className="font-semibold text-slate-900 dark:text-white truncate max-w-[165px]">
-                  {dadosEmpresa?.nome || '-'}
+                <span
+                  title={nomeEmpresaExibido}
+                  className="font-semibold text-slate-900 dark:text-white truncate max-w-[175px]"
+                >
+                  {nomeEmpresaExibido}
                 </span>
               </div>
               <div className="flex justify-between items-center text-xs sm:text-sm">
@@ -402,6 +538,19 @@ export default function Dashboard() {
               >
                 <span className="flex items-center gap-2">
                   <Calendar size={15} /> Agendar Reunião
+                </span>
+                <ArrowUpRight
+                  size={15}
+                  className="opacity-70 group-hover:opacity-100 transition-opacity"
+                />
+              </button>
+              <button
+                type="button"
+                onClick={() => navigate('/app/relatorios')}
+                className="w-full bg-white/10 hover:bg-white/20 transition-colors px-3.5 py-2 rounded-lg text-xs sm:text-sm font-medium flex items-center justify-between group"
+              >
+                <span className="flex items-center gap-2">
+                  <BarChart3 size={15} /> Gráficos de Vendas
                 </span>
                 <ArrowUpRight
                   size={15}
