@@ -10,15 +10,20 @@ import { collection, doc, setDoc, query, where, getDocs, deleteDoc } from 'fireb
 import toast from 'react-hot-toast';
 
 export async function criarContaComEmpresa(nomeEmpresa, nomeResponsavel, segmento, email, senha) {
+    const emailLimpo = String(email || '').trim().toLowerCase();
+    const nomeLimpo = String(nomeResponsavel || '').trim();
+    const empresaLimpa = String(nomeEmpresa || '').trim();
+    const segmentoFinal = String(segmento || '').trim() || 'Outros';
+
     try {
         // 1. Cria o usuário no Auth PRIMEIRO
-        const userCredential = await createUserWithEmailAndPassword(auth, email, senha);
+        const userCredential = await createUserWithEmailAndPassword(auth, emailLimpo, senha);
         const user = userCredential.user;
 
         try {
             // 2. Verifica se existe um convite pendente
             const convitesRef = collection(db, 'convites');
-            const q = query(convitesRef, where('email', '==', email));
+            const q = query(convitesRef, where('email', '==', emailLimpo));
             const snapshotConvite = await getDocs(q);
 
             if (!snapshotConvite.empty) {
@@ -29,8 +34,8 @@ export async function criarContaComEmpresa(nomeEmpresa, nomeResponsavel, segment
                 // 3. Salva o documento do usuário
                 const usuarioRef = doc(db, 'usuarios', user.uid);
                 await setDoc(usuarioRef, {
-                    email: user.email,
-                    nome: nomeResponsavel,
+                    email: user.email || emailLimpo,
+                    nome: nomeLimpo,
                     empresaId: dadosConvite.empresaId,
                     role: dadosConvite.role,
                     dataCriacao: new Date(),
@@ -46,16 +51,16 @@ export async function criarContaComEmpresa(nomeEmpresa, nomeResponsavel, segment
                 const empresaId = empresaRef.id;
 
                 await setDoc(empresaRef, {
-                    nome: nomeEmpresa,
-                    responsavel: nomeResponsavel,
-                    segmento: segmento,
+                    nome: empresaLimpa,
+                    responsavel: nomeLimpo,
+                    segmento: segmentoFinal,
                     dataCriacao: new Date(),
                 });
 
                 const usuarioRef = doc(db, 'usuarios', user.uid);
                 await setDoc(usuarioRef, {
-                    email: user.email,
-                    nome: nomeResponsavel,
+                    email: user.email || emailLimpo,
+                    nome: nomeLimpo,
                     empresaId: empresaId,
                     role: 'admin',
                     dataCriacao: new Date(),
@@ -71,12 +76,47 @@ export async function criarContaComEmpresa(nomeEmpresa, nomeResponsavel, segment
             } catch (deleteError) {
                 console.error('Erro ao reverter usuário do Auth:', deleteError);
             }
-            throw innerError; // Repassa o erro
+            throw innerError;
         }
 
     } catch (error) {
         console.error('Erro ao criar conta:', error);
-        return { sucesso: false, erro: error.code || error.message };
+        const code = error?.code || '';
+
+        if (code === 'auth/email-already-in-use') {
+            return {
+                sucesso: false,
+                code,
+                emailJaCadastrado: true,
+                erro: code,
+                mensagem: 'Este e-mail já está cadastrado. Tente fazer login ou recuperar a senha.',
+            };
+        }
+
+        if (code === 'auth/weak-password') {
+            return {
+                sucesso: false,
+                code,
+                erro: code,
+                mensagem: 'A senha é muito fraca. Use pelo menos 6 caracteres.',
+            };
+        }
+
+        if (code === 'auth/invalid-email') {
+            return {
+                sucesso: false,
+                code,
+                erro: code,
+                mensagem: 'Informe um endereço de e-mail válido.',
+            };
+        }
+
+        return {
+            sucesso: false,
+            code,
+            erro: code || error.message,
+            mensagem: 'Erro ao criar conta. Verifique os dados e tente novamente.',
+        };
     }
 }
 

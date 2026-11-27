@@ -32,6 +32,7 @@ import {
   Package,
   Filter,
   ArrowUpDown,
+  RotateCcw,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import Papa from 'papaparse';
@@ -53,7 +54,8 @@ function parseValorNumerico(valor) {
 }
 
 function extrairDataMillis(item) {
-  const candidato = item?.dataCriacao ?? item?.criadoEm ?? item?.createdAt ?? null;
+  const candidato =
+    item?.dataCriacao ?? item?.criadoEm ?? item?.createdAt ?? item?.atualizadoEm ?? null;
   if (!candidato) return 0;
   if (typeof candidato.toMillis === 'function') return candidato.toMillis();
   if (typeof candidato.toDate === 'function') return candidato.toDate().getTime();
@@ -121,13 +123,18 @@ function extrairNomeVendedor(negocio, mapaUsuarios, fallbackNome) {
   return fallbackNome || 'Equipe Comercial';
 }
 
+function extrairOrigemCanal(negocio) {
+  const origem = String(negocio?.origem || negocio?.canal || '').trim();
+  return origem ? origem.toLowerCase() : 'manual';
+}
+
 export default function Relatorios() {
   const { dadosUsuario } = useAuth();
   const { negocios: negociosKanban, colunas, loading: loadingKanban } = useNegociosKanban(
-  dadosUsuario?.empresaId,
-  dadosUsuario?.role,
-  dadosUsuario?.uid || dadosUsuario?.id
-);
+    dadosUsuario?.empresaId,
+    dadosUsuario?.role,
+    dadosUsuario?.uid || dadosUsuario?.id
+  );
 
   const [totalContatos, setTotalContatos] = useState(0);
   const [produtosCatalogo, setProdutosCatalogo] = useState([]);
@@ -135,6 +142,11 @@ export default function Relatorios() {
   const [loadingExtra, setLoadingExtra] = useState(true);
 
   const [filtroDestaque, setFiltroDestaque] = useState('todos');
+  const [filtroVendedor, setFiltroVendedor] = useState('todos');
+  const [filtroStatus, setFiltroStatus] = useState('todos');
+  const [filtroOrigem, setFiltroOrigem] = useState('todos');
+  const [dataInicio, setDataInicio] = useState('');
+  const [dataFim, setDataFim] = useState('');
   const [ordenacao, setOrdenacao] = useState('data_desc');
   const [periodo, setPeriodo] = useState('todos');
 
@@ -243,6 +255,24 @@ export default function Relatorios() {
     return map;
   }, [produtosCatalogo]);
 
+  const opcoesVendedores = useMemo(() => {
+    const fallbackVendedor =
+      dadosUsuario?.nome || dadosUsuario?.email?.split('@')[0] || 'Equipe Comercial';
+    const setNomes = new Set(Object.values(mapaUsuarios).filter(Boolean));
+    (negociosKanban || []).forEach((n) => {
+      setNomes.add(extrairNomeVendedor(n, mapaUsuarios, fallbackVendedor));
+    });
+    return Array.from(setNomes).sort((a, b) => a.localeCompare(b, 'pt-BR'));
+  }, [negociosKanban, mapaUsuarios, dadosUsuario]);
+
+  const opcoesOrigens = useMemo(() => {
+    const setOrigens = new Set(['manual', 'whatsapp', 'telegram']);
+    (negociosKanban || []).forEach((n) => {
+      setOrigens.add(extrairOrigemCanal(n));
+    });
+    return Array.from(setOrigens);
+  }, [negociosKanban]);
+
   const negociosFiltradosEOrdenados = useMemo(() => {
     const base = Array.isArray(negociosKanban) ? [...negociosKanban] : [];
     const agora = Date.now();
@@ -250,17 +280,47 @@ export default function Relatorios() {
     inicioMes.setDate(1);
     inicioMes.setHours(0, 0, 0, 0);
 
-    const filtradosPorData = base.filter((n) => {
-      if (periodo === 'todos') return true;
+    const inicioCustomMs = dataInicio ? new Date(`${dataInicio}T00:00:00`).getTime() : null;
+    const fimCustomMs = dataFim ? new Date(`${dataFim}T23:59:59.999`).getTime() : null;
+    const fallbackVendedor =
+      dadosUsuario?.nome || dadosUsuario?.email?.split('@')[0] || 'Equipe Comercial';
+
+    const filtrados = base.filter((n) => {
       const ms = extrairDataMillis(n);
-      if (!ms) return true;
-      if (periodo === '7d') return ms >= agora - 7 * 24 * 60 * 60 * 1000;
-      if (periodo === '30d') return ms >= agora - 30 * 24 * 60 * 60 * 1000;
-      if (periodo === 'mes') return ms >= inicioMes.getTime();
+
+      if (periodo !== 'todos' && ms) {
+        if (periodo === '7d' && ms < agora - 7 * 24 * 60 * 60 * 1000) return false;
+        if (periodo === '30d' && ms < agora - 30 * 24 * 60 * 60 * 1000) return false;
+        if (periodo === 'mes' && ms < inicioMes.getTime()) return false;
+      }
+
+      if (inicioCustomMs && ms && ms < inicioCustomMs) return false;
+      if (fimCustomMs && ms && ms > fimCustomMs) return false;
+
+      if (filtroVendedor !== 'todos') {
+        const nomeVend = extrairNomeVendedor(n, mapaUsuarios, fallbackVendedor);
+        if (nomeVend !== filtroVendedor) return false;
+      }
+
+      if (filtroOrigem !== 'todos') {
+        if (extrairOrigemCanal(n) !== filtroOrigem) return false;
+      }
+
+      if (filtroStatus !== 'todos') {
+        const statusBruto = String(n.status || 'Aberto').trim();
+        const tituloColuna = mapaColunas[statusBruto] || statusBruto;
+        const tipo =
+          identificarTipoPorTexto(tituloColuna) || identificarTipoPorTexto(statusBruto) || 'aberto';
+
+        if (filtroStatus === 'ganho' && tipo !== 'ganho') return false;
+        if (filtroStatus === 'perdido' && tipo !== 'perdido') return false;
+        if (filtroStatus === 'aberto' && tipo !== 'aberto') return false;
+      }
+
       return true;
     });
 
-    filtradosPorData.sort((a, b) => {
+    filtrados.sort((a, b) => {
       if (ordenacao === 'valor_desc') {
         return parseValorNumerico(b.valor) - parseValorNumerico(a.valor);
       }
@@ -273,8 +333,31 @@ export default function Relatorios() {
       return extrairDataMillis(b) - extrairDataMillis(a);
     });
 
-    return filtradosPorData;
-  }, [negociosKanban, periodo, ordenacao]);
+    return filtrados;
+  }, [
+    negociosKanban,
+    periodo,
+    dataInicio,
+    dataFim,
+    filtroVendedor,
+    filtroOrigem,
+    filtroStatus,
+    ordenacao,
+    mapaUsuarios,
+    mapaColunas,
+    dadosUsuario,
+  ]);
+
+  function limparFiltros() {
+    setFiltroDestaque('todos');
+    setFiltroVendedor('todos');
+    setFiltroStatus('todos');
+    setFiltroOrigem('todos');
+    setDataInicio('');
+    setDataFim('');
+    setPeriodo('todos');
+    setOrdenacao('data_desc');
+  }
 
   const metricas = useMemo(() => {
     let valorAberto = 0;
@@ -452,34 +535,35 @@ export default function Relatorios() {
     const listaBase =
       negociosFiltradosEOrdenados.length > 0
         ? negociosFiltradosEOrdenados.map((n) => {
-          let dataFormatada = 'N/A';
-          if (n.dataCriacao?.toDate) {
-            dataFormatada = n.dataCriacao.toDate().toLocaleDateString('pt-BR');
-          } else if (n.dataCriacao instanceof Date) {
-            dataFormatada = n.dataCriacao.toLocaleDateString('pt-BR');
-          } else if (n.dataCriacao) {
-            dataFormatada = String(n.dataCriacao);
-          }
+            let dataFormatada = 'N/A';
+            if (n.dataCriacao?.toDate) {
+              dataFormatada = n.dataCriacao.toDate().toLocaleDateString('pt-BR');
+            } else if (n.dataCriacao instanceof Date) {
+              dataFormatada = n.dataCriacao.toLocaleDateString('pt-BR');
+            } else if (n.dataCriacao) {
+              dataFormatada = String(n.dataCriacao);
+            }
 
-          const statusBruto = String(n.status || 'Aberto').trim();
-          const tipoDetectado = identificarTipoPorTexto(mapaColunas[statusBruto] || statusBruto);
-          const labelStatus =
-            tipoDetectado === 'ganho'
-              ? 'Ganhos'
-              : tipoDetectado === 'perdido'
-                ? 'Perdidos'
-                : mapaColunas[statusBruto] || statusBruto;
+            const statusBruto = String(n.status || 'Aberto').trim();
+            const tipoDetectado = identificarTipoPorTexto(mapaColunas[statusBruto] || statusBruto);
+            const labelStatus =
+              tipoDetectado === 'ganho'
+                ? 'Ganhos'
+                : tipoDetectado === 'perdido'
+                  ? 'Perdidos'
+                  : mapaColunas[statusBruto] || statusBruto;
 
-          return {
-            id: n.id,
-            titulo: n.titulo,
-            valor: parseValorNumerico(n.valor),
-            status: labelStatus,
-            contato: n.contato || 'Sem contato',
-            vendedor: extrairNomeVendedor(n, mapaUsuarios, dadosUsuario?.nome),
-            dataCriacao: dataFormatada,
-          };
-        })
+            return {
+              id: n.id,
+              titulo: n.titulo,
+              valor: parseValorNumerico(n.valor),
+              status: labelStatus,
+              vendedor: extrairNomeVendedor(n, mapaUsuarios, dadosUsuario?.nome),
+              origem: extrairOrigemCanal(n),
+              contato: n.contato || 'Sem contato',
+              dataCriacao: dataFormatada,
+            };
+          })
         : await buscarNegociosParaExportacao(dadosUsuario.empresaId);
 
     if (!listaBase || listaBase.length === 0) {
@@ -493,6 +577,7 @@ export default function Relatorios() {
         'Valor (R$)': n.valor,
         Status: n.status,
         Vendedor: n.vendedor || '-',
+        Origem: n.origem || 'manual',
         Contato: n.contato || 'Sem contato',
         'Data de Criação': n.dataCriacao || '',
       }));
@@ -548,7 +633,7 @@ export default function Relatorios() {
   }
 
   const containerClass =
-  'w-full min-h-full flex flex-col px-4 sm:px-6 lg:px-7 py-3.5 sm:py-4 pb-32 md:pb-12 bg-slate-50/60 dark:bg-slate-950 transition-colors text-left space-y-3.5 overflow-x-hidden';
+    'w-full min-h-full flex flex-col px-4 sm:px-6 lg:px-7 py-3.5 sm:py-4 pb-32 md:pb-12 bg-slate-50/60 dark:bg-slate-950 transition-colors text-left space-y-3.5 overflow-x-hidden';
 
   if (loadingKanban || loadingExtra) {
     return (
@@ -567,14 +652,14 @@ export default function Relatorios() {
     );
   }
 
-  const selectClass =
-    'px-2.5 py-1.5 text-xs sm:text-[13px] bg-white dark:bg-[#0b192c] border border-slate-200/90 dark:border-slate-800 rounded-xl text-slate-700 dark:text-slate-200 font-medium focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 shadow-2xs transition-all';
+  const selectCompactoClass =
+    'min-w-0 min-h-[34px] sm:min-h-[32px] px-2 py-1 text-[11px] leading-tight bg-slate-50/80 dark:bg-slate-900/70 border border-slate-200/90 dark:border-slate-800 rounded-lg text-slate-700 dark:text-slate-200 font-medium focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-all';
 
   return (
     <div className={containerClass}>
       <PageHeader
         icon={<BarChart3 size={18} />}
-        title="Relatórios"
+        title="Relatórios e Gráficos de Vendas"
         subtitle="Desempenho comercial, vendas por equipe e catálogo de produtos/serviços."
         action={
           <div ref={exportMenuRef} className="relative w-full md:w-auto mr-1">
@@ -608,53 +693,135 @@ export default function Relatorios() {
         }
       />
 
-      {/* Barra de Filtros */}
-      <div className="flex flex-wrap items-center justify-between gap-2 shrink-0">
-        <div className="flex flex-wrap items-center gap-2">
-          <span className="inline-flex items-center gap-1 text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 mr-0.5">
-            <Filter size={12} className="text-emerald-600 dark:text-emerald-400" /> Filtros:
-          </span>
+{/* Barra de Filtros Agrupada, Espaçada e Sem Sobreposição */}
+      <div className="bg-white dark:bg-[#0b192c] p-3 sm:p-3.5 rounded-xl border border-slate-200/90 dark:border-slate-800 shadow-2xs flex flex-col gap-2.5 shrink-0">
+        <div className="flex flex-wrap items-center justify-between gap-2 min-w-0">
+          <div className="flex flex-wrap items-center gap-2 min-w-0 flex-1">
+            {/* Grupo 1: Análise e Equipe */}
+            <div className="w-full sm:w-auto grid grid-cols-2 sm:flex items-center gap-1.5 bg-slate-50/80 dark:bg-slate-900/50 p-1.5 rounded-lg border border-slate-200/70 dark:border-slate-800/80">
+              <span className="col-span-2 sm:col-span-1 inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 px-1 shrink-0">
+                <Filter size={11} className="text-emerald-600 dark:text-emerald-400 shrink-0" />
+                Filtros
+              </span>
 
-          <select
-            value={filtroDestaque}
-            onChange={(e) => setFiltroDestaque(e.target.value)}
-            className={selectClass}
-            aria-label="Tipo de filtro"
-          >
-            <option value="todos">Visão Geral</option>
-            <option value="vendedores">Quem mais vendeu (Vendedores)</option>
-            <option value="produto">Produto mais vendido</option>
-            <option value="servico">Serviço mais vendido</option>
-          </select>
+              <select
+                value={filtroDestaque}
+                onChange={(e) => setFiltroDestaque(e.target.value)}
+                className={`${selectCompactoClass} sm:w-[136px] truncate`}
+                aria-label="Tipo de análise"
+              >
+                <option value="todos">Visão Geral</option>
+                <option value="vendedores">Quem mais vendeu</option>
+                <option value="produto">Produto mais vendido</option>
+                <option value="servico">Serviço mais vendido</option>
+              </select>
 
-          <select
-            value={ordenacao}
-            onChange={(e) => setOrdenacao(e.target.value)}
-            className={selectClass}
-            aria-label="Ordenação"
-          >
-            <option value="data_desc">Data: mais recentes primeiro</option>
-            <option value="data_asc">Data: mais antigos primeiro</option>
-            <option value="valor_desc">Valor: maior para menor</option>
-            <option value="valor_asc">Valor: menor para maior</option>
-          </select>
+              <select
+                value={filtroVendedor}
+                onChange={(e) => setFiltroVendedor(e.target.value)}
+                className={`${selectCompactoClass} sm:w-[126px] truncate`}
+                aria-label="Filtrar por vendedor"
+              >
+                <option value="todos">Vendedores</option>
+                {opcoesVendedores.map((v) => (
+                  <option key={v} value={v}>
+                    {v}
+                  </option>
+                ))}
+              </select>
+            </div>
 
-          <select
-            value={periodo}
-            onChange={(e) => setPeriodo(e.target.value)}
-            className={selectClass}
-            aria-label="Período"
-          >
-            <option value="todos">Todo o período</option>
-            <option value="7d">Últimos 7 dias</option>
-            <option value="30d">Últimos 30 dias</option>
-            <option value="mes">Este mês</option>
-          </select>
-        </div>
+            {/* Grupo 2: Etapa e Origem */}
+            <div className="w-full sm:w-auto grid grid-cols-2 sm:flex items-center gap-1.5 bg-slate-50/80 dark:bg-slate-900/50 p-1.5 rounded-lg border border-slate-200/70 dark:border-slate-800/80">
+              <select
+                value={filtroStatus}
+                onChange={(e) => setFiltroStatus(e.target.value)}
+                className={`${selectCompactoClass} sm:w-[112px] truncate`}
+                aria-label="Filtrar por situação"
+              >
+                <option value="todos">Etapas</option>
+                <option value="aberto">Em aberto</option>
+                <option value="ganho">Ganhos</option>
+                <option value="perdido">Perdidos</option>
+              </select>
 
-        <div className="inline-flex items-center gap-1 text-xs font-semibold text-slate-500 dark:text-slate-400 tabular-nums">
-          <ArrowUpDown size={12} />
-          <span>{metricas.totalNegocios} negócio(s) considerado(s)</span>
+              <select
+                value={filtroOrigem}
+                onChange={(e) => setFiltroOrigem(e.target.value)}
+                className={`${selectCompactoClass} sm:w-[112px] truncate`}
+                aria-label="Filtrar por origem"
+              >
+                <option value="todos">Origens</option>
+                {opcoesOrigens.map((orig) => (
+                  <option key={orig} value={orig}>
+                    {orig.charAt(0).toUpperCase() + orig.slice(1)}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* Grupo 3: Período e Intervalo de Datas */}
+            <div className="w-full sm:w-auto flex flex-col sm:flex-row sm:items-center gap-1.5 bg-slate-50/80 dark:bg-slate-900/50 p-1.5 rounded-lg border border-slate-200/70 dark:border-slate-800/80 min-w-0">
+              <select
+                value={periodo}
+                onChange={(e) => setPeriodo(e.target.value)}
+                className={`${selectCompactoClass} w-full sm:w-[112px] shrink-0`}
+                aria-label="Período"
+              >
+                <option value="todos">Todo período</option>
+                <option value="7d">Últimos 7d</option>
+                <option value="30d">Últimos 30d</option>
+                <option value="mes">Este mês</option>
+              </select>
+
+              <div className="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] sm:flex items-center gap-1 text-[10px] text-slate-500 dark:text-slate-400 min-w-0">
+                <input
+                  type="date"
+                  value={dataInicio}
+                  onChange={(e) => setDataInicio(e.target.value)}
+                  aria-label="Data inicial"
+                  className={`${selectCompactoClass} px-1.5 sm:w-[104px]`}
+                />
+                <span className="px-0.5 text-center font-medium shrink-0">até</span>
+                <input
+                  type="date"
+                  value={dataFim}
+                  onChange={(e) => setDataFim(e.target.value)}
+                  aria-label="Data final"
+                  className={`${selectCompactoClass} px-1.5 sm:w-[104px]`}
+                />
+              </div>
+            </div>
+
+            {/* Grupo 4: Ordenação e Limpar */}
+            <div className="w-full sm:w-auto flex items-center gap-1.5 bg-slate-50/80 dark:bg-slate-900/50 p-1.5 rounded-lg border border-slate-200/70 dark:border-slate-800/80">
+              <select
+                value={ordenacao}
+                onChange={(e) => setOrdenacao(e.target.value)}
+                className={`${selectCompactoClass} flex-1 sm:w-[126px] truncate`}
+                aria-label="Ordenação"
+              >
+                <option value="data_desc">Mais recentes</option>
+                <option value="data_asc">Mais antigos</option>
+                <option value="valor_desc">Maior valor</option>
+                <option value="valor_asc">Menor valor</option>
+              </select>
+
+              <button
+                type="button"
+                onClick={limparFiltros}
+                title="Limpar filtros"
+                className="min-h-[34px] sm:min-h-[32px] px-2.5 py-1 text-[11px] font-semibold text-slate-600 dark:text-slate-300 bg-white hover:bg-slate-100 dark:bg-slate-800 dark:hover:bg-slate-700 border border-slate-200/80 dark:border-slate-700 rounded-lg inline-flex items-center gap-1 transition-colors shrink-0"
+              >
+                <RotateCcw size={11} /> Limpar
+              </button>
+            </div>
+          </div>
+
+          <div className="w-full sm:w-auto inline-flex items-center justify-end gap-1 text-[11px] font-semibold text-slate-500 dark:text-slate-400 tabular-nums shrink-0 px-1">
+            <ArrowUpDown size={11} />
+            <span>{metricas.totalNegocios} negócio(s)</span>
+          </div>
         </div>
       </div>
 
@@ -888,10 +1055,11 @@ export default function Relatorios() {
 
         {/* 3. Gráfico de Desempenho por Vendedor */}
         <div
-          className={`bg-white dark:bg-[#0b192c] p-3.5 rounded-xl border shadow-2xs flex flex-col shrink-0 min-w-0 ${filtroDestaque === 'vendedores'
+          className={`bg-white dark:bg-[#0b192c] p-3.5 rounded-xl border shadow-2xs flex flex-col shrink-0 min-w-0 ${
+            filtroDestaque === 'vendedores'
               ? 'border-emerald-400 dark:border-emerald-500/60 ring-1 ring-emerald-500/20'
               : 'border-slate-200/90 dark:border-slate-800'
-            }`}
+          }`}
         >
           <div className="flex items-center justify-between gap-2 mb-1.5">
             <h2 className="text-xs sm:text-sm font-bold !text-slate-900 dark:!text-white">
@@ -957,10 +1125,11 @@ export default function Relatorios() {
 
         {/* 4. Gráfico de Produtos e Serviços Mais Vendidos */}
         <div
-          className={`bg-white dark:bg-[#0b192c] p-3.5 rounded-xl border shadow-2xs flex flex-col shrink-0 min-w-0 ${filtroDestaque === 'produto' || filtroDestaque === 'servico'
+          className={`bg-white dark:bg-[#0b192c] p-3.5 rounded-xl border shadow-2xs flex flex-col shrink-0 min-w-0 ${
+            filtroDestaque === 'produto' || filtroDestaque === 'servico'
               ? 'border-emerald-400 dark:border-emerald-500/60 ring-1 ring-emerald-500/20'
               : 'border-slate-200/90 dark:border-slate-800'
-            }`}
+          }`}
         >
           <div className="flex items-center justify-between gap-2 mb-1.5">
             <h2 className="text-xs sm:text-sm font-bold !text-slate-900 dark:!text-white">

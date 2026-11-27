@@ -40,7 +40,58 @@ const WHATSAPP_TOKEN = process.env.WHATSAPP_TOKEN;
 const PHONE_NUMBER_ID = process.env.PHONE_NUMBER_ID;
 const GROQ_API_KEY = process.env.GROQ_API_KEY;
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
-const DEFAULT_EMPRESA_ID = process.env.DEFAULT_EMPRESA_ID || 'sAYH5cVoqDn3m5LllObO';
+const DEFAULT_EMPRESA_ID =
+  process.env.DEFAULT_EMPRESA_ID || 'agrotec-produtos-servicos-agropecuarios';
+const TIMEOUT_IA_MS = 6000;
+
+function toNumeroSeguro(valor, fallback = 0) {
+  if (typeof valor === 'number') {
+    return Number.isFinite(valor) ? valor : fallback;
+  }
+  if (typeof valor === 'string') {
+    const limpo = valor
+      .replace(/[R$\s]/gi, '')
+      .replace(/\.(?=\d{3}(\D|$))/g, '')
+      .replace(',', '.');
+    const num = Number(limpo);
+    return Number.isFinite(num) ? num : fallback;
+  }
+  return fallback;
+}
+
+function normalizarItemComCatalogo(item, catalogo = [], idx = 0, origem = 'whatsapp') {
+  const nomeBruto = String(item?.produto || item?.nome || 'Item').trim() || 'Item';
+  const match = catalogo.find(
+    (p) =>
+      p.nome &&
+      (p.nome.toLowerCase() === nomeBruto.toLowerCase() ||
+        nomeBruto.toLowerCase().includes(p.nome.toLowerCase()))
+  );
+
+  const quantidade = Math.max(1, Math.floor(toNumeroSeguro(item?.quantidade, 1)));
+  const precoCatalogo = toNumeroSeguro(match?.preco, 0);
+  const precoItem = toNumeroSeguro(
+    item?.valorUnitario ?? item?.precoUnitario ?? item?.preco,
+    0
+  );
+  const valorUnitario = precoItem > 0 ? precoItem : precoCatalogo;
+  const subtotal = toNumeroSeguro(quantidade * valorUnitario, 0);
+
+  return {
+    id: item?.id || `${origem}_${Date.now()}_${idx}`,
+    produtoId: match?.id || item?.produtoId || null,
+    nome: match?.nome || nomeBruto,
+    produto: match?.nome || nomeBruto,
+    tipo: match?.tipo || item?.tipo || 'Produto',
+    quantidade,
+    valorUnitario,
+    precoUnitario: valorUnitario,
+    preco: valorUnitario,
+    subtotal,
+    origem,
+    dataSolicitacao: item?.dataSolicitacao || new Date().toISOString(),
+  };
+}
 
 function normalizarTelefone(tel) {
   if (!tel) return '';
@@ -49,6 +100,13 @@ function normalizarTelefone(tel) {
     return `55${digitos}`;
   }
   return digitos;
+}
+
+function ehSaudacaoOuAgradecimento(texto = '') {
+  const lower = String(texto).trim().toLowerCase();
+  return /^(oi+|ol[aá]+|bom\s*dia|boa\s*tarde|boa\s*noite|e\s*a[ií]|tudo\s*bem|obrigad[oa]|valeu|ok|certo)\b[!?.]*$/.test(
+    lower
+  );
 }
 
 async function buscarProdutosEmpresa(empresaId) {
@@ -62,7 +120,8 @@ async function buscarProdutosEmpresa(empresaId) {
     return snap.docs.map((doc) => ({
       id: doc.id,
       nome: doc.data().nome || '',
-      preco: doc.data().preco || 0,
+      preco: toNumeroSeguro(doc.data().preco, 0),
+      tipo: doc.data().tipo || 'Produto',
     }));
   } catch (err) {
     console.warn('⚠️ Não foi possível listar produtos:', err.message);
@@ -70,29 +129,54 @@ async function buscarProdutosEmpresa(empresaId) {
   }
 }
 
-async function extrairDadosLead({ textoMensagem, nomePerfilWa, telefoneRemetente, produtos }) {
+async function extrairDadosLead({
+  textoMensagem,
+  nomePerfilWa,
+  telefoneRemetente,
+  produtos,
+  contatoExistente,
+  historico,
+}) {
   const listaProdutos =
     produtos.length > 0
       ? produtos.map((p) => `- ${p.nome} (R$ ${p.preco})`).join('\n')
-      : 'Nenhum produto específico listado';
+      : 'Sementes de pastagem, fertilizantes NPK, nutrição animal, defensivos/adjuvantes, irrigação e assistência técnica';
 
-  const promptSistema = `Você é um extrator de dados de leads para um CRM.
-Analise a mensagem recebida e extraia estritamente em JSON válido:
-{
-  "nome": "Nome do cliente (se não estiver no texto, use '${nomePerfilWa || 'Lead WhatsApp'}')",
-  "telefone": "Apenas números com DDI/DDD se informado no texto, ou '${telefoneRemetente}'",
-  "interesse": "Produto, serviço ou assunto de interesse identificado (se houver produto compatível na lista, use o nome oficial dele)",
-  "empresa": "Nome da empresa do cliente, se mencionado, ou ''",
-  "email": "E-mail do cliente, se mencionado, ou ''",
-  "respostaCurta": "Mensagem curta confirmando o recebimento do interesse"
-}
+  const resumoHistorico = Array.isArray(historico)
+    ? historico
+        .slice(-6)
+        .map((h) => `${h.role === 'assistant' ? 'Atendente' : 'Cliente'}: ${h.text}`)
+        .join('\n')
+    : '';
+
+  const nomeConhecido =
+    contatoExistente?.nome || nomePerfilWa || 'Lead WhatsApp';
+
+  const promptSistema = `Você é o assistente comercial da Agrotec (produtos e serviços agropecuários) no WhatsApp.
+Responda de forma humana, natural, cordial e objetiva — sem repetir saudações se a conversa já estiver em andamento.
+
+Contexto do cliente:
+- Já cadastrado no CRM: ${contatoExistente ? `SIM (Nome: ${contatoExistente.nome}, Status: ${contatoExistente.status || 'Novo'})` : 'NÃO'}
+- Histórico recente:
+${resumoHistorico || '(Primeira mensagem)'}
 
 Produtos cadastrados no CRM:
 ${listaProdutos}
 
+Analise a mensagem atual e retorne ESTRITAMENTE em JSON válido:
+{
+  "nome": "Nome do cliente (mantenha '${nomeConhecido}' se já conhecido e não houver nome novo no texto)",
+  "telefone": "Apenas dígitos com DDI/DDD, padrão '${telefoneRemetente}'",
+  "interesse": "Produto, serviço ou pedido específico identificado. Se for apenas saudação ('oi', 'bom dia') ou agradecimento ('obrigado'), retorne '' (string vazia)",
+  "quantidade": 1,
+  "empresa": "Nome da fazenda/empresa se mencionado, ou ''",
+  "email": "E-mail se mencionado, ou ''",
+  "respostaCurta": "Resposta humanizada e direta para enviar ao cliente no WhatsApp"
+}
+
 Responda APENAS com o JSON, sem markdown ou texto extra.`;
 
-  const promptUsuario = `Remetente WhatsApp: ${nomePerfilWa} (${telefoneRemetente})\nMensagem: "${textoMensagem}"`;
+  const promptUsuario = `Remetente WhatsApp: ${nomePerfilWa} (${telefoneRemetente})\nMensagem atual: "${textoMensagem}"`;
 
   if (GROQ_API_KEY) {
     try {
@@ -102,13 +186,14 @@ Responda APENAS com o JSON, sem markdown ou texto extra.`;
           Authorization: `Bearer ${GROQ_API_KEY}`,
           'Content-Type': 'application/json',
         },
+        signal: AbortSignal.timeout(TIMEOUT_IA_MS),
         body: JSON.stringify({
           model: 'openai/gpt-oss-20b',
           messages: [
             { role: 'system', content: promptSistema },
             { role: 'user', content: promptUsuario },
           ],
-          temperature: 0.1,
+          temperature: 0.2,
           response_format: { type: 'json_object' },
         }),
       });
@@ -117,11 +202,10 @@ Responda APENAS com o JSON, sem markdown ou texto extra.`;
         const data = await resp.json();
         const raw = data.choices?.[0]?.message?.content || '{}';
         const parsed = JSON.parse(raw);
-        console.log('🤖 Dados extraídos via Groq:', parsed);
-        return parsed;
+        return { ...parsed, provedorIA: 'groq' };
       }
     } catch (err) {
-      console.warn('⚠️ Falha na Groq, tentando Gemini:', err.message);
+      console.warn('⚠️ Falha/timeout na Groq, tentando Gemini:', err.message);
     }
   }
 
@@ -132,9 +216,10 @@ Responda APENAS com o JSON, sem markdown ou texto extra.`;
         {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
+          signal: AbortSignal.timeout(TIMEOUT_IA_MS),
           body: JSON.stringify({
             contents: [{ parts: [{ text: `${promptSistema}\n\n${promptUsuario}` }] }],
-            generationConfig: { responseMimeType: 'application/json', temperature: 0.1 },
+            generationConfig: { responseMimeType: 'application/json', temperature: 0.2 },
           }),
         }
       );
@@ -143,32 +228,46 @@ Responda APENAS com o JSON, sem markdown ou texto extra.`;
         const data = await resp.json();
         const raw = data.candidates?.[0]?.content?.parts?.[0]?.text || '{}';
         const parsed = JSON.parse(raw);
-        console.log('🤖 Dados extraídos via Gemini:', parsed);
-        return parsed;
+        return { ...parsed, provedorIA: 'gemini' };
       }
     } catch (err) {
-      console.warn('⚠️ Falha no Gemini, usando fallback direto:', err.message);
+      console.warn('⚠️ Falha/timeout no Gemini, usando fallback local:', err.message);
     }
   }
 
+  const apenasSaudacao = ehSaudacaoOuAgradecimento(textoMensagem);
+  const primeiroNome = nomeConhecido.split(/\s+/)[0];
+
   return {
-    nome: nomePerfilWa || 'Lead WhatsApp',
+    nome: nomeConhecido,
     telefone: telefoneRemetente,
-    interesse: textoMensagem,
+    interesse: apenasSaudacao ? '' : textoMensagem,
+    quantidade: 1,
     empresa: '',
     email: '',
-    respostaCurta: `Olá ${nomePerfilWa || ''}! Recebemos seu contato sobre "${textoMensagem}". Em breve nossa equipe retorna.`,
+    provedorIA: 'fallback',
+    respostaCurta: apenasSaudacao
+      ? `Oi, ${primeiroNome}! Tudo bem? Como posso te ajudar hoje na Agrotec?`
+      : `Perfeito, ${primeiroNome}! Já anotei sua solicitação sobre "${textoMensagem}" para a equipe comercial da Agrotec. Se quiser acrescentar alguma quantidade ou detalhe, é só mandar por aqui.`,
   };
 }
 
-async function gerarLeadNoCRM({ empresaId, dados, textoOriginal, remetenteWa }) {
+async function gerarOuAtualizarLeadNoCRM({
+  empresaId,
+  dados,
+  textoOriginal,
+  remetenteWa,
+  sessaoAtual,
+  catalogoProdutos,
+}) {
   const agora = Timestamp.now();
   const agoraIso = new Date().toISOString();
-  const telefoneFinal = normalizarTelefone(dados.telefone) || normalizarTelefone(remetenteWa);
-  const nomeFinal = (dados.nome || '').trim() || 'Lead WhatsApp';
-  const interesseFinal = (dados.interesse || textoOriginal || '').trim();
+  const telefoneFinal =
+    normalizarTelefone(dados.telefone) || normalizarTelefone(remetenteWa);
+  const interesseFinal = (dados.interesse || '').trim();
   const emailFinal = (dados.email || '').trim();
   const empresaCliente = (dados.empresa || '').trim();
+  const quantidade = Math.max(1, Math.floor(toNumeroSeguro(dados.quantidade, 1)));
 
   const contatosRef = db.collection('contatos');
   const existenteSnap = await contatosRef
@@ -178,17 +277,35 @@ async function gerarLeadNoCRM({ empresaId, dados, textoOriginal, remetenteWa }) 
     .get();
 
   let contatoId;
+  let nomeFinal = (dados.nome || '').trim() || 'Lead WhatsApp';
 
   if (!existenteSnap.empty) {
     const docExistente = existenteSnap.docs[0];
+    const dadosAntigos = docExistente.data();
     contatoId = docExistente.id;
+
+    if (
+      dadosAntigos.nome &&
+      dadosAntigos.nome !== 'Lead WhatsApp' &&
+      nomeFinal === 'Lead WhatsApp'
+    ) {
+      nomeFinal = dadosAntigos.nome;
+    }
+
+    const obsAtualizada = interesseFinal
+      ? [dadosAntigos.observacoes, `WhatsApp: ${interesseFinal}`]
+          .filter(Boolean)
+          .slice(-3)
+          .join(' | ')
+      : dadosAntigos.observacoes || '';
+
     await docExistente.ref.update({
       nome: nomeFinal,
       ...(empresaCliente && { empresa: empresaCliente }),
       ...(emailFinal && { email: emailFinal }),
-      observacoes: `Interesse via WhatsApp: ${interesseFinal}`,
+      ...(obsAtualizada && { observacoes: obsAtualizada }),
+      atualizadoEm: FieldValue.serverTimestamp(),
     });
-    console.log(`♻️ Lead atualizado em contatos: ${contatoId} (${nomeFinal})`);
   } else {
     const novoContato = await contatosRef.add({
       empresaId,
@@ -198,53 +315,115 @@ async function gerarLeadNoCRM({ empresaId, dados, textoOriginal, remetenteWa }) 
       email: emailFinal,
       telefone: telefoneFinal,
       endereco: '',
+      tipo: 'lead',
       status: 'Novo',
-      observacoes: `Interesse via WhatsApp: ${interesseFinal}`,
+      origem: 'whatsapp',
+      observacoes: interesseFinal
+        ? `Interesse via WhatsApp: ${interesseFinal}`
+        : 'Contato iniciado via WhatsApp',
       dataCriacao: agora,
+      criadoEm: FieldValue.serverTimestamp(),
+      atualizadoEm: FieldValue.serverTimestamp(),
     });
     contatoId = novoContato.id;
-    console.log(`✅ Novo Lead criado em contatos: ${contatoId} (${nomeFinal})`);
   }
 
-  let negocioId = null;
-  if (interesseFinal) {
-    const novoNegocio = await db.collection('negocios').add({
-      empresaId,
-      titulo: `${interesseFinal} - ${nomeFinal}`,
-      contatoId,
-      contatoNome: nomeFinal,
-      telefone: telefoneFinal,
-      etapa: 'Novo Lead',
-      valor: 0,
-      origem: 'whatsapp',
-      descricao: `Mensagem original: "${textoOriginal}"`,
-      dataCriacao: agora,
-      atualizadoEm: agora,
-    });
-    negocioId = novoNegocio.id;
-    console.log(`💼 Negócio criado em negocios: ${negocioId}`);
-  }
+  let negocioId = sessaoAtual?.ultimoNegocioId || null;
 
-  await db
-    .collection('whatsapp_sessoes')
-    .doc(normalizarTelefone(remetenteWa))
-    .set(
+  if (interesseFinal && !ehSaudacaoOuAgradecimento(interesseFinal)) {
+    const itemPedido = normalizarItemComCatalogo(
       {
-        empresaId,
-        nome: nomeFinal,
-        telefone: telefoneFinal,
-        interesse: interesseFinal,
-        contatoId,
-        ultimoNegocioId: negocioId,
-        atualizadoEm: agora,
-        historico: FieldValue.arrayUnion({
-          role: 'user',
-          text: textoOriginal,
-          timestamp: agoraIso,
-        }),
+        produto: interesseFinal,
+        quantidade,
+        dataSolicitacao: agoraIso,
       },
-      { merge: true }
+      catalogoProdutos,
+      0,
+      'whatsapp'
     );
+
+    let negocioAbertoRef = null;
+    let negAntigoData = null;
+
+    if (negocioId) {
+      const negSnap = await db.collection('negocios').doc(negocioId).get();
+      if (negSnap.exists) {
+        const negData = negSnap.data();
+        const statusAtual = String(negData.status || negData.etapa || '').toLowerCase();
+        if (!statusAtual.includes('ganh') && !statusAtual.includes('perd')) {
+          negocioAbertoRef = negSnap.ref;
+          negAntigoData = negData;
+        }
+      }
+    }
+
+    if (negocioAbertoRef && negAntigoData) {
+      const pedidosAtuais = Array.isArray(negAntigoData.pedidos)
+        ? negAntigoData.pedidos.map((p, idx) =>
+            normalizarItemComCatalogo(p, catalogoProdutos, idx, 'whatsapp')
+          )
+        : [];
+      const pedidosAtualizados = [...pedidosAtuais, itemPedido];
+      const valorTotalAtualizado = pedidosAtualizados.reduce(
+        (acc, p) => acc + toNumeroSeguro(p.subtotal, 0),
+        0
+      );
+      const obsAnteriorStr =
+        typeof negAntigoData.observacoes === 'string' ? negAntigoData.observacoes : '';
+      const novaObsStr = [obsAnteriorStr, `WhatsApp: ${textoOriginal}`]
+        .filter(Boolean)
+        .slice(-3)
+        .join(' | ');
+
+      await negocioAbertoRef.update({
+        titulo: `${itemPedido.nome} - ${nomeFinal}`,
+        observacoes: novaObsStr,
+        pedidos: pedidosAtualizados,
+        produtos: pedidosAtualizados,
+        valor: valorTotalAtualizado,
+        valorTotal: valorTotalAtualizado,
+        atualizadoEm: FieldValue.serverTimestamp(),
+      });
+    } else {
+      const valorInicial = toNumeroSeguro(itemPedido.subtotal, 0);
+      const novoNegocio = await db.collection('negocios').add({
+        empresaId,
+        titulo: `${itemPedido.nome} - ${nomeFinal}`,
+        contatoId,
+        contato: nomeFinal,
+        contatoNome: nomeFinal,
+        telefone: telefoneFinal,
+        status: 'prospeccao',
+        etapa: 'Novo Lead',
+        valor: valorInicial,
+        valorTotal: valorInicial,
+        origem: 'whatsapp',
+        pedidos: [itemPedido],
+        produtos: [itemPedido],
+        observacoes: `Mensagem original: "${textoOriginal}"`,
+        descricao: `Mensagem original: "${textoOriginal}"`,
+        dataCriacao: agora,
+        atualizadoEm: FieldValue.serverTimestamp(),
+      });
+      negocioId = novoNegocio.id;
+
+      await db.collection('solicitacoes_compra').add({
+        empresaId,
+        contatoId,
+        negocioId,
+        contatoNome: nomeFinal,
+        clienteNome: nomeFinal,
+        produto: `${itemPedido.quantidade}x ${itemPedido.nome}`,
+        telefone: telefoneFinal,
+        tipoSolicitacao: 'primeiro_negocio',
+        origem: 'whatsapp',
+        itens: [itemPedido],
+        valorEstimado: valorInicial,
+        lida: false,
+        criadoEm: FieldValue.serverTimestamp(),
+      });
+    }
+  }
 
   return { contatoId, negocioId, nomeFinal, telefoneFinal, interesseFinal };
 }
@@ -253,25 +432,29 @@ async function tentarResponderWhatsApp(para, texto) {
   if (!WHATSAPP_TOKEN || !PHONE_NUMBER_ID || !para || !texto) return;
 
   try {
-    const resp = await fetch(`https://graph.facebook.com/v25.0/${PHONE_NUMBER_ID}/messages`, {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${WHATSAPP_TOKEN}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        messaging_product: 'whatsapp',
-        to: para,
-        type: 'text',
-        text: { body: texto },
-      }),
-    });
+    const resp = await fetch(
+      `https://graph.facebook.com/v25.0/${PHONE_NUMBER_ID}/messages`,
+      {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${WHATSAPP_TOKEN}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          messaging_product: 'whatsapp',
+          to: para,
+          type: 'text',
+          text: { body: texto },
+        }),
+      }
+    );
 
     if (!resp.ok) {
       const erro = await resp.text();
-      console.warn(`⚠️ Envio WhatsApp não entregue (status ${resp.status}) - Lead já salvo no CRM:`, erro);
-    } else {
-      console.log('📤 Resposta enviada no WhatsApp com sucesso');
+      console.warn(
+        `⚠️ Envio WhatsApp não entregue (status ${resp.status}) - Lead já salvo no CRM:`,
+        erro
+      );
     }
   } catch (err) {
     console.warn('⚠️ Falha de rede ao tentar responder WhatsApp:', err.message);
@@ -303,7 +486,9 @@ export default async function handler(req, res) {
       return res.status(200).json({ status: 'ignored_event' });
     }
 
+    const messageId = message.id || '';
     const remetenteWa = message.from;
+    const telefoneNorm = normalizarTelefone(remetenteWa);
     const nomePerfilWa = value?.contacts?.[0]?.profile?.name || '';
     const textoMensagem =
       message.text?.body ||
@@ -315,33 +500,83 @@ export default async function handler(req, res) {
       return res.status(200).json({ status: 'empty_message' });
     }
 
-    console.log(`📩 Mensagem recebida de ${nomePerfilWa} (${remetenteWa}): "${textoMensagem}"`);
+    const sessaoRef = db.collection('whatsapp_sessoes').doc(telefoneNorm);
+    const sessaoSnap = await sessaoRef.get();
+    const sessaoAtual = sessaoSnap.exists ? sessaoSnap.data() : {};
+
+    if (messageId && sessaoAtual.ultimoMessageId === messageId) {
+      return res.status(200).json({ status: 'duplicated_message' });
+    }
 
     const empresaId = DEFAULT_EMPRESA_ID;
+    let contatoExistente = null;
+    const contatoSnap = await db
+      .collection('contatos')
+      .where('empresaId', '==', empresaId)
+      .where('telefone', '==', telefoneNorm)
+      .limit(1)
+      .get();
+
+    if (!contatoSnap.empty) {
+      contatoExistente = { id: contatoSnap.docs[0].id, ...contatoSnap.docs[0].data() };
+    }
+
     const produtos = await buscarProdutosEmpresa(empresaId);
+    const historicoAtual = Array.isArray(sessaoAtual.historico)
+      ? sessaoAtual.historico
+      : [];
 
     const dadosExtraidos = await extrairDadosLead({
       textoMensagem,
       nomePerfilWa,
-      telefoneRemetente: remetenteWa,
+      telefoneRemetente: telefoneNorm,
       produtos,
+      contatoExistente,
+      historico: historicoAtual,
     });
 
-    const resultadoLead = await gerarLeadNoCRM({
+    const resultadoLead = await gerarOuAtualizarLeadNoCRM({
       empresaId,
       dados: dadosExtraidos,
       textoOriginal: textoMensagem,
-      remetenteWa,
+      remetenteWa: telefoneNorm,
+      sessaoAtual,
+      catalogoProdutos: produtos,
     });
 
-    await tentarResponderWhatsApp(remetenteWa, dadosExtraidos.respostaCurta);
+    const respostaFinal = dadosExtraidos.respostaCurta;
+    const agoraIso = new Date().toISOString();
+
+    await sessaoRef.set(
+      {
+        empresaId,
+        ultimoMessageId: messageId,
+        nome: resultadoLead.nomeFinal,
+        telefone: resultadoLead.telefoneFinal,
+        interesse: resultadoLead.interesseFinal || sessaoAtual.interesse || '',
+        contatoId: resultadoLead.contatoId,
+        ultimoNegocioId: resultadoLead.negocioId,
+        provedorUltimaIA: dadosExtraidos.provedorIA || 'groq',
+        atualizadoEm: FieldValue.serverTimestamp(),
+        historico: [
+          ...historicoAtual.slice(-10),
+          { role: 'user', text: textoMensagem, timestamp: agoraIso },
+          ...(respostaFinal
+            ? [{ role: 'assistant', text: respostaFinal, timestamp: agoraIso }]
+            : []),
+        ],
+      },
+      { merge: true }
+    );
+
+    await tentarResponderWhatsApp(remetenteWa, respostaFinal);
 
     return res.status(200).json({
-      status: 'lead_gerado',
+      status: 'processado',
       lead: resultadoLead,
     });
   } catch (error) {
-    console.error('❌ Erro ao processar webhook:', error);
-    return res.status(500).json({ error: error.message });
+    console.error('❌ Erro ao processar webhook WhatsApp:', error);
+    return res.status(200).json({ status: 'erro_tratado', error: error.message });
   }
 }

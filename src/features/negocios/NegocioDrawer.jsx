@@ -19,8 +19,35 @@ export default function NegocioDrawer({ negocio, isOpen, onClose, onEdit }) {
 
     if (!isOpen || !negocio) return null;
 
-    const fmtMoney = (v) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(v || 0);
+    const toNumeroSeguro = (v) => {
+        const n = Number(v);
+        return Number.isFinite(n) ? n : 0;
+    };
+
+    const fmtMoney = (v) =>
+        new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(toNumeroSeguro(v));
     const fmtDate = (d) => d ? new Date(d.seconds * 1000).toLocaleDateString('pt-BR') : '-';
+
+    const itensNormalizados = (Array.isArray(negocio.produtos) && negocio.produtos.length > 0
+        ? negocio.produtos
+        : Array.isArray(negocio.pedidos)
+            ? negocio.pedidos
+            : []
+    ).map((p) => {
+        if (typeof p === 'string') {
+            return { nome: p, tipo: 'Produto', quantidade: 1, preco: 0 };
+        }
+        const qtd = Math.max(1, Math.floor(toNumeroSeguro(p?.quantidade)) || 1);
+        const precoUnit = toNumeroSeguro(p?.subtotal ?? p?.preco ?? p?.valorUnitario ?? p?.precoUnitario);
+        return {
+            nome: p?.nome || p?.produto || 'Produto',
+            tipo: p?.tipo || 'Serviço',
+            quantidade: qtd,
+            preco: precoUnit,
+        };
+    });
+
+    const valorTotalSeguro = toNumeroSeguro(negocio.valor ?? negocio.valorTotal);
 
     const handleEditClick = () => {
         if (onEdit) onEdit(negocio);
@@ -37,7 +64,7 @@ export default function NegocioDrawer({ negocio, isOpen, onClose, onEdit }) {
                             <h3 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-3">Resumo Financeiro</h3>
                             <div className="flex justify-between items-end mb-3">
                                 <span className="text-xs text-slate-500 font-medium">Valor Total</span>
-                                <span className="font-bold text-xl text-slate-900 dark:text-white tracking-tight">{fmtMoney(negocio.valor)}</span>
+                                <span className="font-bold text-xl text-slate-900 dark:text-white tracking-tight">{fmtMoney(valorTotalSeguro)}</span>
                             </div>
                             <div className="flex justify-between items-center pt-3 border-t border-slate-200 dark:border-slate-700/50">
                                 <span className="text-xs text-slate-500 font-medium">Etapa Atual</span>
@@ -55,7 +82,7 @@ export default function NegocioDrawer({ negocio, isOpen, onClose, onEdit }) {
                                     <User size={16} className="text-emerald-700 dark:text-emerald-300" />
                                 </div>
                                 <div>
-                                    <p className="text-sm font-semibold text-slate-900 dark:text-white">{negocio.contato || 'Não informado'}</p>
+                                    <p className="text-sm font-semibold text-slate-900 dark:text-white">{negocio.contato || negocio.contatoNome || 'Não informado'}</p>
                                     <p className="text-[10px] text-slate-500 font-medium uppercase tracking-wide mt-0.5">Cliente Principal</p>
                                 </div>
                             </div>
@@ -78,19 +105,21 @@ export default function NegocioDrawer({ negocio, isOpen, onClose, onEdit }) {
                             </div>
                         </div>
                         {/* Produtos e Serviços (ENRIQUECIDO) */}
-                        {negocio.produtos && negocio.produtos.length > 0 && (
+                        {itensNormalizados.length > 0 && (
                             <div className="space-y-2">
-                                <h3 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Produtos / Serviços ({negocio.produtos.length})</h3>
+                                <h3 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Produtos / Serviços ({itensNormalizados.length})</h3>
                                 <div className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700/50 shadow-sm overflow-hidden">
-                                    {negocio.produtos.map((p, i) => (
-                                        <div key={i} className={`flex justify-between items-center p-3 ${i !== negocio.produtos.length - 1 ? 'border-b border-slate-100 dark:border-slate-700/50' : ''}`}>
+                                    {itensNormalizados.map((p, i) => (
+                                        <div key={i} className={`flex justify-between items-center p-3 ${i !== itensNormalizados.length - 1 ? 'border-b border-slate-100 dark:border-slate-700/50' : ''}`}>
                                             <div className="flex items-center gap-3">
                                                 <div className="p-1.5 bg-emerald-50 dark:bg-emerald-500/15 border border-emerald-200/70 dark:border-emerald-500/25 rounded-md">
                                                     <Package size={14} className="text-emerald-700 dark:text-emerald-300" />
                                                 </div>
                                                 <div>
-                                                    <p className="text-sm font-medium text-slate-900 dark:text-white">{p.nome}</p>
-                                                    <p className="text-[10px] text-slate-500">{p.tipo || 'Serviço'}</p>
+                                                    <p className="text-sm font-medium text-slate-900 dark:text-white">
+                                                        {p.quantidade > 1 ? `${p.quantidade}x ${p.nome}` : p.nome}
+                                                    </p>
+                                                    <p className="text-[10px] text-slate-500">{p.tipo}</p>
                                                 </div>
                                             </div>
                                             <span className="font-semibold text-sm text-slate-900 dark:text-white">{fmtMoney(p.preco)}</span>
@@ -98,7 +127,7 @@ export default function NegocioDrawer({ negocio, isOpen, onClose, onEdit }) {
                                     ))}
                                     <div className="bg-slate-50 dark:bg-slate-800/80 p-3 flex justify-between items-center border-t border-slate-200 dark:border-slate-700/50">
                                         <span className="text-xs font-bold text-slate-500 uppercase">Total</span>
-                                        <span className="font-bold text-base text-emerald-700 dark:text-emerald-400">{fmtMoney(negocio.valor)}</span>
+                                        <span className="font-bold text-base text-emerald-700 dark:text-emerald-400">{fmtMoney(valorTotalSeguro)}</span>
                                     </div>
                                 </div>
                             </div>
@@ -131,17 +160,19 @@ export default function NegocioDrawer({ negocio, isOpen, onClose, onEdit }) {
             case 'produtos':
                 return (
                     <div className="p-5 space-y-3">
-                        {negocio.produtos && negocio.produtos.length > 0 ? (
+                        {itensNormalizados.length > 0 ? (
                             <div className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700/50 shadow-sm overflow-hidden">
-                                {negocio.produtos.map((p, i) => (
-                                    <div key={i} className={`flex justify-between items-center p-3 ${i !== negocio.produtos.length - 1 ? 'border-b border-slate-100 dark:border-slate-700/50' : ''}`}>
+                                {itensNormalizados.map((p, i) => (
+                                    <div key={i} className={`flex justify-between items-center p-3 ${i !== itensNormalizados.length - 1 ? 'border-b border-slate-100 dark:border-slate-700/50' : ''}`}>
                                         <div className="flex items-center gap-3">
                                             <div className="p-1.5 bg-emerald-50 dark:bg-emerald-500/15 border border-emerald-200/70 dark:border-emerald-500/25 rounded-md">
                                                 <Package size={14} className="text-emerald-700 dark:text-emerald-300" />
                                             </div>
                                             <div>
-                                                <p className="text-sm font-medium text-slate-900 dark:text-white">{p.nome}</p>
-                                                <p className="text-[10px] text-slate-500">{p.tipo || 'Serviço'}</p>
+                                                <p className="text-sm font-medium text-slate-900 dark:text-white">
+                                                    {p.quantidade > 1 ? `${p.quantidade}x ${p.nome}` : p.nome}
+                                                </p>
+                                                <p className="text-[10px] text-slate-500">{p.tipo}</p>
                                             </div>
                                         </div>
                                         <span className="font-semibold text-sm text-slate-900 dark:text-white">{fmtMoney(p.preco)}</span>
@@ -149,7 +180,7 @@ export default function NegocioDrawer({ negocio, isOpen, onClose, onEdit }) {
                                 ))}
                                 <div className="bg-slate-50 dark:bg-slate-800/80 p-3 flex justify-between items-center border-t border-slate-200 dark:border-slate-700/50">
                                     <span className="text-xs font-bold text-slate-500 uppercase">Total</span>
-                                    <span className="font-bold text-base text-emerald-700 dark:text-emerald-400">{fmtMoney(negocio.valor)}</span>
+                                    <span className="font-bold text-base text-emerald-700 dark:text-emerald-400">{fmtMoney(valorTotalSeguro)}</span>
                                 </div>
                             </div>
                         ) : (

@@ -85,3 +85,50 @@
   - `[ ]` Commit final e PR atualizada.
 - Observações / Correções:
   - _Preencher durante a execução da Parte 5._
+
+  ## Parte 5 — Suíte Automatizada de Testes (Unitários, Integração, UI e E2E)
+- Status atual: `[ ]` Pendente
+- Arquivos envolvidos: `package.json`, `scripts/test-sistema-completo.mjs`, `tests/unit/sanitizacao.test.js`, `tests/integration/webhooks.test.js`, `tests/ui/NegocioDrawer.test.jsx`, `tests/e2e/fluxo-crm.spec.js`, `firestore.rules`
+- Regras de negócio:
+  - **Camada 1 — Testes Unitários (Regras Puras):** validar funções críticas sem dependência externa (`toNumeroSeguro` evitando `NaN`, formatação `BRL`, normalização de telefone DDI/DDD, filtro para impedir que DDD/telefone vire item de pedido, consolidação/mesclagem de itens e regras de encerramento).
+  - **Camada 2 — Testes de Integração (Webhooks e Firestore Mock):** simular payloads reais do Telegram e WhatsApp validando deduplicação (`update_id` e `message.id`), fallback quando a IA falha/estoura cota (`429`) ou excede o timeout (`6s`), preservação de nome/observações existentes e prevenção de negócios duplicados antes do encerramento total.
+  - **Camada 3 — Testes de Componentes (UI React):** renderizar componentes críticos (`NegocioDrawer`, cards do Kanban e modais de edição de negócio) com dados incompletos, nulos ou mistos garantindo que nunca exibam `R$ NaN` nem quebrem a interface.
+  - **Camada 4 — Testes de Segurança e E2E (Regras e Navegador):** validar isolamento multi-tenant (`empresaId`) nas `firestore.rules` via emulador e executar fluxos ponta a ponta (login, criação/edição de negócio, conferência de notificações e totais).
+- Checklist:
+  - `[ ]` Configurar scripts de execução no `package.json` (`test:unit`, `test:webhooks`, `test:ui`, `test:e2e`, `test:all`).
+  - `[ ]` Implementar testes unitários cobrindo sanitização numérica, normalização de itens e filtros de roteiro.
+  - `[ ]` Implementar testes de integração dos webhooks (deduplicação, timeout/fallback 429, consolidação de pedido e ociosidade).
+  - `[ ]` Implementar testes de componentes React (`NegocioDrawer` e edição de negócio) garantindo ausência de `NaN`.
+  - `[ ]` Configurar testes de `firestore.rules` e fluxo E2E com Playwright para validação antes de deploys.
+  - `[ ]` Testado ponta a ponta, documentado e commitado.
+- Observações / Correções:
+  - _Preencher durante a execução da Parte 5._
+
+---
+
+## Parte 6 — Evolução de Autenticação, Segurança (2FA) e Cadastro em Duas Etapas
+- Status atual: `[ ]` Pendente
+- Arquivos envolvidos: `src/pages/Login.jsx`, `src/pages/Cadastro.jsx`, `src/services/authService.js`, `src/components/layouts/AuthLayout.jsx`, `firestore.rules`
+- Regras de negócio:
+  - **Login corporativo limpo (sem redes sociais):** remover os botões de login social (Google, GitHub e WhatsApp) e o separador "OU", mantendo apenas autenticação via e-mail e senha, recuperação de senha e link discreto para suporte.
+  - **Política de senha forte:** exigir no cadastro (e redefinição) mínimo de 8 caracteres com pelo menos 1 letra maiúscula, 1 letra minúscula, 1 número e 1 caractere especial, exibindo checklist visual em tempo real.
+  - **Verificação em duas etapas (2FA):** após validar e-mail e senha no login, exigir confirmação de segundo fator (código OTP por e-mail ou aplicativo autenticador TOTP) antes de liberar o acesso completo ao `/app`.
+  - **Cadastro em 2 etapas (Wizard):**
+    - **Etapa 1 — Credenciais e Workspace:** manter os campos iniciais (`Nome Completo`, `Nome da Empresa`, `E-mail`, `Senha`, `Confirmar Senha`) com indicador de progresso (`Passo 1 de 2`).
+    - **Etapa 2 — Perfil Fiscal, Contato e Pagamento:**
+      - **Identificação fiscal:** alternância entre **Pessoa Jurídica (`CNPJ` / `MEI`)** e **Pessoa Física (`CPF`)**, com máscara e validação matemática de dígitos.
+      - **Contato e Endereço completo:** `E-mail` (pré-preenchido com opção de alterar para financeiro), `Telefone`, `WhatsApp` (com checkbox "Mesmo do telefone"), `CEP` (com busca automática de endereço), `Logradouro`, `Número`, `Complemento`, `Bairro`, `Cidade` e `UF`.
+      - **Método de Pagamento:** seleção entre **PIX**, **Boleto** ou **Cartão de Crédito**, exibindo campos dinâmicos conforme a escolha (dados de cobrança para Boleto/PIX; campos tokenizados via gateway para Cartão de Crédito, sem persistir número completo ou CVV no Firestore).
+- Checklist:
+  - `[ ]` Remover botões sociais e divisor "OU" em `src/pages/Login.jsx`, mantendo link discreto de suporte.
+  - `[ ]` Implementar validador visual de senha forte (letras maiúsculas/minúsculas, números e caracteres especiais) em `src/pages/Cadastro.jsx`.
+  - `[ ]` Implementar fluxo de Verificação em Duas Etapas (2FA) no login e configuração de segurança.
+  - `[ ]` Refatorar `src/pages/Cadastro.jsx` para fluxo em 2 etapas com indicador de progresso responsivo (mobile e desktop).
+  - `[ ]` Adicionar seleção `CNPJ/MEI` vs. `CPF` com máscaras, validação e consulta de `CEP` na Etapa 2.
+  - `[ ]` Implementar seleção condicional de pagamento (`PIX`, `Boleto`, `Cartão de Crédito`) integrada ao gateway e salvar metadados fiscais/cobranca em `empresas/{empresaId}`.
+  - `[ ]` Atualizar `firestore.rules` para proteger dados fiscais e de assinatura da empresa.
+  - `[ ]` Testado ponta a ponta (desktop e mobile), documentado e commitado.
+- Observações / Correções:
+  - _Preencher durante a execução da Parte 6._
+
+---
