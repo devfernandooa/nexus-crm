@@ -1,3 +1,4 @@
+import { useVersionCheck } from '@/hooks/useVersionCheck';
 import { useState } from 'react';
 import { NavLink } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
@@ -12,6 +13,9 @@ import Modal from '@/components/ui/Modal';
 import toast from 'react-hot-toast';
 import { atualizarPerfilUsuario } from '@/services/usuarioService';
 import NotificacoesLeads from '@/components/NotificacoesLeads';
+
+
+
 
 export default function Sidebar({ onClose }) {
   const { user, dadosUsuario, dadosEmpresa } = useAuth();
@@ -60,6 +64,8 @@ export default function Sidebar({ onClose }) {
       ? 'text-emerald-700 bg-emerald-50/80 dark:text-emerald-300 dark:bg-emerald-500/10'
       : 'text-slate-500 hover:text-slate-900 hover:bg-slate-100/70 hover:translate-x-0.5 dark:text-slate-400 dark:hover:text-white dark:hover:bg-slate-800/50'
     }`;
+
+  const { versaoAtual, novaVersao, aplicarAtualizacao } = useVersionCheck();
 
   return (
     <>
@@ -212,8 +218,18 @@ export default function Sidebar({ onClose }) {
         </div>
         <div className="px-3 py-2.5 border-t border-slate-200/80 dark:border-slate-800/90 bg-slate-50/40 dark:bg-slate-900/30">
           <p className="text-[12px] text-slate-500 dark:text-slate-400 font-medium tracking-wide text-center">
-            Versão 1.0 • Pro
+            Versão {versaoAtual} • Pro
           </p>
+
+          {novaVersao && (
+            <button
+              type="button"
+              onClick={aplicarAtualizacao}
+              className="mt-1.5 w-full text-[11px] font-semibold text-emerald-700 dark:text-emerald-300 bg-emerald-50 hover:bg-emerald-100 dark:bg-emerald-500/15 dark:hover:bg-emerald-500/25 border border-emerald-200/80 dark:border-emerald-500/30 rounded-md py-1 px-2 transition-colors"
+            >
+              Atualizar para v{novaVersao.version}
+            </button>
+          )}
         </div>
       </aside>
 
