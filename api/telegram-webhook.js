@@ -31,6 +31,75 @@ const TIMEOUT_IA_MS = 6000; // 6s máx. aguardando resposta da IA
 
 const normalizarTelefone = (tel = '') => String(tel).replace(/\D/g, '');
 
+function toNumeroSeguro(valor, fallback = 0) {
+  if (typeof valor === 'number') {
+    return Number.isFinite(valor) ? valor : fallback;
+  }
+  if (typeof valor === 'string') {
+    const limpo = valor
+      .replace(/[R$\s]/gi, '')
+      .replace(/\.(?=\d{3}(\D|$))/g, '')
+      .replace(',', '.');
+    const num = Number(limpo);
+    return Number.isFinite(num) ? num : fallback;
+  }
+  return fallback;
+}
+
+function normalizarItemComCatalogo(item, catalogo = [], idx = 0, origem = 'telegram') {
+  const nomeBruto = String(item?.produto || item?.nome || 'Item').trim() || 'Item';
+  const match = catalogo.find(
+    (p) =>
+      p.nome &&
+      (p.nome.toLowerCase() === nomeBruto.toLowerCase() ||
+        nomeBruto.toLowerCase().includes(p.nome.toLowerCase()))
+  );
+
+  const quantidade = Math.max(1, Math.floor(toNumeroSeguro(item?.quantidade, 1)));
+  const precoCatalogo = toNumeroSeguro(match?.preco, 0);
+  const precoItem = toNumeroSeguro(
+    item?.valorUnitario ?? item?.precoUnitario ?? item?.preco,
+    0
+  );
+  const valorUnitario = precoItem > 0 ? precoItem : precoCatalogo;
+  const subtotal = toNumeroSeguro(quantidade * valorUnitario, 0);
+
+  return {
+    id: item?.id || `${origem}_${Date.now()}_${idx}`,
+    produtoId: match?.id || item?.produtoId || null,
+    nome: match?.nome || nomeBruto,
+    produto: match?.nome || nomeBruto,
+    tipo: match?.tipo || item?.tipo || 'Produto',
+    quantidade,
+    valorUnitario,
+    precoUnitario: valorUnitario,
+    preco: valorUnitario,
+    subtotal,
+    origem,
+    dataSolicitacao: item?.dataSolicitacao || new Date().toISOString(),
+  };
+}
+
+async function buscarProdutosEmpresa(db, empresaId) {
+  try {
+    const snap = await db
+      .collection('produtos')
+      .where('empresaId', '==', empresaId)
+      .limit(30)
+      .get();
+
+    return snap.docs.map((doc) => ({
+      id: doc.id,
+      nome: doc.data().nome || '',
+      preco: toNumeroSeguro(doc.data().preco, 0),
+      tipo: doc.data().tipo || 'Produto',
+    }));
+  } catch (err) {
+    console.warn('⚠️ Não foi possível listar produtos no Telegram:', err.message);
+    return [];
+  }
+}
+
 function removerTelefonesDoTexto(texto = '') {
   return String(texto)
     .replace(/\b(?:\+?55\s*)?\(?\d{2}\)?\s*9?\d{4}[-\s]?\d{4}\b/g, ' ')
@@ -121,55 +190,60 @@ async function verificarComprasAnteriores(db, empresaId, contato) {
   });
 }
 
-function mesclarItensPedido(existentes = [], novos = []) {
+function mesclarItensPedido(existentes = [], novos = [], catalogo = []) {
   const mapa = new Map();
 
   for (const item of existentes) {
-    const prod = String(item.produto || '').trim();
-    const qtd = Number(item.quantidade) || 1;
+    const prod = String(item.produto || item.nome || '').trim();
+    const qtd = Math.max(1, Math.floor(toNumeroSeguro(item.quantidade, 1)));
     if (!prod || itemPareceTelefoneOuNumeroSolto(prod, qtd)) continue;
-    mapa.set(prod.toLowerCase(), { ...item, produto: prod, quantidade: qtd });
+    const norm = normalizarItemComCatalogo(item, catalogo, mapa.size, 'telegram');
+    mapa.set(prod.toLowerCase(), norm);
   }
 
   for (const raw of novos) {
-    const nomeProduto = String(raw.produto || '').trim();
-    const quantidade = Number(raw.quantidade) || 1;
+    const nomeProduto = String(raw.produto || raw.nome || '').trim();
+    const quantidade = Math.max(1, Math.floor(toNumeroSeguro(raw.quantidade, 1)));
     if (!nomeProduto || itemPareceTelefoneOuNumeroSolto(nomeProduto, quantidade)) continue;
 
     const chave = nomeProduto.toLowerCase();
-    const valorUnitario = Number(raw.valorUnitario) || 0;
+    const normNovo = normalizarItemComCatalogo(raw, catalogo, mapa.size, 'telegram');
 
     if (mapa.has(chave)) {
       const anterior = mapa.get(chave);
       const qtdFinal = quantidade > 1 ? quantidade : anterior.quantidade;
-      const valFinal = valorUnitario > 0 ? valorUnitario : anterior.valorUnitario;
+      const valFinal =
+        normNovo.valorUnitario > 0 ? normNovo.valorUnitario : anterior.valorUnitario;
+      const subtotalFinal = toNumeroSeguro(qtdFinal * valFinal, 0);
       mapa.set(chave, {
         ...anterior,
-        produto: nomeProduto,
+        nome: normNovo.nome,
+        produto: normNovo.produto,
         quantidade: qtdFinal,
         valorUnitario: valFinal,
-        subtotal: qtdFinal * valFinal,
+        precoUnitario: valFinal,
+        preco: valFinal,
+        subtotal: subtotalFinal,
       });
     } else {
-      mapa.set(chave, {
-        id: `tg_${Date.now()}_${mapa.size}`,
-        produto: nomeProduto,
-        quantidade,
-        valorUnitario,
-        subtotal: quantidade * valorUnitario,
-        origem: 'telegram',
-        dataSolicitacao: new Date().toISOString(),
-      });
+      mapa.set(chave, normNovo);
     }
   }
 
   return Array.from(mapa.values());
 }
 
-async function consolidarEFinalizarPedido(db, sessaoRef, sessaoData, motivo = 'cliente_finalizou') {
-  const itensValidos = (Array.isArray(sessaoData.itensRascunho) ? sessaoData.itensRascunho : []).filter(
-    (p) => !itemPareceTelefoneOuNumeroSolto(p.produto, p.quantidade)
-  );
+async function consolidarEFinalizarPedido(
+  db,
+  sessaoRef,
+  sessaoData,
+  motivo = 'cliente_finalizou',
+  catalogoProdutos = []
+) {
+  const itensValidos = (Array.isArray(sessaoData.itensRascunho) ? sessaoData.itensRascunho : [])
+    .filter((p) => !itemPareceTelefoneOuNumeroSolto(p.produto || p.nome, p.quantidade))
+    .map((p, idx) => normalizarItemComCatalogo(p, catalogoProdutos, idx, 'telegram'));
+
   const observacaoSolicitacao = String(sessaoData.observacaoPedido || '').trim();
 
   if (!sessaoData.contatoId || itensValidos.length === 0) {
@@ -185,11 +259,14 @@ async function consolidarEFinalizarPedido(db, sessaoRef, sessaoData, motivo = 'c
     return null;
   }
 
-  const subtotalNovo = itensValidos.reduce((acc, p) => acc + Number(p.subtotal || 0), 0);
+  const subtotalNovo = itensValidos.reduce(
+    (acc, p) => acc + toNumeroSeguro(p.subtotal, 0),
+    0
+  );
   const tipoNegocio = sessaoData.jaComprouAntes ? 'recompra' : 'primeiro_negocio';
   const nomeContato = sessaoData.nomeContato || sessaoData.nomeTelegram || 'Cliente Telegram';
   const telefoneContato = sessaoData.telefoneContato || '';
-  const resumoProdutos = itensValidos.map((p) => `${p.quantidade}x ${p.produto}`).join(', ');
+  const resumoProdutos = itensValidos.map((p) => `${p.quantidade}x ${p.nome}`).join(', ');
 
   const observacoesCompletas = [
     `Canal: Telegram (${sessaoData.chatId})`,
@@ -226,7 +303,7 @@ async function consolidarEFinalizarPedido(db, sessaoRef, sessaoData, motivo = 'c
     origem: 'telegram',
     observacoes: observacoesCompletas,
     pedidos: itensValidos,
-    produtos: itensValidos.map((p) => p.produto),
+    produtos: itensValidos,
     valor: subtotalNovo,
     valorTotal: subtotalNovo,
     dataCriacao: FieldValue.serverTimestamp(),
@@ -267,7 +344,7 @@ async function consolidarEFinalizarPedido(db, sessaoRef, sessaoData, motivo = 'c
   return { negocioId: negocioRef.id, resumoProdutos };
 }
 
-async function processarSessoesOciosas(db) {
+async function processarSessoesOciosas(db, catalogoProdutos = []) {
   const agora = Date.now();
   const snap = await db
     .collection('sessoes_telegram')
@@ -287,7 +364,8 @@ async function processarSessoesOciosas(db) {
       db,
       docSnap.ref,
       data,
-      'ociosidade_1min'
+      'ociosidade_1min',
+      catalogoProdutos
     );
 
     if (resultado && data.chatId) {
@@ -317,7 +395,7 @@ function fallbackRoteiroHumanizado({ mensagem, contatoExistente, itensAtuais }) 
     String(contatoExistente?.nome || '').trim().split(/\s+/)[0] || '';
 
   const itensExtraidos = (Array.isArray(itensAtuais) ? itensAtuais : []).filter(
-    (i) => !itemPareceTelefoneOuNumeroSolto(i.produto, i.quantidade)
+    (i) => !itemPareceTelefoneOuNumeroSolto(i.produto || i.nome, i.quantidade)
   );
   const temItensEmAberto = itensExtraidos.length > 0;
 
@@ -352,12 +430,12 @@ function fallbackRoteiroHumanizado({ mensagem, contatoExistente, itensAtuais }) 
   );
 
   if (qtdMatch && !ehSaudacao && !encerrarPedido && !perguntaCatalogo && !ehAgradecimento) {
-    const quantidade = Number(qtdMatch[1]) || 1;
+    const quantidade = Math.max(1, Math.floor(toNumeroSeguro(qtdMatch[1], 1)));
     const unidade = qtdMatch[2] ? `${qtdMatch[2]} de ` : '';
     const produtoBase = String(qtdMatch[3] || '').trim().slice(0, 70);
     if (produtoBase && !itemPareceTelefoneOuNumeroSolto(produtoBase, quantidade)) {
       const jaExiste = itensExtraidos.some(
-        (i) => i.produto.toLowerCase() === produtoBase.toLowerCase()
+        (i) => String(i.produto || i.nome || '').toLowerCase() === produtoBase.toLowerCase()
       );
       if (!jaExiste) {
         itensExtraidos.push({
@@ -385,7 +463,7 @@ function fallbackRoteiroHumanizado({ mensagem, contatoExistente, itensAtuais }) 
       .slice(0, 70);
     if (itemLimpo && !itemPareceTelefoneOuNumeroSolto(itemLimpo, 1)) {
       const jaExiste = itensExtraidos.some(
-        (i) => i.produto.toLowerCase() === itemLimpo.toLowerCase()
+        (i) => String(i.produto || i.nome || '').toLowerCase() === itemLimpo.toLowerCase()
       );
       if (!jaExiste) {
         itensExtraidos.push({
@@ -476,7 +554,7 @@ Contexto atual do usuário no CRM:
 - Já é contato/cliente cadastrado? ${contatoExistente ? `SIM (Nome: ${contatoExistente.nome || 'Cliente'}, Tipo: ${contatoExistente.tipo || 'lead'}, Telefone: ${contatoExistente.telefone || 'não informado'})` : 'NÃO (Novo lead)'}
 - Possui compra/negócio anterior? ${jaComprouAntes ? 'SIM' : 'NÃO'}
 - Já houve troca de mensagens nesta conversa? ${jaTeveConversa ? 'SIM (NÃO repita saudação inicial nem diga novamente que localizou o cadastro)' : 'NÃO'}
-- Itens já anotados no rascunho atual: ${itensAtuais.length > 0 ? JSON.stringify(itensAtuais.map((i) => ({ produto: i.produto, quantidade: i.quantidade }))) : 'Nenhum'}
+- Itens já anotados no rascunho atual: ${itensAtuais.length > 0 ? JSON.stringify(itensAtuais.map((i) => ({ produto: i.produto || i.nome, quantidade: i.quantidade }))) : 'Nenhum'}
 
 Regras de roteiro:
 1. Responda exatamente ao que o usuário pediu ou perguntou — nunca trate agradecimento ("obrigado"), saudação ("oi", "boa noite") ou dúvida fora do catálogo como se fosse um novo item de pedido.
@@ -585,9 +663,10 @@ Responda EXCLUSIVAMENTE em JSON válido:
 export default async function handler(req, res) {
   try {
     const db = initFirebaseAdmin();
+    const catalogoProdutos = await buscarProdutosEmpresa(db, EMPRESA_PADRAO);
 
     if (req.method === 'GET' || req.query?.action === 'check-idle') {
-      const encerradas = await processarSessoesOciosas(db);
+      const encerradas = await processarSessoesOciosas(db, catalogoProdutos);
       return res.status(200).json({ ok: true, sessoesEncerradas: encerradas });
     }
 
@@ -603,7 +682,7 @@ export default async function handler(req, res) {
       }
     }
 
-    await processarSessoesOciosas(db);
+    await processarSessoesOciosas(db, catalogoProdutos);
 
     const update = req.body || {};
     const msg = update.message || update.edited_message;
@@ -660,7 +739,7 @@ export default async function handler(req, res) {
       : [];
     const itensRascunhoAtual = (
       Array.isArray(sessaoAtual.itensRascunho) ? sessaoAtual.itensRascunho : []
-    ).filter((i) => !itemPareceTelefoneOuNumeroSolto(i.produto, i.quantidade));
+    ).filter((i) => !itemPareceTelefoneOuNumeroSolto(i.produto || i.nome, i.quantidade));
 
     const iaResult = await interpretarMensagemComIA({
       mensagem: textoUsuario,
@@ -707,7 +786,11 @@ export default async function handler(req, res) {
     }
 
     const novosItens = Array.isArray(iaResult.itensPedido) ? iaResult.itensPedido : [];
-    const itensConsolidados = mesclarItensPedido(itensRascunhoAtual, novosItens);
+    const itensConsolidados = mesclarItensPedido(
+      itensRascunhoAtual,
+      novosItens,
+      catalogoProdutos
+    );
 
     const obsNova = String(iaResult.observacaoSolicitacao || '').trim();
     const obsAnterior = String(sessaoAtual.observacaoPedido || '').trim();
@@ -764,7 +847,8 @@ export default async function handler(req, res) {
         db,
         sessaoRef,
         dadosSessaoAtualizados,
-        'cliente_finalizou'
+        'cliente_finalizou',
+        catalogoProdutos
       );
     }
 

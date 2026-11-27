@@ -44,6 +44,55 @@ const DEFAULT_EMPRESA_ID =
   process.env.DEFAULT_EMPRESA_ID || 'agrotec-produtos-servicos-agropecuarios';
 const TIMEOUT_IA_MS = 6000;
 
+function toNumeroSeguro(valor, fallback = 0) {
+  if (typeof valor === 'number') {
+    return Number.isFinite(valor) ? valor : fallback;
+  }
+  if (typeof valor === 'string') {
+    const limpo = valor
+      .replace(/[R$\s]/gi, '')
+      .replace(/\.(?=\d{3}(\D|$))/g, '')
+      .replace(',', '.');
+    const num = Number(limpo);
+    return Number.isFinite(num) ? num : fallback;
+  }
+  return fallback;
+}
+
+function normalizarItemComCatalogo(item, catalogo = [], idx = 0, origem = 'whatsapp') {
+  const nomeBruto = String(item?.produto || item?.nome || 'Item').trim() || 'Item';
+  const match = catalogo.find(
+    (p) =>
+      p.nome &&
+      (p.nome.toLowerCase() === nomeBruto.toLowerCase() ||
+        nomeBruto.toLowerCase().includes(p.nome.toLowerCase()))
+  );
+
+  const quantidade = Math.max(1, Math.floor(toNumeroSeguro(item?.quantidade, 1)));
+  const precoCatalogo = toNumeroSeguro(match?.preco, 0);
+  const precoItem = toNumeroSeguro(
+    item?.valorUnitario ?? item?.precoUnitario ?? item?.preco,
+    0
+  );
+  const valorUnitario = precoItem > 0 ? precoItem : precoCatalogo;
+  const subtotal = toNumeroSeguro(quantidade * valorUnitario, 0);
+
+  return {
+    id: item?.id || `${origem}_${Date.now()}_${idx}`,
+    produtoId: match?.id || item?.produtoId || null,
+    nome: match?.nome || nomeBruto,
+    produto: match?.nome || nomeBruto,
+    tipo: match?.tipo || item?.tipo || 'Produto',
+    quantidade,
+    valorUnitario,
+    precoUnitario: valorUnitario,
+    preco: valorUnitario,
+    subtotal,
+    origem,
+    dataSolicitacao: item?.dataSolicitacao || new Date().toISOString(),
+  };
+}
+
 function normalizarTelefone(tel) {
   if (!tel) return '';
   const digitos = String(tel).replace(/\D/g, '');
@@ -71,7 +120,8 @@ async function buscarProdutosEmpresa(empresaId) {
     return snap.docs.map((doc) => ({
       id: doc.id,
       nome: doc.data().nome || '',
-      preco: doc.data().preco || 0,
+      preco: toNumeroSeguro(doc.data().preco, 0),
+      tipo: doc.data().tipo || 'Produto',
     }));
   } catch (err) {
     console.warn('⚠️ Não foi possível listar produtos:', err.message);
@@ -208,6 +258,7 @@ async function gerarOuAtualizarLeadNoCRM({
   textoOriginal,
   remetenteWa,
   sessaoAtual,
+  catalogoProdutos,
 }) {
   const agora = Timestamp.now();
   const agoraIso = new Date().toISOString();
@@ -216,7 +267,7 @@ async function gerarOuAtualizarLeadNoCRM({
   const interesseFinal = (dados.interesse || '').trim();
   const emailFinal = (dados.email || '').trim();
   const empresaCliente = (dados.empresa || '').trim();
-  const quantidade = Number(dados.quantidade) || 1;
+  const quantidade = Math.max(1, Math.floor(toNumeroSeguro(dados.quantidade, 1)));
 
   const contatosRef = db.collection('contatos');
   const existenteSnap = await contatosRef
@@ -233,7 +284,6 @@ async function gerarOuAtualizarLeadNoCRM({
     const dadosAntigos = docExistente.data();
     contatoId = docExistente.id;
 
-    // Preserva nome real já cadastrado se o novo vier genérico
     if (
       dadosAntigos.nome &&
       dadosAntigos.nome !== 'Lead WhatsApp' &&
@@ -280,20 +330,21 @@ async function gerarOuAtualizarLeadNoCRM({
 
   let negocioId = sessaoAtual?.ultimoNegocioId || null;
 
-  // Só cria ou atualiza negócio quando há interesse real (ignora "oi", "obrigado", etc.)
   if (interesseFinal && !ehSaudacaoOuAgradecimento(interesseFinal)) {
-    const itemPedido = {
-      id: `wa_${Date.now()}`,
-      produto: interesseFinal,
-      quantidade,
-      valorUnitario: 0,
-      subtotal: 0,
-      origem: 'whatsapp',
-      dataSolicitacao: agoraIso,
-    };
+    const itemPedido = normalizarItemComCatalogo(
+      {
+        produto: interesseFinal,
+        quantidade,
+        dataSolicitacao: agoraIso,
+      },
+      catalogoProdutos,
+      0,
+      'whatsapp'
+    );
 
-    // Verifica se já existe um negócio aberto recente para este contato para consolidar em vez de duplicar
     let negocioAbertoRef = null;
+    let negAntigoData = null;
+
     if (negocioId) {
       const negSnap = await db.collection('negocios').doc(negocioId).get();
       if (negSnap.exists) {
@@ -301,35 +352,54 @@ async function gerarOuAtualizarLeadNoCRM({
         const statusAtual = String(negData.status || negData.etapa || '').toLowerCase();
         if (!statusAtual.includes('ganh') && !statusAtual.includes('perd')) {
           negocioAbertoRef = negSnap.ref;
+          negAntigoData = negData;
         }
       }
     }
 
-    if (negocioAbertoRef) {
+    if (negocioAbertoRef && negAntigoData) {
+      const pedidosAtuais = Array.isArray(negAntigoData.pedidos)
+        ? negAntigoData.pedidos.map((p, idx) =>
+            normalizarItemComCatalogo(p, catalogoProdutos, idx, 'whatsapp')
+          )
+        : [];
+      const pedidosAtualizados = [...pedidosAtuais, itemPedido];
+      const valorTotalAtualizado = pedidosAtualizados.reduce(
+        (acc, p) => acc + toNumeroSeguro(p.subtotal, 0),
+        0
+      );
+      const obsAnteriorStr =
+        typeof negAntigoData.observacoes === 'string' ? negAntigoData.observacoes : '';
+      const novaObsStr = [obsAnteriorStr, `WhatsApp: ${textoOriginal}`]
+        .filter(Boolean)
+        .slice(-3)
+        .join(' | ');
+
       await negocioAbertoRef.update({
-        titulo: `${interesseFinal} - ${nomeFinal}`,
-        observacoes: FieldValue.arrayUnion
-          ? `${interesseFinal} ("${textoOriginal}")`
-          : `WhatsApp: ${textoOriginal}`,
-        pedidos: FieldValue.arrayUnion(itemPedido),
-        produtos: FieldValue.arrayUnion(interesseFinal),
+        titulo: `${itemPedido.nome} - ${nomeFinal}`,
+        observacoes: novaObsStr,
+        pedidos: pedidosAtualizados,
+        produtos: pedidosAtualizados,
+        valor: valorTotalAtualizado,
+        valorTotal: valorTotalAtualizado,
         atualizadoEm: FieldValue.serverTimestamp(),
       });
     } else {
+      const valorInicial = toNumeroSeguro(itemPedido.subtotal, 0);
       const novoNegocio = await db.collection('negocios').add({
         empresaId,
-        titulo: `${interesseFinal} - ${nomeFinal}`,
+        titulo: `${itemPedido.nome} - ${nomeFinal}`,
         contatoId,
         contato: nomeFinal,
         contatoNome: nomeFinal,
         telefone: telefoneFinal,
         status: 'prospeccao',
         etapa: 'Novo Lead',
-        valor: 0,
-        valorTotal: 0,
+        valor: valorInicial,
+        valorTotal: valorInicial,
         origem: 'whatsapp',
         pedidos: [itemPedido],
-        produtos: [interesseFinal],
+        produtos: [itemPedido],
         observacoes: `Mensagem original: "${textoOriginal}"`,
         descricao: `Mensagem original: "${textoOriginal}"`,
         dataCriacao: agora,
@@ -343,12 +413,12 @@ async function gerarOuAtualizarLeadNoCRM({
         negocioId,
         contatoNome: nomeFinal,
         clienteNome: nomeFinal,
-        produto: `${quantidade}x ${interesseFinal}`,
+        produto: `${itemPedido.quantidade}x ${itemPedido.nome}`,
         telefone: telefoneFinal,
         tipoSolicitacao: 'primeiro_negocio',
         origem: 'whatsapp',
         itens: [itemPedido],
-        valorEstimado: 0,
+        valorEstimado: valorInicial,
         lida: false,
         criadoEm: FieldValue.serverTimestamp(),
       });
@@ -430,7 +500,6 @@ export default async function handler(req, res) {
       return res.status(200).json({ status: 'empty_message' });
     }
 
-    // 1. Carrega sessão e deduplica message.id para evitar retries da Meta
     const sessaoRef = db.collection('whatsapp_sessoes').doc(telefoneNorm);
     const sessaoSnap = await sessaoRef.get();
     const sessaoAtual = sessaoSnap.exists ? sessaoSnap.data() : {};
@@ -439,7 +508,6 @@ export default async function handler(req, res) {
       return res.status(200).json({ status: 'duplicated_message' });
     }
 
-    // 2. Busca contato existente para dar contexto à IA
     const empresaId = DEFAULT_EMPRESA_ID;
     let contatoExistente = null;
     const contatoSnap = await db
@@ -473,6 +541,7 @@ export default async function handler(req, res) {
       textoOriginal: textoMensagem,
       remetenteWa: telefoneNorm,
       sessaoAtual,
+      catalogoProdutos: produtos,
     });
 
     const respostaFinal = dadosExtraidos.respostaCurta;
@@ -508,7 +577,6 @@ export default async function handler(req, res) {
     });
   } catch (error) {
     console.error('❌ Erro ao processar webhook WhatsApp:', error);
-    // Retorna 200 para evitar fila de retry em loop da Meta
     return res.status(200).json({ status: 'erro_tratado', error: error.message });
   }
 }
