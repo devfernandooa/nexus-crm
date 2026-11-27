@@ -271,6 +271,68 @@ async function processarSessoesOciosas(db) {
   return encerradas;
 }
 
+// AQUI: fallbackSemIA fica logo acima de interpretarMensagemComIA
+function fallbackSemIA({ mensagem, contatoExistente, itensAtuais }) {
+  const texto = String(mensagem || '').trim();
+  const lower = texto.toLowerCase();
+
+  const encerrarPedido =
+    /^(n[aã]o|n[aã]o,?\s*obrigad[oa]|s[oó]\s*isso|pode\s*fechar|encerrar|nada\s*mais)\b/.test(
+      lower
+    );
+
+  const itensExtraidos = [...(itensAtuais || [])];
+  const qtdMatch = lower.match(
+    /(\d+)\s*(sacos?|kg|quilos?|litros?|un|unidades?)?\s*(?:de\s+)?([a-z0-9\-\s]+)/i
+  );
+
+  if (qtdMatch) {
+    const quantidade = Number(qtdMatch[1]) || 1;
+    const produtoTexto = String(qtdMatch[3] || texto).trim().slice(0, 80);
+    if (
+      produtoTexto &&
+      !itensExtraidos.some((i) => i.produto.toLowerCase() === produtoTexto.toLowerCase())
+    ) {
+      itensExtraidos.push({
+        produto: produtoTexto,
+        quantidade,
+        valorUnitario: 0,
+      });
+    }
+  } else if (
+    !encerrarPedido &&
+    /momba[cç]a|marandu|brachiaria|npk|semente|fertilizante|ra[cç][aã]o|adubo/i.test(lower)
+  ) {
+    if (!itensExtraidos.some((i) => i.produto.toLowerCase() === lower)) {
+      itensExtraidos.push({
+        produto: texto.slice(0, 80),
+        quantidade: 1,
+        valorUnitario: 0,
+      });
+    }
+  }
+
+  let respostaTelegram = '';
+  if (encerrarPedido) {
+    respostaTelegram =
+      'Perfeito! Encaminhei sua solicitação para a equipe comercial da Agrotec. Se precisar de mais alguma coisa, é só chamar!';
+  } else if (contatoExistente) {
+    respostaTelegram = `Recebi sua mensagem (${texto}). Já anotei aqui para a equipe da Agrotec! Se quiser informar mais detalhes ou escrever "encerrar" para concluir, estou por aqui.`;
+  } else {
+    respostaTelegram =
+      'Olá! Bem-vindo à Agrotec. Por favor, me informe seu nome, telefone com DDD e o produto ou serviço que você procura para darmos andamento.';
+  }
+
+  return {
+    respostaTelegram,
+    intencao: encerrarPedido ? 'encerramento' : 'novo_pedido_recompra',
+    encerrarPedido,
+    observacaoSolicitacao: texto,
+    dadosExtraidos: {},
+    itensPedido: itensExtraidos,
+  };
+}
+
 async function interpretarMensagemComIA({
   mensagem,
   historico,
@@ -280,15 +342,7 @@ async function interpretarMensagemComIA({
 }) {
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) {
-    return {
-      respostaTelegram:
-        'Olá! Sou o assistente da Agrotec. Como posso ajudar você hoje no campo?',
-      dadosExtraidos: {},
-      intencao: 'geral',
-      encerrarPedido: false,
-      observacaoSolicitacao: mensagem,
-      itensPedido: [],
-    };
+    return fallbackSemIA({ mensagem, contatoExistente, itensAtuais });
   }
 
   const jaTeveConversa = Array.isArray(historico) && historico.length > 0;
@@ -360,9 +414,11 @@ Responda EXCLUSIVAMENTE em JSON válido:
     }
   );
 
+  // AQUI: em vez de lançar erro (que causava 429/500), cai no fallbackSemIA
   if (!resp.ok) {
     const errText = await resp.text();
-    throw new Error(`Erro na API Gemini: ${errText}`);
+    console.warn('Fallback ativado devido a erro na API Gemini:', resp.status, errText);
+    return fallbackSemIA({ mensagem, contatoExistente, itensAtuais });
   }
 
   const json = await resp.json();
@@ -574,6 +630,6 @@ export default async function handler(req, res) {
     return res.status(200).json({ ok: true });
   } catch (error) {
     console.error('Erro no webhook do Telegram:', error);
-    return res.status(500).json({ ok: false, error: error.message });
+    return res.status(200).json({ ok: false, error: error.message });
   }
 }
