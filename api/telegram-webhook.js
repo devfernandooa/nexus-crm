@@ -26,6 +26,8 @@ function initFirebaseAdmin() {
 const EMPRESA_PADRAO =
   process.env.DEFAULT_EMPRESA_ID || 'agrotec-produtos-servicos-agropecuarios';
 
+const TEMPO_OCIOSIDADE_MS = 60 * 1000; // 1 minuto de ociosidade
+
 const normalizarTelefone = (tel = '') => String(tel).replace(/\D/g, '');
 
 async function enviarMensagemTelegram(chatId, texto) {
@@ -103,11 +105,178 @@ async function verificarComprasAnteriores(db, empresaId, contato) {
   });
 }
 
+function mesclarItensPedido(existentes = [], novos = []) {
+  const mapa = new Map();
+
+  for (const item of existentes) {
+    const chave = String(item.produto || '').trim().toLowerCase();
+    if (!chave) continue;
+    mapa.set(chave, { ...item });
+  }
+
+  for (const raw of novos) {
+    const nomeProduto = String(raw.produto || '').trim();
+    if (!nomeProduto) continue;
+    const chave = nomeProduto.toLowerCase();
+    const quantidade = Number(raw.quantidade) || 1;
+    const valorUnitario = Number(raw.valorUnitario) || 0;
+
+    if (mapa.has(chave)) {
+      const anterior = mapa.get(chave);
+      const qtdFinal = quantidade > 1 ? quantidade : anterior.quantidade;
+      const valFinal = valorUnitario > 0 ? valorUnitario : anterior.valorUnitario;
+      mapa.set(chave, {
+        ...anterior,
+        produto: nomeProduto,
+        quantidade: qtdFinal,
+        valorUnitario: valFinal,
+        subtotal: qtdFinal * valFinal,
+      });
+    } else {
+      mapa.set(chave, {
+        id: `tg_${Date.now()}_${mapa.size}`,
+        produto: nomeProduto,
+        quantidade,
+        valorUnitario,
+        subtotal: quantidade * valorUnitario,
+        origem: 'telegram',
+        dataSolicitacao: new Date().toISOString(),
+      });
+    }
+  }
+
+  return Array.from(mapa.values());
+}
+
+async function consolidarEFinalizarPedido(db, sessaoRef, sessaoData, motivo = 'cliente_finalizou') {
+  const itens = Array.isArray(sessaoData.itensRascunho) ? sessaoData.itensRascunho : [];
+  const observacaoSolicitacao = String(sessaoData.observacaoPedido || '').trim();
+
+  if (!sessaoData.contatoId || (itens.length === 0 && !observacaoSolicitacao)) {
+    await sessaoRef.set(
+      {
+        aguardandoResposta: false,
+        itensRascunho: [],
+        observacaoPedido: '',
+        atualizadoEm: FieldValue.serverTimestamp(),
+      },
+      { merge: true }
+    );
+    return null;
+  }
+
+  const subtotalNovo = itens.reduce((acc, p) => acc + Number(p.subtotal || 0), 0);
+  const tipoNegocio = sessaoData.jaComprouAntes ? 'recompra' : 'primeiro_negocio';
+  const nomeContato = sessaoData.nomeContato || sessaoData.nomeTelegram || 'Cliente Telegram';
+  const telefoneContato = sessaoData.telefoneContato || '';
+  const resumoProdutos =
+    itens.length > 0
+      ? itens.map((p) => `${p.quantidade}x ${p.produto}`).join(', ')
+      : observacaoSolicitacao;
+
+  const observacoesCompletas = [
+    `Canal: Telegram (${sessaoData.chatId})`,
+    resumoProdutos ? `Itens solicitados: ${resumoProdutos}` : '',
+    observacaoSolicitacao ? `Observação do cliente: ${observacaoSolicitacao}` : '',
+    motivo === 'ociosidade_1min' ? 'Encerrado automaticamente após 1 min sem resposta.' : '',
+  ]
+    .filter(Boolean)
+    .join(' | ');
+
+  const negocioRef = await db.collection('negocios').add({
+    empresaId: sessaoData.empresaId || EMPRESA_PADRAO,
+    contatoId: sessaoData.contatoId,
+    contato: nomeContato,
+    contatoNome: nomeContato,
+    telefone: telefoneContato,
+    titulo: `${tipoNegocio === 'recompra' ? 'Recompra' : 'Pedido'} Telegram - ${nomeContato}`,
+    tipoNegocio,
+    status: 'prospeccao',
+    origem: 'telegram',
+    observacoes: observacoesCompletas,
+    pedidos: itens,
+    produtos: itens.map((p) => p.produto),
+    valor: subtotalNovo,
+    valorTotal: subtotalNovo,
+    dataCriacao: FieldValue.serverTimestamp(),
+    atualizadoEm: FieldValue.serverTimestamp(),
+  });
+
+  await db.collection('solicitacoes_compra').add({
+    empresaId: sessaoData.empresaId || EMPRESA_PADRAO,
+    contatoId: sessaoData.contatoId,
+    negocioId: negocioRef.id,
+    contatoNome: nomeContato,
+    clienteNome: nomeContato,
+    produto: resumoProdutos || 'Solicitação via Telegram',
+    observacoes: observacoesCompletas,
+    telefone: telefoneContato,
+    tipoSolicitacao: tipoNegocio,
+    origem: 'telegram',
+    telegramChatId: sessaoData.chatId,
+    itens,
+    valorEstimado: subtotalNovo,
+    lida: false,
+    criadoEm: FieldValue.serverTimestamp(),
+  });
+
+  await sessaoRef.set(
+    {
+      aguardandoResposta: false,
+      itensRascunho: [],
+      observacaoPedido: '',
+      ultimoNegocioId: negocioRef.id,
+      finalizadoEm: FieldValue.serverTimestamp(),
+      atualizadoEm: FieldValue.serverTimestamp(),
+    },
+    { merge: true }
+  );
+
+  return { negocioId: negocioRef.id, resumoProdutos };
+}
+
+async function processarSessoesOciosas(db) {
+  const agora = Date.now();
+  const snap = await db
+    .collection('sessoes_telegram')
+    .where('aguardandoResposta', '==', true)
+    .get();
+
+  let encerradas = 0;
+
+  for (const docSnap of snap.docs) {
+    const data = docSnap.data();
+    const ultimaInteracaoMs = Number(data.ultimaInteracaoMs || 0);
+    if (!ultimaInteracaoMs || agora - ultimaInteracaoMs < TEMPO_OCIOSIDADE_MS) {
+      continue;
+    }
+
+    const resultado = await consolidarEFinalizarPedido(
+      db,
+      docSnap.ref,
+      data,
+      'ociosidade_1min'
+    );
+
+    if (resultado && data.chatId) {
+      await enviarMensagemTelegram(
+        data.chatId,
+        `Como ficamos 1 minutinho sem resposta, já registrei sua solicitação (${resultado.resumoProdutos}) para nossa equipe comercial da Agrotec dar andamento. Se precisar de mais algo, é só chamar por aqui!`
+      );
+    }
+
+    encerradas += 1;
+  }
+
+  return encerradas;
+}
+
 async function interpretarMensagemComIA({
   mensagem,
   historico,
   contatoExistente,
   jaComprouAntes,
+  itensAtuais,
 }) {
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) {
@@ -116,6 +285,8 @@ async function interpretarMensagemComIA({
         'Olá! Sou o assistente da Agrotec. Como posso ajudar você hoje no campo?',
       dadosExtraidos: {},
       intencao: 'geral',
+      encerrarPedido: false,
+      observacaoSolicitacao: mensagem,
       itensPedido: [],
     };
   }
@@ -124,25 +295,29 @@ async function interpretarMensagemComIA({
 
   const systemPrompt = `
 Você é o assistente virtual da Agrotec (produtos e serviços agropecuários: sementes, fertilizantes, nutrição animal, defensivos/adjuvantes, irrigação, análise de solo e assistência técnica).
-Responda sempre em português do Brasil, de forma cordial, objetiva e natural, sem parecer robô.
+Responda sempre em português do Brasil, de forma cordial, objetiva e natural, sem repetir perguntas já respondidas.
 
 Contexto atual do usuário no CRM:
 - Já é contato/cliente cadastrado? ${contatoExistente ? `SIM (Nome: ${contatoExistente.nome || 'Cliente'}, Tipo: ${contatoExistente.tipo || 'lead'}, Telefone: ${contatoExistente.telefone || 'não informado'})` : 'NÃO (Novo lead)'}
 - Possui compra/negócio anterior? ${jaComprouAntes ? 'SIM' : 'NÃO'}
-- Já houve troca de mensagens nesta conversa? ${jaTeveConversa ? 'SIM (NÃO repita a saudação inicial nem diga novamente que localizou o cadastro)' : 'NÃO'}
+- Já houve troca de mensagens nesta conversa? ${jaTeveConversa ? 'SIM (PROIBIDO repetir saudação inicial ou dizer novamente que localizou o cadastro)' : 'NÃO'}
+- Itens já anotados no rascunho atual: ${itensAtuais.length > 0 ? JSON.stringify(itensAtuais.map((i) => ({ produto: i.produto, quantidade: i.quantidade }))) : 'Nenhum'}
 
 Regras de atendimento:
 1. Se NÃO é contato cadastrado:
-   - Colete de forma leve e natural: **Nome**, **Telefone** (com DDD) e **Interesse** (produto ou serviço agropecuário desejado).
-   - Não peça os 3 de uma vez de forma dura; acolha e pergunte o que estiver faltando.
+   - Colete de forma leve: Nome, Telefone (com DDD) e Interesse.
 2. Se JÁ é contato cadastrado:
-   - Apenas na PRIMEIRA mensagem da conversa (quando não houve troca anterior), cumprimente pelo nome e informe que localizou o cadastro na Agrotec. Nas mensagens seguintes, vá direto ao ponto sem repetir apresentação.
-   - Se o usuário pedir um produto/serviço, informar variedade (ex.: Mombaça, Marandu) ou quantidade (ex.: 10 sacos de fertilizante NPK 04-14-08), preencha "itensPedido" com cada item identificado (produto, quantidade, valorUnitario estimado ou 0) e use intencao "novo_pedido_recompra", confirmando o registro do pedido/cotação de forma direta.
+   - Apenas na PRIMEIRA mensagem da conversa, cumprimente pelo nome e informe que localizou o cadastro. Nas seguintes, vá direto ao ponto.
+   - Se o cliente informar produto, variedade ou quantidade, atualize/retorne os itens em "itensPedido" (mantendo os itens já anotados + novos), preencha "observacaoSolicitacao" com um resumo claro do que o cliente pediu (incluindo observações como área em hectares, variedade ou dúvida técnica) e pergunte de forma curta se deseja acrescentar mais algo ou se já pode encaminhar o pedido.
+   - NÃO fique insistindo repetidamente se o cliente não souber a quantidade exata de um item: anote o item mesmo assim (quantidade 1) e registre o detalhe em "observacaoSolicitacao".
+   - Se o cliente disser que não quer mais nada (ex.: "não", "não, obrigado", "só isso", "pode fechar", "encerrar"), defina "encerrarPedido": true e faça uma despedida cordial confirmando o encaminhamento do pedido.
 
-Responda EXCLUSIVAMENTE em JSON válido com este formato:
+Responda EXCLUSIVAMENTE em JSON válido:
 {
   "respostaTelegram": "texto para enviar ao usuário no Telegram",
-  "intencao": "coleta_lead" | "suporte" | "novo_pedido_recompra" | "geral",
+  "intencao": "coleta_lead" | "suporte" | "novo_pedido_recompra" | "encerramento" | "geral",
+  "encerrarPedido": false,
+  "observacaoSolicitacao": "resumo objetivo do pedido ou observação do cliente",
   "dadosExtraidos": {
     "nome": "string ou vazio",
     "telefone": "string ou vazio",
@@ -178,7 +353,7 @@ Responda EXCLUSIVAMENTE em JSON válido com este formato:
         systemInstruction: { parts: [{ text: systemPrompt }] },
         contents,
         generationConfig: {
-          temperature: 0.3,
+          temperature: 0.25,
           responseMimeType: 'application/json',
         },
       }),
@@ -191,8 +366,7 @@ Responda EXCLUSIVAMENTE em JSON válido com este formato:
   }
 
   const json = await resp.json();
-  const rawText =
-    json?.candidates?.[0]?.content?.parts?.[0]?.text || '{}';
+  const rawText = json?.candidates?.[0]?.content?.parts?.[0]?.text || '{}';
 
   try {
     return JSON.parse(rawText);
@@ -200,6 +374,8 @@ Responda EXCLUSIVAMENTE em JSON válido com este formato:
     return {
       respostaTelegram: rawText,
       intencao: 'geral',
+      encerrarPedido: false,
+      observacaoSolicitacao: mensagem,
       dadosExtraidos: {},
       itensPedido: [],
     };
@@ -207,20 +383,30 @@ Responda EXCLUSIVAMENTE em JSON válido com este formato:
 }
 
 export default async function handler(req, res) {
-  if (req.method !== 'POST') {
-    return res.status(405).json({ ok: false, error: 'Method not allowed' });
-  }
-
-  const secretEsperado = process.env.TELEGRAM_WEBHOOK_SECRET;
-  if (secretEsperado) {
-    const secretRecebido = req.headers['x-telegram-bot-api-secret-token'];
-    if (secretRecebido !== secretEsperado) {
-      return res.status(401).json({ ok: false, error: 'Unauthorized webhook' });
-    }
-  }
-
   try {
     const db = initFirebaseAdmin();
+
+    // Endpoint para checar sessões ociosas há >= 1 minuto (pode ser chamado via Cron ou polling do painel)
+    if (req.method === 'GET' || req.query?.action === 'check-idle') {
+      const encerradas = await processarSessoesOciosas(db);
+      return res.status(200).json({ ok: true, sessoesEncerradas: encerradas });
+    }
+
+    if (req.method !== 'POST') {
+      return res.status(405).json({ ok: false, error: 'Method not allowed' });
+    }
+
+    const secretEsperado = process.env.TELEGRAM_WEBHOOK_SECRET;
+    if (secretEsperado) {
+      const secretRecebido = req.headers['x-telegram-bot-api-secret-token'];
+      if (secretRecebido !== secretEsperado) {
+        return res.status(401).json({ ok: false, error: 'Unauthorized webhook' });
+      }
+    }
+
+    // Aproveita cada chamada para encerrar sessões de outros chats ociosos há > 1 minuto
+    await processarSessoesOciosas(db);
+
     const update = req.body || {};
     const msg = update.message || update.edited_message;
 
@@ -229,6 +415,7 @@ export default async function handler(req, res) {
     }
 
     const chatId = String(msg.chat.id);
+    const updateId = Number(update.update_id || 0);
     const textoUsuario = String(msg.text).trim();
     const nomeTelegram =
       [msg.from?.first_name, msg.from?.last_name].filter(Boolean).join(' ') ||
@@ -237,6 +424,11 @@ export default async function handler(req, res) {
     const sessaoRef = db.collection('sessoes_telegram').doc(chatId);
     const sessaoSnap = await sessaoRef.get();
     const sessaoAtual = sessaoSnap.exists ? sessaoSnap.data() : {};
+
+    // Deduplicação: ignora retry repetido do Telegram para o mesmo update_id
+    if (updateId && Number(sessaoAtual.ultimoUpdateId || 0) >= updateId) {
+      return res.status(200).json({ ok: true, duplicated: true });
+    }
 
     const rascunhoLead = {
       nome: sessaoAtual.rascunhoLead?.nome || '',
@@ -269,12 +461,16 @@ export default async function handler(req, res) {
     const historicoAtual = Array.isArray(sessaoAtual.historico)
       ? sessaoAtual.historico
       : [];
+    const itensRascunhoAtual = Array.isArray(sessaoAtual.itensRascunho)
+      ? sessaoAtual.itensRascunho
+      : [];
 
     const iaResult = await interpretarMensagemComIA({
       mensagem: textoUsuario,
       historico: historicoAtual,
       contatoExistente: contato,
       jaComprouAntes,
+      itensAtuais: itensRascunhoAtual,
     });
 
     const extraidos = iaResult.dadosExtraidos || {};
@@ -306,25 +502,6 @@ export default async function handler(req, res) {
         telefone: rascunhoLead.telefone,
         tipo: 'lead',
       };
-
-      await db.collection('negocios').add({
-        empresaId: EMPRESA_PADRAO,
-        contatoId: contatoIdFinal,
-        contato: rascunhoLead.nome,
-        contatoNome: rascunhoLead.nome,
-        telefone: rascunhoLead.telefone,
-        titulo: `${rascunhoLead.interesse} - ${rascunhoLead.nome}`,
-        tipoNegocio: 'primeiro_negocio',
-        status: 'prospeccao',
-        origem: 'telegram',
-        observacoes: `Interesse via Telegram: ${rascunhoLead.interesse}`,
-        pedidos: [],
-        produtos: [],
-        valor: 0,
-        valorTotal: 0,
-        dataCriacao: FieldValue.serverTimestamp(),
-        atualizadoEm: FieldValue.serverTimestamp(),
-      });
     } else if (contato && !contato.telegramChatId) {
       await db.collection('contatos').doc(contato.id).update({
         telegramChatId: chatId,
@@ -332,69 +509,16 @@ export default async function handler(req, res) {
       });
     }
 
-    const itensPedido = Array.isArray(iaResult.itensPedido) ? iaResult.itensPedido : [];
-    if (contatoIdFinal && itensPedido.length > 0) {
-      const pedidosFormatados = itensPedido.map((item, idx) => {
-        const quantidade = Number(item.quantidade) || 1;
-        const valorUnitario = Number(item.valorUnitario) || 0;
-        const nomeProduto = String(item.produto || 'Item Agro').trim() || 'Item Agro';
-        return {
-          id: `tg_${Date.now()}_${idx}`,
-          produto: nomeProduto,
-          quantidade,
-          valorUnitario,
-          subtotal: quantidade * valorUnitario,
-          origem: 'telegram',
-          dataSolicitacao: new Date().toISOString(),
-        };
-      });
+    // Acumula itens e observação no rascunho da sessão sem gerar múltiplos negócios
+    const novosItens = Array.isArray(iaResult.itensPedido) ? iaResult.itensPedido : [];
+    const itensConsolidados = mesclarItensPedido(itensRascunhoAtual, novosItens);
 
-      const subtotalNovo = pedidosFormatados.reduce(
-        (acc, p) => acc + Number(p.subtotal || 0),
-        0
-      );
-      const tipoNegocio = jaComprouAntes ? 'recompra' : 'primeiro_negocio';
-      const nomeContato = contato?.nome || rascunhoLead.nome || nomeTelegram;
-      const resumoProdutos = pedidosFormatados
-        .map((p) => `${p.quantidade}x ${p.produto}`)
-        .join(', ');
-
-      const negocioRef = await db.collection('negocios').add({
-        empresaId: EMPRESA_PADRAO,
-        contatoId: contatoIdFinal,
-        contato: nomeContato,
-        contatoNome: nomeContato,
-        telefone: contato?.telefone || rascunhoLead.telefone || '',
-        titulo: `${tipoNegocio === 'recompra' ? 'Recompra' : 'Pedido'} Telegram - ${nomeContato}`,
-        tipoNegocio,
-        status: 'prospeccao',
-        origem: 'telegram',
-        observacoes: `Solicitado via Telegram (${chatId})`,
-        pedidos: pedidosFormatados,
-        produtos: pedidosFormatados.map((p) => p.produto),
-        valor: subtotalNovo,
-        valorTotal: subtotalNovo,
-        dataCriacao: FieldValue.serverTimestamp(),
-        atualizadoEm: FieldValue.serverTimestamp(),
-      });
-
-      await db.collection('solicitacoes_compra').add({
-        empresaId: EMPRESA_PADRAO,
-        contatoId: contatoIdFinal,
-        negocioId: negocioRef.id,
-        contatoNome: nomeContato,
-        clienteNome: nomeContato,
-        produto: resumoProdutos,
-        telefone: contato?.telefone || rascunhoLead.telefone || '',
-        tipoSolicitacao: tipoNegocio,
-        origem: 'telegram',
-        telegramChatId: chatId,
-        itens: pedidosFormatados,
-        valorEstimado: subtotalNovo,
-        lida: false,
-        criadoEm: FieldValue.serverTimestamp(),
-      });
-    }
+    const obsNova = String(iaResult.observacaoSolicitacao || '').trim();
+    const obsAnterior = String(sessaoAtual.observacaoPedido || '').trim();
+    const observacaoConsolidada =
+      obsNova && obsNova !== obsAnterior
+        ? [obsAnterior, obsNova].filter(Boolean).join(' ; ')
+        : obsAnterior || obsNova;
 
     const respostaFinal =
       iaResult.respostaTelegram ||
@@ -406,20 +530,44 @@ export default async function handler(req, res) {
       { role: 'assistant', texto: respostaFinal },
     ].slice(-12);
 
-    await sessaoRef.set(
-      {
-        empresaId: EMPRESA_PADRAO,
-        chatId,
-        nomeTelegram,
-        contatoId: contatoIdFinal,
-        tipoContato: contato?.tipo || (contatoIdFinal ? 'lead' : 'desconhecido'),
-        rascunhoLead,
-        ultimaIntencao: iaResult.intencao || 'geral',
-        historico: novoHistorico,
-        atualizadoEm: FieldValue.serverTimestamp(),
-      },
-      { merge: true }
-    );
+    const dadosSessaoAtualizados = {
+      empresaId: EMPRESA_PADRAO,
+      chatId,
+      ultimoUpdateId: updateId || sessaoAtual.ultimoUpdateId || 0,
+      nomeTelegram,
+      nomeContato: contato?.nome || rascunhoLead.nome || nomeTelegram,
+      telefoneContato: contato?.telefone || rascunhoLead.telefone || '',
+      contatoId: contatoIdFinal,
+      jaComprouAntes,
+      tipoContato: contato?.tipo || (contatoIdFinal ? 'lead' : 'desconhecido'),
+      rascunhoLead,
+      itensRascunho: itensConsolidados,
+      observacaoPedido: observacaoConsolidada,
+      ultimaIntencao: iaResult.intencao || 'geral',
+      aguardandoResposta: itensConsolidados.length > 0 || Boolean(observacaoConsolidada),
+      ultimaInteracaoMs: Date.now(),
+      historico: novoHistorico,
+      atualizadoEm: FieldValue.serverTimestamp(),
+    };
+
+    await sessaoRef.set(dadosSessaoAtualizados, { merge: true });
+
+    // Só grava 1 único negócio + notificação quando o cliente encerrar o pedido
+    const textoLower = textoUsuario.toLowerCase();
+    const clienteEncerrou =
+      Boolean(iaResult.encerrarPedido) ||
+      /^(n[aã]o|n[aã]o,?\s*obrigad[oa]|s[oó]\s*isso|pode\s*fechar|encerrar|nada\s*mais)\b/.test(
+        textoLower
+      );
+
+    if (clienteEncerrou && (itensConsolidados.length > 0 || observacaoConsolidada)) {
+      await consolidarEFinalizarPedido(
+        db,
+        sessaoRef,
+        dadosSessaoAtualizados,
+        'cliente_finalizou'
+      );
+    }
 
     await enviarMensagemTelegram(chatId, respostaFinal);
 
