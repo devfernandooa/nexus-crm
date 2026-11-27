@@ -1,72 +1,151 @@
+import {
+  collection,
+  doc,
+  updateDoc,
+  deleteDoc,
+  addDoc,
+  getDocs,
+  onSnapshot,
+  query,
+  where,
+  serverTimestamp,
+} from 'firebase/firestore';
 import { db } from '@/firebase-config';
-import { doc, updateDoc, deleteDoc } from 'firebase/firestore';
 
-import { collection, query, where, onSnapshot, addDoc } from 'firebase/firestore';
+const EMPRESA_PADRAO =
+  import.meta.env.VITE_DEFAULT_EMPRESA_ID ||
+  'agrotec-produtos-servicos-agropecuarios';
 
-export function escutarContatos(empresaId, setContatos) {
-  try {
-    // 1. Aponta para a coleção 'contatos'
-    const contatosRef = collection(db, 'contatos');
-    
-    // 2. Cria a query filtrando pelo ID da empresa (Multi-tenant)
-    const q = query(contatosRef, where('empresaId', '==', empresaId));
-
-    // 3. Escuta em tempo real
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      const lista = snapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      }));
-      setContatos(lista);
-    });
-
-    return unsubscribe;
-  } catch (error) {
-    console.error("Erro ao buscar contatos:", error);
-    return () => {};
-  }
+export function escutarContatos(empresaId, callback) {
+  const alvo = empresaId || EMPRESA_PADRAO;
+  const q = query(collection(db, 'contatos'), where('empresaId', '==', alvo));
+  return onSnapshot(q, (snapshot) => {
+    const lista = snapshot.docs.map((d) => ({ id: d.id, ...d.data() }));
+    callback(lista);
+  });
 }
 
-
-export async function adicionarContato(dadosContato, empresaId) {
+export async function adicionarContato(dados, empresaId) {
   try {
-    const contatosRef = collection(db, 'contatos');
-    
-    // Adiciona o documento incluindo o empresaId para o isolamento Multi-tenant
-    const docRef = await addDoc(contatosRef, {
-      ...dadosContato,
-      empresaId: empresaId,
-      dataCriacao: new Date(),
+    const alvo = empresaId || EMPRESA_PADRAO;
+    const docRef = await addDoc(collection(db, 'contatos'), {
+      ...dados,
+      empresaId: alvo,
+      criadoEm: serverTimestamp(),
+      atualizadoEm: serverTimestamp(),
     });
-    
     return { sucesso: true, id: docRef.id };
-  } catch (error) {
-    console.error("Erro ao adicionar contato:", error);
-    return { sucesso: false, erro: error.message };
+  } catch (erro) {
+    console.error('Erro ao criar contato:', erro);
+    return { sucesso: false, erro: erro.message || 'Erro ao criar contato.' };
   }
 }
 
-// Editar contato
-export async function atualizarContato(id, dadosContato) {
+export async function atualizarContato(id, dados) {
   try {
-    const contatoRef = doc(db, 'contatos', id);
-    await updateDoc(contatoRef, dadosContato);
+    if (!id) {
+      return { sucesso: false, erro: 'ID do contato inválido.' };
+    }
+    await updateDoc(doc(db, 'contatos', id), {
+      ...dados,
+      atualizadoEm: serverTimestamp(),
+    });
     return { sucesso: true };
-  } catch (error) {
-    console.error("Erro ao atualizar contato:", error);
-    return { sucesso: false, erro: error.message };
+  } catch (erro) {
+    console.error('Erro ao atualizar contato:', erro);
+    return { sucesso: false, erro: erro.message || 'Erro ao atualizar contato.' };
   }
 }
 
 export async function deletarContato(id) {
   try {
-    const contatoRef = doc(db, 'contatos', id);
-    await deleteDoc(contatoRef);
+    if (!id) {
+      return { sucesso: false, erro: 'ID do contato inválido.' };
+    }
+    await deleteDoc(doc(db, 'contatos', id));
     return { sucesso: true };
-  } catch (error) {
-    console.error("Erro ao deletar contato:", error);
-    return { sucesso: false, erro: error.message };
+  } catch (erro) {
+    console.error('Erro ao excluir contato:', erro);
+    return { sucesso: false, erro: erro.message || 'Erro ao excluir contato.' };
   }
 }
 
-// Próximas etapas: Funcções adicionar, editar e deletar
+export async function assumirAtendimentoContato(contato, usuario) {
+  try {
+    if (!contato?.id) {
+      return { sucesso: false, erro: 'Contato inválido.' };
+    }
+
+    const vendedorId = usuario?.uid || usuario?.id;
+    if (!vendedorId) {
+      return { sucesso: false, erro: 'Usuário vendedor não identificado.' };
+    }
+
+    const empresaId = contato.empresaId || usuario.empresaId || EMPRESA_PADRAO;
+    const vendedorNome =
+      usuario.nome || usuario.displayName || usuario.email || 'Vendedor';
+
+    await updateDoc(doc(db, 'contatos', contato.id), {
+      status: 'Em Atendimento',
+      tipo: contato.tipo || 'lead',
+      vendedorResponsavelId: vendedorId,
+      vendedorResponsavelNome: vendedorNome,
+      atendimentoIniciadoEm: serverTimestamp(),
+      atualizadoEm: serverTimestamp(),
+    });
+
+    let negocioIdExistente = null;
+    if (empresaId) {
+      const qNegocios = query(
+        collection(db, 'negocios'),
+        where('empresaId', '==', empresaId),
+        where('contatoId', '==', contato.id)
+      );
+      const snapNegocios = await getDocs(qNegocios);
+      const aberto = snapNegocios.docs.find((d) => {
+        const st = String(d.data()?.status || '').toLowerCase();
+        return (
+          st === 'aberto' ||
+          st === 'em_andamento' ||
+          st === 'em andamento'
+        );
+      });
+      if (aberto) {
+        negocioIdExistente = aberto.id;
+      }
+    }
+
+    if (!negocioIdExistente && empresaId) {
+      const novoNegocio = await addDoc(collection(db, 'negocios'), {
+        empresaId,
+        contatoId: contato.id,
+        contatoNome: contato.nome || 'Lead',
+        contatoTelefone: contato.telefone || '',
+        contatoEmail: contato.email || '',
+        titulo: `Atendimento — ${contato.nome || 'Lead'}`,
+        tipoNegocio: 'primeiro_negocio',
+        etapaFunil: 'prospeccao',
+        status: 'aberto',
+        responsavelId: vendedorId,
+        responsavelNome: vendedorNome,
+        vendedorId,
+        vendedorNome,
+        observacoes: contato.observacoes || '',
+        pedidos: [],
+        valor: 0,
+        valorTotal: 0,
+        criadoEm: serverTimestamp(),
+        atualizadoEm: serverTimestamp(),
+      });
+      negocioIdExistente = novoNegocio.id;
+    }
+
+    return { sucesso: true, negocioId: negocioIdExistente };
+  } catch (erro) {
+    console.error('Erro ao assumir atendimento:', erro);
+    return {
+      sucesso: false,
+      erro: erro.message || 'Falha ao assumir atendimento.',
+    };
+  }
+}

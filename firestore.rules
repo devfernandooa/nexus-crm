@@ -77,23 +77,50 @@ service cloud.firestore {
       );
     }
 
-    // NEGÓCIOS
-    match /negocios/{docId} {
-      // 1. Leitura: SuperAdmin, Admin e Leitor veem da empresa; Vendedor vê apenas os que é responsável
+    // SOLICITAÇÕES DE COMPRA / RECOMPRA (Alertas do Telegram / WhatsApp)
+    match /solicitacoes_compra/{docId} {
       allow read: if isSuperAdmin() || (
         isAuthenticated() &&
-        getEmpresaId() == resource.data.empresaId && (
-          getRole() in ['admin', 'leitor'] ||
-          (getRole() == 'vendedor' && resource.data.responsavelId == request.auth.uid)
-        )
+        getEmpresaId() == resource.data.empresaId &&
+        getRole() in ['admin', 'vendedor', 'leitor']
+      );
+      allow create: if isSuperAdmin() || (
+        isAuthenticated() &&
+        getEmpresaId() == request.resource.data.empresaId &&
+        getRole() in ['admin', 'vendedor']
+      );
+      allow update: if isSuperAdmin() || (
+        isAuthenticated() &&
+        getEmpresaId() == resource.data.empresaId &&
+        getRole() in ['admin', 'vendedor']
+      );
+      allow delete: if isSuperAdmin() || (
+        isAuthenticated() &&
+        getEmpresaId() == resource.data.empresaId &&
+        getRole() == 'admin'
+      );
+    }
+
+    // NEGÓCIOS
+    match /negocios/{docId} {
+      // 1. Leitura: equipe autenticada da mesma empresa (permite checar negócios abertos ao assumir lead)
+      allow read: if isSuperAdmin() || (
+        isAuthenticated() &&
+        getEmpresaId() == resource.data.empresaId &&
+        getRole() in ['admin', 'vendedor', 'leitor']
       );
 
-      // 2. Criação: Admin cria para a empresa; Vendedor cria atribuindo a si mesmo
+      // 2. Criação: Admin cria para a empresa; Vendedor cria atribuindo a si mesmo (responsavelId ou vendedorId)
       allow create: if isSuperAdmin() || (
         isAuthenticated() &&
         getEmpresaId() == request.resource.data.empresaId && (
           getRole() == 'admin' ||
-          (getRole() == 'vendedor' && request.resource.data.responsavelId == request.auth.uid)
+          (
+            getRole() == 'vendedor' && (
+              request.resource.data.responsavelId == request.auth.uid ||
+              request.resource.data.vendedorId == request.auth.uid
+            )
+          )
         )
       );
 
@@ -105,8 +132,8 @@ service cloud.firestore {
           getRole() == 'admin' ||
           (
             getRole() == 'vendedor' &&
-            resource.data.responsavelId == request.auth.uid &&
-            request.resource.data.responsavelId == request.auth.uid
+            (resource.data.responsavelId == request.auth.uid || resource.data.vendedorId == request.auth.uid) &&
+            (request.resource.data.responsavelId == request.auth.uid || request.resource.data.vendedorId == request.auth.uid)
           )
         )
       );
@@ -116,7 +143,10 @@ service cloud.firestore {
         isAuthenticated() &&
         getEmpresaId() == resource.data.empresaId && (
           getRole() == 'admin' ||
-          (getRole() == 'vendedor' && resource.data.responsavelId == request.auth.uid)
+          (
+            getRole() == 'vendedor' &&
+            (resource.data.responsavelId == request.auth.uid || resource.data.vendedorId == request.auth.uid)
+          )
         )
       );
     }

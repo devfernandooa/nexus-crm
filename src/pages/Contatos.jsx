@@ -1,7 +1,13 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
-import { escutarContatos, adicionarContato, atualizarContato, deletarContato } from '@/services/contatoService';
+import {
+  escutarContatos,
+  adicionarContato,
+  atualizarContato,
+  deletarContato,
+  assumirAtendimentoContato,
+} from '@/services/contatoService';
 import Modal from '@/components/ui/Modal';
 import ConfirmModal from '@/components/ui/ConfirmModal';
 import PageHeader from '@/components/ui/PageHeader';
@@ -10,6 +16,7 @@ import {
   Plus,
   Search,
   Users,
+  UserCheck,
   Pencil,
   Trash2,
   X,
@@ -114,6 +121,11 @@ function obterVisualStatusContato(contato) {
 export default function Contatos() {
   const { dadosUsuario } = useAuth();
   const [searchParams] = useSearchParams();
+  const ehAdmin = ['admin', 'administrador'].includes(
+    String(dadosUsuario?.role || dadosUsuario?.cargo || dadosUsuario?.perfil || '')
+      .trim()
+      .toLowerCase()
+  );
 
   const [contatos, setContatos] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -137,6 +149,19 @@ export default function Contatos() {
   const [observacoes, setObservacoes] = useState('');
   const [status, setStatus] = useState('Novo');
   const [salvando, setSalvando] = useState(false);
+  const [assumindoId, setAssumindoId] = useState(null);
+
+  async function handleAssumirAtendimento(contato) {
+    if (!contato?.id || assumindoId) return;
+    setAssumindoId(contato.id);
+    const resultado = await assumirAtendimentoContato(contato, dadosUsuario);
+    if (resultado.sucesso) {
+      toast.success(`Atendimento de ${contato.nome} assumido!`);
+    } else {
+      toast.error(resultado.erro || 'Não foi possível assumir o atendimento.');
+    }
+    setAssumindoId(null);
+  }
 
   // Atualiza o filtro se o usuário mudar a URL pela Sidebar
   useEffect(() => {
@@ -317,11 +342,10 @@ export default function Contatos() {
           <button
             type="button"
             onClick={() => setFiltro('todos')}
-            className={`flex-1 md:flex-none px-3.5 py-1.5 rounded-lg text-xs sm:text-sm font-semibold transition-all inline-flex items-center justify-center gap-1.5 ${
-              filtro === 'todos'
-                ? 'bg-emerald-50 text-emerald-700 border border-emerald-200/80 dark:bg-emerald-500/15 dark:text-emerald-300 dark:border-emerald-500/30 shadow-2xs'
-                : 'border border-transparent !text-slate-600 dark:!text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-50 dark:hover:bg-slate-800/60'
-            }`}
+            className={`flex-1 md:flex-none px-3.5 py-1.5 rounded-lg text-xs sm:text-sm font-semibold transition-all inline-flex items-center justify-center gap-1.5 ${filtro === 'todos'
+              ? 'bg-emerald-50 text-emerald-700 border border-emerald-200/80 dark:bg-emerald-500/15 dark:text-emerald-300 dark:border-emerald-500/30 shadow-2xs'
+              : 'border border-transparent !text-slate-600 dark:!text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-50 dark:hover:bg-slate-800/60'
+              }`}
           >
             <span>Todos</span>
             <span className="text-[11px] opacity-75 tabular-nums">({contadores.todos})</span>
@@ -330,11 +354,10 @@ export default function Contatos() {
           <button
             type="button"
             onClick={() => setFiltro('leads')}
-            className={`flex-1 md:flex-none px-3.5 py-1.5 rounded-lg text-xs sm:text-sm font-semibold transition-all inline-flex items-center justify-center gap-1.5 ${
-              filtro === 'leads'
-                ? 'bg-emerald-50 text-emerald-700 border border-emerald-200/80 dark:bg-emerald-500/15 dark:text-emerald-300 dark:border-emerald-500/30 shadow-2xs'
-                : 'border border-transparent !text-slate-600 dark:!text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-50 dark:hover:bg-slate-800/60'
-            }`}
+            className={`flex-1 md:flex-none px-3.5 py-1.5 rounded-lg text-xs sm:text-sm font-semibold transition-all inline-flex items-center justify-center gap-1.5 ${filtro === 'leads'
+              ? 'bg-emerald-50 text-emerald-700 border border-emerald-200/80 dark:bg-emerald-500/15 dark:text-emerald-300 dark:border-emerald-500/30 shadow-2xs'
+              : 'border border-transparent !text-slate-600 dark:!text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-50 dark:hover:bg-slate-800/60'
+              }`}
           >
             <span>Leads</span>
             <span className="text-[11px] opacity-75 tabular-nums">({contadores.leads})</span>
@@ -343,11 +366,10 @@ export default function Contatos() {
           <button
             type="button"
             onClick={() => setFiltro('clientes')}
-            className={`flex-1 md:flex-none px-3.5 py-1.5 rounded-lg text-xs sm:text-sm font-semibold transition-all inline-flex items-center justify-center gap-1.5 ${
-              filtro === 'clientes'
-                ? 'bg-emerald-50 text-emerald-700 border border-emerald-200/80 dark:bg-emerald-500/15 dark:text-emerald-300 dark:border-emerald-500/30 shadow-2xs'
-                : 'border border-transparent !text-slate-600 dark:!text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-50 dark:hover:bg-slate-800/60'
-            }`}
+            className={`flex-1 md:flex-none px-3.5 py-1.5 rounded-lg text-xs sm:text-sm font-semibold transition-all inline-flex items-center justify-center gap-1.5 ${filtro === 'clientes'
+              ? 'bg-emerald-50 text-emerald-700 border border-emerald-200/80 dark:bg-emerald-500/15 dark:text-emerald-300 dark:border-emerald-500/30 shadow-2xs'
+              : 'border border-transparent !text-slate-600 dark:!text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-50 dark:hover:bg-slate-800/60'
+              }`}
           >
             <span>Clientes</span>
             <span className="text-[11px] opacity-75 tabular-nums">({contadores.clientes})</span>
@@ -441,6 +463,12 @@ export default function Contatos() {
                 <tbody className="divide-y divide-slate-100 dark:divide-slate-800/80">
                   {contatosPaginados.map((contato) => {
                     const visual = obterVisualStatusContato(contato);
+                    const statusAtual = String(contato.status || '').trim().toLowerCase();
+                    const podeAssumir =
+                      !visual.ehCliente &&
+                      statusAtual !== 'em atendimento' &&
+                      statusAtual !== 'em_atendimento';
+
                     return (
                       <tr
                         key={contato.id}
@@ -473,6 +501,12 @@ export default function Contatos() {
                               <p className="text-xs !text-slate-500 dark:!text-slate-400 truncate">
                                 {contato.cargo || 'Sem cargo'}
                               </p>
+
+                              {ehAdmin && contato.vendedorResponsavelNome && (
+                                <p className="text-[11px] font-medium text-emerald-700 dark:text-emerald-400 truncate mt-0.5">
+                                  Resp.: {contato.vendedorResponsavelNome}
+                                </p>
+                              )}
                             </div>
                           </div>
                         </td>
@@ -512,6 +546,19 @@ export default function Contatos() {
 
                         <td className="px-5 py-3 text-right">
                           <div className="inline-flex items-center justify-end gap-1">
+                            {podeAssumir && (
+                              <button
+                                type="button"
+                                disabled={assumindoId === contato.id}
+                                onClick={() => handleAssumirAtendimento(contato)}
+                                title="Assumir atendimento deste lead"
+                                className="inline-flex items-center gap-1 px-2.5 py-1 text-[11px] font-semibold rounded-lg bg-emerald-50 text-emerald-700 border border-emerald-200/80 hover:bg-emerald-100 dark:bg-emerald-500/15 dark:text-emerald-300 dark:border-emerald-500/30 dark:hover:bg-emerald-500/25 disabled:opacity-50 transition-colors"
+                              >
+                                <UserCheck size={13} />
+                                {assumindoId === contato.id ? 'Assumindo...' : 'Assumir'}
+                              </button>
+                            )}
+
                             <button
                               type="button"
                               onClick={() => handleEditar(contato)}
@@ -520,6 +567,7 @@ export default function Contatos() {
                             >
                               <Pencil size={15} />
                             </button>
+
                             <button
                               type="button"
                               onClick={() => handleDeletar(contato.id)}
@@ -541,6 +589,12 @@ export default function Contatos() {
             <div className="md:hidden flex flex-col divide-y divide-slate-100 dark:divide-slate-800/80">
               {contatosPaginados.map((contato) => {
                 const visual = obterVisualStatusContato(contato);
+                const statusAtual = String(contato.status || '').trim().toLowerCase();
+                const podeAssumir =
+                  !visual.ehCliente &&
+                  statusAtual !== 'em atendimento' &&
+                  statusAtual !== 'em_atendimento';
+
                 return (
                   <div key={contato.id} className="p-4 flex flex-col gap-2">
                     <div className="flex justify-between items-start gap-2">
@@ -574,6 +628,11 @@ export default function Contatos() {
                               {contato.empresa || 'Sem empresa'}
                             </span>
                           </p>
+                          {ehAdmin && contato.vendedorResponsavelNome && (
+                            <p className="text-[11px] font-medium text-emerald-700 dark:text-emerald-400 truncate mt-0.5">
+                              Resp.: {contato.vendedorResponsavelNome}
+                            </p>
+                          )}
                         </div>
                       </div>
 
@@ -599,20 +658,33 @@ export default function Contatos() {
                       )}
                     </div>
 
-                    <div className="flex gap-2.5 mt-1 pt-2.5 border-t border-slate-100 dark:border-slate-800">
+                    <div className="flex items-center gap-2 mt-1 pt-2.5 border-t border-slate-100 dark:border-slate-800">
+                      {podeAssumir && (
+                        <button
+                          type="button"
+                          disabled={assumindoId === contato.id}
+                          onClick={() => handleAssumirAtendimento(contato)}
+                          className="flex items-center justify-center gap-1.5 px-2.5 py-1.5 text-xs text-emerald-700 dark:text-emerald-300 font-semibold bg-emerald-50 dark:bg-emerald-500/15 border border-emerald-200/70 dark:border-emerald-500/25 hover:bg-emerald-100/80 dark:hover:bg-emerald-500/25 rounded-lg flex-1 whitespace-nowrap disabled:opacity-50 transition-colors"
+                        >
+                          <UserCheck size={13} className="shrink-0" />
+                          <span>{assumindoId === contato.id ? 'Assumindo...' : 'Assumir'}</span>
+                        </button>
+                      )}
                       <button
                         type="button"
                         onClick={() => handleEditar(contato)}
-                        className="flex items-center justify-center gap-1.5 px-3 py-1.5 text-xs text-emerald-700 dark:text-emerald-300 font-semibold bg-emerald-50 dark:bg-emerald-500/15 border border-emerald-200/70 dark:border-emerald-500/25 rounded-lg w-1/2 transition-colors"
+                        className="flex items-center justify-center gap-1.5 px-2.5 py-1.5 text-xs text-slate-700 dark:text-slate-200 font-semibold bg-slate-50 dark:bg-slate-800/70 border border-slate-200/80 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg flex-1 whitespace-nowrap transition-colors"
                       >
-                        <Pencil size={13} /> Editar
+                        <Pencil size={13} className="shrink-0" />
+                        <span>Editar</span>
                       </button>
                       <button
                         type="button"
                         onClick={() => handleDeletar(contato.id)}
-                        className="flex items-center justify-center gap-1.5 px-3 py-1.5 text-xs text-red-700 dark:text-red-300 font-semibold bg-red-50 dark:bg-red-500/15 border border-red-200/70 dark:border-red-500/25 rounded-lg w-1/2 transition-colors"
+                        className="flex items-center justify-center gap-1.5 px-2.5 py-1.5 text-xs text-red-700 dark:text-red-300 font-semibold bg-red-50 dark:bg-red-500/15 border border-red-200/70 dark:border-red-500/25 hover:bg-red-100/80 dark:hover:bg-red-500/25 rounded-lg flex-1 whitespace-nowrap transition-colors"
                       >
-                        <Trash2 size={13} /> Excluir
+                        <Trash2 size={13} className="shrink-0" />
+                        <span>Excluir</span>
                       </button>
                     </div>
                   </div>
@@ -645,11 +717,10 @@ export default function Contatos() {
                       key={numPag}
                       type="button"
                       onClick={() => setPaginaAtual(numPag)}
-                      className={`min-w-[30px] h-[30px] px-2 text-xs font-semibold rounded-lg border transition-colors tabular-nums ${
-                        numPag === paginaSegura
-                          ? 'bg-emerald-600 text-white border-emerald-600 dark:bg-emerald-500 dark:text-slate-950 dark:border-emerald-500'
-                          : 'bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800'
-                      }`}
+                      className={`min-w-[30px] h-[30px] px-2 text-xs font-semibold rounded-lg border transition-colors tabular-nums ${numPag === paginaSegura
+                        ? 'bg-emerald-600 text-white border-emerald-600 dark:bg-emerald-500 dark:text-slate-950 dark:border-emerald-500'
+                        : 'bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800'
+                        }`}
                     >
                       {numPag}
                     </button>
