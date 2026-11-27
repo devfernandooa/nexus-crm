@@ -178,10 +178,25 @@ async function consolidarEFinalizarPedido(db, sessaoRef, sessaoData, motivo = 'c
     `Canal: Telegram (${sessaoData.chatId})`,
     resumoProdutos ? `Itens solicitados: ${resumoProdutos}` : '',
     observacaoSolicitacao ? `Observação do cliente: ${observacaoSolicitacao}` : '',
-    motivo === 'ociosidade_1min' ? 'Encerrado automaticamente após 1 min sem resposta.' : '',
+    motivo === 'ociosidade_1min' ? 'Encerrado após 1 min de ociosidade.' : 'Encerrado pelo cliente.',
   ]
     .filter(Boolean)
     .join(' | ');
+
+  // Evita duplicar exatamente a mesma solicitação recém-criada
+  const assinaturaAtual = `${sessaoData.contatoId}|${resumoProdutos}|${observacaoSolicitacao}`;
+  if (sessaoData.ultimaAssinaturaFinalizada === assinaturaAtual) {
+    await sessaoRef.set(
+      {
+        aguardandoResposta: false,
+        itensRascunho: [],
+        observacaoPedido: '',
+        atualizadoEm: FieldValue.serverTimestamp(),
+      },
+      { merge: true }
+    );
+    return null;
+  }
 
   const negocioRef = await db.collection('negocios').add({
     empresaId: sessaoData.empresaId || EMPRESA_PADRAO,
@@ -225,6 +240,7 @@ async function consolidarEFinalizarPedido(db, sessaoRef, sessaoData, motivo = 'c
       aguardandoResposta: false,
       itensRascunho: [],
       observacaoPedido: '',
+      ultimaAssinaturaFinalizada: assinaturaAtual,
       ultimoNegocioId: negocioRef.id,
       finalizadoEm: FieldValue.serverTimestamp(),
       atualizadoEm: FieldValue.serverTimestamp(),
@@ -261,7 +277,7 @@ async function processarSessoesOciosas(db) {
     if (resultado && data.chatId) {
       await enviarMensagemTelegram(
         data.chatId,
-        `Como ficamos 1 minutinho sem resposta, já registrei sua solicitação (${resultado.resumoProdutos}) para nossa equipe comercial da Agrotec dar andamento. Se precisar de mais algo, é só chamar por aqui!`
+        `Como não recebi novas mensagens por aqui, já fechei e enviei sua solicitação (${resultado.resumoProdutos}) para o time comercial da Agrotec. Se lembrar de mais algum item depois, é só mandar um oi!`
       );
     }
 
@@ -271,63 +287,119 @@ async function processarSessoesOciosas(db) {
   return encerradas;
 }
 
-// AQUI: fallbackSemIA fica logo acima de interpretarMensagemComIA
-function fallbackSemIA({ mensagem, contatoExistente, itensAtuais }) {
+function fallbackHumanizado({ mensagem, contatoExistente, itensAtuais }) {
   const texto = String(mensagem || '').trim();
   const lower = texto.toLowerCase();
+  const primeiroNome =
+    String(contatoExistente?.nome || '').trim().split(/\s+/)[0] || '';
 
   const encerrarPedido =
-    /^(n[aã]o|n[aã]o,?\s*obrigad[oa]|s[oó]\s*isso|pode\s*fechar|encerrar|nada\s*mais)\b/.test(
+    /^(n[aã]o|n[aã]o,?\s*obrigad[oa]|s[oó]\s*isso|pode\s*fechar|encerrar|finalizar|nada\s*mais)\b/.test(
+      lower
+    );
+
+  const ehSaudacao =
+    /^(oi+|ol[aá]+|bom\s*dia|boa\s*tarde|boa\s*noite|e\s*a[ií]|tudo\s*bem)\b/.test(
+      lower
+    );
+
+  const querAdicionar =
+    /adicionar|acrescentar|incluir|mais\s+um|outro\s+produto|novo\s+item/.test(
       lower
     );
 
   const itensExtraidos = [...(itensAtuais || [])];
+  let novoItemAdicionado = '';
+  let novaObservacao = '';
+
   const qtdMatch = lower.match(
     /(\d+)\s*(sacos?|kg|quilos?|litros?|un|unidades?)?\s*(?:de\s+)?([a-z0-9\-\s]+)/i
   );
 
-  if (qtdMatch) {
+  if (qtdMatch && !ehSaudacao && !encerrarPedido) {
     const quantidade = Number(qtdMatch[1]) || 1;
-    const produtoTexto = String(qtdMatch[3] || texto).trim().slice(0, 80);
-    if (
-      produtoTexto &&
-      !itensExtraidos.some((i) => i.produto.toLowerCase() === produtoTexto.toLowerCase())
-    ) {
-      itensExtraidos.push({
-        produto: produtoTexto,
-        quantidade,
-        valorUnitario: 0,
-      });
+    const unidade = qtdMatch[2] ? `${qtdMatch[2]} de ` : '';
+    const produtoBase = String(qtdMatch[3] || texto).trim().slice(0, 70);
+    if (produtoBase) {
+      const jaExiste = itensExtraidos.some(
+        (i) => i.produto.toLowerCase() === produtoBase.toLowerCase()
+      );
+      if (!jaExiste) {
+        itensExtraidos.push({
+          produto: produtoBase,
+          quantidade,
+          valorUnitario: 0,
+        });
+      }
+      novoItemAdicionado = `${quantidade} ${unidade}${produtoBase}`.trim();
+      novaObservacao = texto;
     }
   } else if (
     !encerrarPedido &&
-    /momba[cç]a|marandu|brachiaria|npk|semente|fertilizante|ra[cç][aã]o|adubo/i.test(lower)
+    !ehSaudacao &&
+    !querAdicionar &&
+    /momba[cç]a|marandu|brachiaria|npk|semente|fertilizante|ra[cç][aã]o|adubo|biobac|defensivo|irrig/i.test(
+      lower
+    )
   ) {
-    if (!itensExtraidos.some((i) => i.produto.toLowerCase() === lower)) {
+    const itemLimpo = texto
+      .replace(/^(adiciona(r)?\s*(o\s+produto|produto|item)?\s*)/i, '')
+      .trim()
+      .slice(0, 70);
+    if (
+      itemLimpo &&
+      !itensExtraidos.some((i) => i.produto.toLowerCase() === itemLimpo.toLowerCase())
+    ) {
       itensExtraidos.push({
-        produto: texto.slice(0, 80),
+        produto: itemLimpo,
         quantidade: 1,
         valorUnitario: 0,
       });
     }
+    novoItemAdicionado = itemLimpo;
+    novaObservacao = texto;
+  } else if (!encerrarPedido && !ehSaudacao && itensExtraidos.length > 0) {
+    novaObservacao = texto;
   }
 
   let respostaTelegram = '';
+
   if (encerrarPedido) {
+    respostaTelegram = primeiroNome
+      ? `Fechado, ${primeiroNome}! Já encaminho tudo para a equipe da Agrotec dar sequência. Qualquer coisa que precisar no campo, estou por aqui.`
+      : 'Fechado! Já encaminho tudo para a equipe da Agrotec dar sequência. Se precisar de mais alguma coisa, é só chamar.';
+  } else if (ehSaudacao) {
+    if (contatoExistente) {
+      respostaTelegram = primeiroNome
+        ? `Oi, ${primeiroNome}! Tudo bem por aí? Como posso te ajudar hoje — quer fazer um novo pedido, cotar algum insumo ou falar com nossa equipe?`
+        : 'Oi! Tudo bem por aí? Como posso te ajudar hoje com sementes, fertilizantes, nutrição animal ou assistência técnica?';
+    } else {
+      respostaTelegram =
+        'Olá! Tudo bem? Sou o assistente da Agrotec. Como posso te ajudar hoje no campo? Se quiser, já me diga seu nome, telefone com DDD e o que você procura.';
+    }
+  } else if (querAdicionar && !novoItemAdicionado) {
     respostaTelegram =
-      'Perfeito! Encaminhei sua solicitação para a equipe comercial da Agrotec. Se precisar de mais alguma coisa, é só chamar!';
+      'Claro! Qual produto, variedade ou quantidade você quer adicionar ao pedido?';
+  } else if (novoItemAdicionado) {
+    respostaTelegram = `Perfeito, já anotei ${novoItemAdicionado}. Vai querer incluir mais algum produto ou algum detalhe na observação? Se já estiver tudo certo, é só me avisar para encerrar.`;
   } else if (contatoExistente) {
-    respostaTelegram = `Recebi sua mensagem (${texto}). Já anotei aqui para a equipe da Agrotec! Se quiser informar mais detalhes ou escrever "encerrar" para concluir, estou por aqui.`;
+    respostaTelegram = primeiroNome
+      ? `Entendi, ${primeiroNome}. Anotei essa observação por aqui! Quer acrescentar mais algum item ou já podemos encerrar o pedido?`
+      : 'Entendi! Anotei esse detalhe por aqui. Quer acrescentar mais algum item ou já podemos encerrar o pedido?';
   } else {
     respostaTelegram =
-      'Olá! Bem-vindo à Agrotec. Por favor, me informe seu nome, telefone com DDD e o produto ou serviço que você procura para darmos andamento.';
+      'Certo! Para eu deixar tudo organizado para você, me informe seu nome, telefone com DDD e qual produto ou serviço da Agrotec você precisa.';
   }
 
   return {
     respostaTelegram,
-    intencao: encerrarPedido ? 'encerramento' : 'novo_pedido_recompra',
+    intencao: encerrarPedido
+      ? 'encerramento'
+      : novoItemAdicionado || querAdicionar
+        ? 'novo_pedido_recompra'
+        : 'geral',
     encerrarPedido,
-    observacaoSolicitacao: texto,
+    observacaoSolicitacao: novaObservacao,
     dadosExtraidos: {},
     itensPedido: itensExtraidos,
   };
@@ -342,29 +414,29 @@ async function interpretarMensagemComIA({
 }) {
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) {
-    return fallbackSemIA({ mensagem, contatoExistente, itensAtuais });
+    return fallbackHumanizado({ mensagem, contatoExistente, itensAtuais });
   }
 
   const jaTeveConversa = Array.isArray(historico) && historico.length > 0;
 
   const systemPrompt = `
-Você é o assistente virtual da Agrotec (produtos e serviços agropecuários: sementes, fertilizantes, nutrição animal, defensivos/adjuvantes, irrigação, análise de solo e assistência técnica).
-Responda sempre em português do Brasil, de forma cordial, objetiva e natural, sem repetir perguntas já respondidas.
+Você é o atendente virtual da Agrotec (produtos e serviços agropecuários: sementes, fertilizantes, nutrição animal, defensivos/adjuvantes, irrigação, análise de solo e assistência técnica).
+Fale em português do Brasil de forma humana, natural, acolhedora e direta — como um bom consultor agropecuário no chat, nunca robótico ou repetitivo.
 
 Contexto atual do usuário no CRM:
 - Já é contato/cliente cadastrado? ${contatoExistente ? `SIM (Nome: ${contatoExistente.nome || 'Cliente'}, Tipo: ${contatoExistente.tipo || 'lead'}, Telefone: ${contatoExistente.telefone || 'não informado'})` : 'NÃO (Novo lead)'}
 - Possui compra/negócio anterior? ${jaComprouAntes ? 'SIM' : 'NÃO'}
-- Já houve troca de mensagens nesta conversa? ${jaTeveConversa ? 'SIM (PROIBIDO repetir saudação inicial ou dizer novamente que localizou o cadastro)' : 'NÃO'}
+- Já houve troca de mensagens nesta conversa? ${jaTeveConversa ? 'SIM (NÃO repita saudação inicial nem diga novamente que localizou o cadastro)' : 'NÃO'}
 - Itens já anotados no rascunho atual: ${itensAtuais.length > 0 ? JSON.stringify(itensAtuais.map((i) => ({ produto: i.produto, quantidade: i.quantidade }))) : 'Nenhum'}
 
 Regras de atendimento:
 1. Se NÃO é contato cadastrado:
-   - Colete de forma leve: Nome, Telefone (com DDD) e Interesse.
+   - Colete de forma leve e natural: Nome, Telefone (com DDD) e Interesse.
 2. Se JÁ é contato cadastrado:
-   - Apenas na PRIMEIRA mensagem da conversa, cumprimente pelo nome e informe que localizou o cadastro. Nas seguintes, vá direto ao ponto.
-   - Se o cliente informar produto, variedade ou quantidade, atualize/retorne os itens em "itensPedido" (mantendo os itens já anotados + novos), preencha "observacaoSolicitacao" com um resumo claro do que o cliente pediu (incluindo observações como área em hectares, variedade ou dúvida técnica) e pergunte de forma curta se deseja acrescentar mais algo ou se já pode encaminhar o pedido.
-   - NÃO fique insistindo repetidamente se o cliente não souber a quantidade exata de um item: anote o item mesmo assim (quantidade 1) e registre o detalhe em "observacaoSolicitacao".
-   - Se o cliente disser que não quer mais nada (ex.: "não", "não, obrigado", "só isso", "pode fechar", "encerrar"), defina "encerrarPedido": true e faça uma despedida cordial confirmando o encaminhamento do pedido.
+   - Cumprimente pelo primeiro nome apenas na primeira mensagem da conversa. Nas seguintes, responda de forma natural e fluida sem repetir apresentações.
+   - Quando o cliente mencionar produto, variedade, quantidade ou quiser adicionar itens, atualize "itensPedido" com os itens acumulados e registre detalhes relevantes em "observacaoSolicitacao", perguntando de forma leve se deseja adicionar algo mais ou encerrar.
+   - Não gere encerramento em saudações simples ("oi", "olá", "boa noite").
+   - Quando o cliente encerrar ("não", "não, obrigado", "só isso", "pode fechar", "encerrar", "finalizar"), defina "encerrarPedido": true e despeça-se de forma cordial.
 
 Responda EXCLUSIVAMENTE em JSON válido:
 {
@@ -407,18 +479,17 @@ Responda EXCLUSIVAMENTE em JSON válido:
         systemInstruction: { parts: [{ text: systemPrompt }] },
         contents,
         generationConfig: {
-          temperature: 0.25,
+          temperature: 0.35,
           responseMimeType: 'application/json',
         },
       }),
     }
   );
 
-  // AQUI: em vez de lançar erro (que causava 429/500), cai no fallbackSemIA
   if (!resp.ok) {
     const errText = await resp.text();
-    console.warn('Fallback ativado devido a erro na API Gemini:', resp.status, errText);
-    return fallbackSemIA({ mensagem, contatoExistente, itensAtuais });
+    console.warn('Fallback humanizado ativado devido a erro na API Gemini:', resp.status, errText);
+    return fallbackHumanizado({ mensagem, contatoExistente, itensAtuais });
   }
 
   const json = await resp.json();
@@ -442,7 +513,6 @@ export default async function handler(req, res) {
   try {
     const db = initFirebaseAdmin();
 
-    // Endpoint para checar sessões ociosas há >= 1 minuto (pode ser chamado via Cron ou polling do painel)
     if (req.method === 'GET' || req.query?.action === 'check-idle') {
       const encerradas = await processarSessoesOciosas(db);
       return res.status(200).json({ ok: true, sessoesEncerradas: encerradas });
@@ -460,7 +530,6 @@ export default async function handler(req, res) {
       }
     }
 
-    // Aproveita cada chamada para encerrar sessões de outros chats ociosos há > 1 minuto
     await processarSessoesOciosas(db);
 
     const update = req.body || {};
@@ -481,7 +550,6 @@ export default async function handler(req, res) {
     const sessaoSnap = await sessaoRef.get();
     const sessaoAtual = sessaoSnap.exists ? sessaoSnap.data() : {};
 
-    // Deduplicação: ignora retry repetido do Telegram para o mesmo update_id
     if (updateId && Number(sessaoAtual.ultimoUpdateId || 0) >= updateId) {
       return res.status(200).json({ ok: true, duplicated: true });
     }
@@ -565,26 +633,28 @@ export default async function handler(req, res) {
       });
     }
 
-    // Acumula itens e observação no rascunho da sessão sem gerar múltiplos negócios
     const novosItens = Array.isArray(iaResult.itensPedido) ? iaResult.itensPedido : [];
     const itensConsolidados = mesclarItensPedido(itensRascunhoAtual, novosItens);
 
     const obsNova = String(iaResult.observacaoSolicitacao || '').trim();
     const obsAnterior = String(sessaoAtual.observacaoPedido || '').trim();
     const observacaoConsolidada =
-      obsNova && obsNova !== obsAnterior
+      obsNova && !obsAnterior.toLowerCase().includes(obsNova.toLowerCase())
         ? [obsAnterior, obsNova].filter(Boolean).join(' ; ')
         : obsAnterior || obsNova;
 
     const respostaFinal =
       iaResult.respostaTelegram ||
-      'Certo! Como posso ajudar você na Agrotec hoje?';
+      'Oi! Como posso te ajudar hoje na Agrotec?';
 
     const novoHistorico = [
       ...historicoAtual,
       { role: 'user', texto: textoUsuario },
       { role: 'assistant', texto: respostaFinal },
     ].slice(-12);
+
+    const temConteudoPedido =
+      itensConsolidados.length > 0 || Boolean(observacaoConsolidada);
 
     const dadosSessaoAtualizados = {
       empresaId: EMPRESA_PADRAO,
@@ -600,7 +670,7 @@ export default async function handler(req, res) {
       itensRascunho: itensConsolidados,
       observacaoPedido: observacaoConsolidada,
       ultimaIntencao: iaResult.intencao || 'geral',
-      aguardandoResposta: itensConsolidados.length > 0 || Boolean(observacaoConsolidada),
+      aguardandoResposta: temConteudoPedido,
       ultimaInteracaoMs: Date.now(),
       historico: novoHistorico,
       atualizadoEm: FieldValue.serverTimestamp(),
@@ -608,15 +678,14 @@ export default async function handler(req, res) {
 
     await sessaoRef.set(dadosSessaoAtualizados, { merge: true });
 
-    // Só grava 1 único negócio + notificação quando o cliente encerrar o pedido
     const textoLower = textoUsuario.toLowerCase();
     const clienteEncerrou =
       Boolean(iaResult.encerrarPedido) ||
-      /^(n[aã]o|n[aã]o,?\s*obrigad[oa]|s[oó]\s*isso|pode\s*fechar|encerrar|nada\s*mais)\b/.test(
+      /^(n[aã]o|n[aã]o,?\s*obrigad[oa]|s[oó]\s*isso|pode\s*fechar|encerrar|finalizar|nada\s*mais)\b/.test(
         textoLower
       );
 
-    if (clienteEncerrou && (itensConsolidados.length > 0 || observacaoConsolidada)) {
+    if (clienteEncerrou && temConteudoPedido) {
       await consolidarEFinalizarPedido(
         db,
         sessaoRef,
