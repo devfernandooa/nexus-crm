@@ -5,11 +5,13 @@ import { signOut } from 'firebase/auth';
 import { auth } from '@/firebase-config';
 import toast from 'react-hot-toast';
 import Sidebar from './Sidebar';
+import BannerNovaVersao from '@/components/ui/BannerNovaVersao';
 
 const TEMPO_INATIVIDADE_MS = 30 * 60 * 1000; // 30 minutos (para teste rápido use ex: 15 * 1000)
 const AVISO_RESTANTE_MS = 60 * 1000;         // Último 1 minuto (para teste rápido use ex: 8 * 1000)
 
 export default function Layout() {
+
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [mostrarAvisoSessao, setMostrarAvisoSessao] = useState(false);
   const [segundosRestantes, setSegundosRestantes] = useState(60);
@@ -95,7 +97,9 @@ export default function Layout() {
   }, [encerrarPorInatividade]);
 
   return (
+
     <div className="flex w-full h-screen bg-[#F8FAFC] dark:bg-slate-950 transition-colors duration-200 overflow-hidden">
+
       {/* Overlay escuro para mobile */}
       {isSidebarOpen && (
         <div
@@ -143,6 +147,9 @@ export default function Layout() {
         <main className="flex-1 min-h-0 w-full overflow-y-auto md:overflow-hidden flex flex-col">
           <Outlet />
         </main>
+
+        {/* Banner de notificação de nova versão (aparece em qualquer rota para Admin e Vendedor) */}
+        <BannerNovaVersao />
 
         {/* Rodapé Mobile-First */}
         <footer className="py-2 shrink-0 text-center text-[11px] text-slate-400 dark:text-slate-600 border-t border-slate-200 dark:border-slate-800 md:hidden bg-white dark:bg-[#0b192c]">
