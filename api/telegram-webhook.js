@@ -1,21 +1,26 @@
-import admin from 'firebase-admin';
+import { getApps, initializeApp, cert } from 'firebase-admin/app';
+import { getFirestore, FieldValue } from 'firebase-admin/firestore';
 
 function initFirebaseAdmin() {
-  if (admin.apps.length) {
-    return admin.firestore();
+  if (!getApps().length) {
+    const rawJson = process.env.FIREBASE_SERVICE_ACCOUNT_JSON;
+    if (!rawJson) {
+      throw new Error('FIREBASE_SERVICE_ACCOUNT_JSON não configurado.');
+    }
+
+    const limpo = rawJson.trim().replace(/^'|'$/g, '');
+    const serviceAccount = JSON.parse(limpo);
+
+    if (typeof serviceAccount.private_key === 'string') {
+      serviceAccount.private_key = serviceAccount.private_key.replace(/\\n/g, '\n');
+    }
+
+    initializeApp({
+      credential: cert(serviceAccount),
+    });
   }
 
-  const rawJson = process.env.FIREBASE_SERVICE_ACCOUNT_JSON;
-  if (!rawJson) {
-    throw new Error('FIREBASE_SERVICE_ACCOUNT_JSON não configurado.');
-  }
-
-  const serviceAccount = JSON.parse(rawJson);
-  admin.initializeApp({
-    credential: admin.credential.cert(serviceAccount),
-  });
-
-  return admin.firestore();
+  return getFirestore();
 }
 
 const EMPRESA_PADRAO =
