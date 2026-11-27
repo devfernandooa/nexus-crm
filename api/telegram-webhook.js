@@ -294,8 +294,8 @@ export default async function handler(req, res) {
         origem: 'telegram',
         telegramChatId: chatId,
         observacoes: `Telegram (${rascunhoLead.telefone}): Interesse em ${rascunhoLead.interesse}`,
-        criadoEm: admin.firestore.FieldValue.serverTimestamp(),
-        atualizadoEm: admin.firestore.FieldValue.serverTimestamp(),
+        criadoEm: FieldValue.serverTimestamp(),
+        atualizadoEm: FieldValue.serverTimestamp(),
       });
 
       contatoIdFinal = novoContatoRef.id;
@@ -321,13 +321,13 @@ export default async function handler(req, res) {
         produtos: [],
         valor: 0,
         valorTotal: 0,
-        dataCriacao: admin.firestore.FieldValue.serverTimestamp(),
-        atualizadoEm: admin.firestore.FieldValue.serverTimestamp(),
+        dataCriacao: FieldValue.serverTimestamp(),
+        atualizadoEm: FieldValue.serverTimestamp(),
       });
     } else if (contato && !contato.telegramChatId) {
       await db.collection('contatos').doc(contato.id).update({
         telegramChatId: chatId,
-        atualizadoEm: admin.firestore.FieldValue.serverTimestamp(),
+        atualizadoEm: FieldValue.serverTimestamp(),
       });
     }
 
@@ -369,8 +369,8 @@ export default async function handler(req, res) {
         pedidos: pedidosFormatados,
         valor: subtotalNovo,
         valorTotal: subtotalNovo,
-        dataCriacao: admin.firestore.FieldValue.serverTimestamp(),
-        atualizadoEm: admin.firestore.FieldValue.serverTimestamp(),
+        dataCriacao: FieldValue.serverTimestamp(),
+        atualizadoEm: FieldValue.serverTimestamp(),
       });
 
       await db.collection('solicitacoes_compra').add({
@@ -385,7 +385,7 @@ export default async function handler(req, res) {
         itens: pedidosFormatados,
         valorEstimado: subtotalNovo,
         lida: false,
-        criadoEm: admin.firestore.FieldValue.serverTimestamp(),
+        criadoEm: FieldValue.serverTimestamp(),
       });
     }
 
@@ -409,7 +409,7 @@ export default async function handler(req, res) {
         rascunhoLead,
         ultimaIntencao: iaResult.intencao || 'geral',
         historico: novoHistorico,
-        atualizadoEm: admin.firestore.FieldValue.serverTimestamp(),
+        atualizadoEm: FieldValue.serverTimestamp(),
       },
       { merge: true }
     );
